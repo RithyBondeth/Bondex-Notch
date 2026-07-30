@@ -1,0 +1,111 @@
+import Foundation
+import ServiceManagement
+import SwiftUI
+
+/// User preferences, persisted to `UserDefaults` as a single JSON blob.
+///
+/// One blob keeps migrations trivial and means a service only has to observe a
+/// single publisher to react to any preference change.
+struct Preferences: Codable, Equatable {
+    var accent: Theme.Accent = .graphite
+    var motionSpeed: Motion.Speed = .standard
+
+    var musicWidgetEnabled = true
+    var systemWidgetEnabled = true
+    var fileActivityEnabled = true
+    var activityFeedEnabled = true
+    var shelfEnabled = true
+
+    /// Expand when the pointer rests on the notch, versus requiring a click.
+    var expandOnHover = true
+    /// Grace period before the panel closes after the pointer leaves.
+    var closeDelay: Double = 0.25
+    /// Show a compact "peek" (album art + waveform) beside the notch while media plays.
+    var peekWhilePlaying = true
+
+    var downloadsFolderBookmark: Data?
+    var launchAtLogin = false
+
+    var licenseKey: String = ""
+
+    var tier: LicenseTier {
+        LicenseValidator.validate(licenseKey) ? .pro : .free
+    }
+}
+
+@MainActor
+final class SettingsStore: ObservableObject {
+    private static let defaultsKey = "com.bondex.notch.preferences"
+
+    @Published var preferences: Preferences {
+        didSet {
+            guard preferences != oldValue else { return }
+            persist()
+            if preferences.launchAtLogin != oldValue.launchAtLogin, !isRevertingLoginItem {
+                applyLaunchAtLogin(preferences.launchAtLogin)
+            }
+        }
+    }
+
+    /// Surfaced in Settings when macOS refuses to register the login item
+    /// (common for ad-hoc signed local builds).
+    @Published var launchAtLoginError: String?
+
+    private let defaults: UserDefaults
+    /// Guards the write-back that undoes a failed login-item registration, so
+    /// the revert does not re-enter `applyLaunchAtLogin` and clear the error.
+    private var isRevertingLoginItem = false
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: Self.defaultsKey),
+           let decoded = try? JSONDecoder().decode(Preferences.self, from: data) {
+            preferences = decoded
+        } else {
+            preferences = Preferences()
+        }
+    }
+
+    var tier: LicenseTier { preferences.tier }
+
+    /// Every Pro feature unlocks together today. This stays keyed by feature so
+    /// a future tier split is a change here rather than at each call site.
+    func isUnlocked(_ feature: ProFeature) -> Bool {
+        tier == .pro
+    }
+
+    /// Accent falls back to the free accent when Pro lapses, so a downgraded
+    /// user never gets stuck looking at a locked theme.
+    var effectiveAccent: Theme.Accent {
+        let accent = preferences.accent
+        if accent.requiresPro && tier != .pro { return .graphite }
+        return accent
+    }
+
+    var motion: Motion.Speed { preferences.motionSpeed }
+
+    private func persist() {
+        guard let data = try? JSONEncoder().encode(preferences) else { return }
+        defaults.set(data, forKey: Self.defaultsKey)
+    }
+
+    private func applyLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            launchAtLoginError = nil
+        } catch {
+            Log.app.error("Launch at login toggle failed: \(error.localizedDescription)")
+            launchAtLoginError = error.localizedDescription
+            // Reflect reality: the switch should not claim success.
+            if enabled {
+                isRevertingLoginItem = true
+                preferences.launchAtLogin = false
+                isRevertingLoginItem = false
+            }
+        }
+    }
+}

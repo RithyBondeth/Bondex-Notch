@@ -1,0 +1,141 @@
+import AppKit
+import SwiftUI
+
+/// Renders the panel's states to PNGs without needing a display.
+///
+/// The notch overlays the menu bar, which makes it awkward to capture with
+/// normal screenshot tooling. Running
+/// `Bondex Notch.app/Contents/MacOS/BondexNotch --render-previews <dir>`
+/// writes one image per state so layout and spacing can be reviewed
+/// (and diffed) directly.
+@MainActor
+enum PreviewRenderer {
+
+    static func run(outputDirectory: String) -> Int32 {
+        guard let screen = NSScreen.main else {
+            FileHandle.standardError.write(Data("error: no screen available\n".utf8))
+            return 1
+        }
+
+        let directory = URL(fileURLWithPath: outputDirectory, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true
+            )
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return 1
+        }
+
+        // A throwaway defaults domain: rendering previews must never touch the
+        // user's real preferences (it unlocks Pro to exercise every widget).
+        let suiteName = "com.bondex.notch.preview"
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let environment = AppEnvironment(screen: screen, defaults: defaults)
+        seedSampleData(environment)
+
+        // CPU usage is a delta between two samples, so the previews need at
+        // least two ticks before the gauges mean anything.
+        environment.metrics.start(interval: 0.6)
+        RunLoop.current.run(until: Date().addingTimeInterval(2.0))
+        environment.metrics.stop()
+
+        let snapshot = environment.metrics.snapshot
+        print("""
+        sampled: cpu=\(Int(snapshot.cpuUsage * 100))% \
+        memory=\(Int64(snapshot.memoryUsed).formattedBytes)/\
+        \(Int64(snapshot.memoryTotal).formattedBytes) \
+        battery=\(snapshot.batteryLevel.map { "\(Int($0 * 100))%" } ?? "none")
+        """)
+
+        var failures = 0
+        for tab in NotchTab.allCases {
+            environment.notch.tab = tab
+            environment.notch.expand()
+            if !render(environment, named: "expanded-\(tab.rawValue)", into: directory) {
+                failures += 1
+            }
+        }
+
+        environment.notch.collapse()
+        if !render(environment, named: "collapsed", into: directory) { failures += 1 }
+
+        return failures == 0 ? 0 : 1
+    }
+
+    // MARK: Rendering
+
+    private static func render(
+        _ environment: AppEnvironment,
+        named name: String,
+        into directory: URL
+    ) -> Bool {
+        let size = environment.notch.geometry.windowSize
+        let view = NotchRootView(environment: environment, isRenderingOffscreen: true)
+            .frame(width: size.width, height: size.height)
+            // The panel is transparent by design; a backdrop makes the
+            // silhouette readable in a flat image.
+            .background(Color(white: 0.18))
+            .environment(\.isRenderingOffscreen, true)
+
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+
+        guard let image = renderer.nsImage,
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else {
+            FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
+            return false
+        }
+
+        let url = directory.appendingPathComponent("\(name).png")
+        do {
+            try png.write(to: url)
+            print("rendered \(url.path)")
+            return true
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return false
+        }
+    }
+
+    /// Deterministic content so previews are comparable between runs.
+    private static func seedSampleData(_ environment: AppEnvironment) {
+        // Unlock Pro in the throwaway domain so the gated widgets render as
+        // themselves rather than as the upsell.
+        if let key = LicenseValidator.makeKey(payload: "BEEF1234") {
+            environment.settings.preferences.licenseKey = key
+        }
+
+        // Something recognisable on the shelf. Falls back to nothing if the
+        // machine has no files in these locations.
+        let candidates = [
+            FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first,
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        ].compactMap { $0 }
+
+        let samples = candidates
+            .flatMap { directory in
+                (try? FileManager.default.contentsOfDirectory(
+                    at: directory,
+                    includingPropertiesForKeys: nil,
+                    options: [.skipsHiddenFiles]
+                )) ?? []
+            }
+            .prefix(4)
+        environment.shelf.add(urls: Array(samples))
+
+        environment.events.post(NotchEvent(
+            kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
+        ))
+        environment.events.post(NotchEvent(
+            kind: .music, title: "Weightless", subtitle: "Marconi Union"
+        ))
+        environment.events.post(NotchEvent(
+            kind: .system, title: "Low Battery", subtitle: "14% remaining"
+        ))
+    }
+}

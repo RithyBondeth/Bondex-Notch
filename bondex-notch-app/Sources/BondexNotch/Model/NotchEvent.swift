@@ -1,0 +1,86 @@
+import SwiftUI
+
+/// Something worth surfacing in the notch.
+///
+/// Everything the activity feed shows originates here. macOS gives no public
+/// way to read *other* apps' notifications, so this feed is built from what
+/// Bondex observes itself: media changes, download progress, power state,
+/// and shelf activity. See `NotificationService` for the full rationale.
+struct NotchEvent: Identifiable, Equatable {
+    enum Kind: String {
+        case music
+        case download
+        case system
+        case shelf
+        case app
+
+        var systemImage: String {
+            switch self {
+            case .music: return "music.note"
+            case .download: return "arrow.down.circle.fill"
+            case .system: return "cpu"
+            case .shelf: return "tray.full.fill"
+            case .app: return "bell.fill"
+            }
+        }
+
+        var tint: Color {
+            switch self {
+            case .music: return Color(red: 0.98, green: 0.33, blue: 0.45)
+            case .download: return Color(red: 0.29, green: 0.62, blue: 0.98)
+            case .system: return Color(red: 0.99, green: 0.72, blue: 0.25)
+            case .shelf: return Color(red: 0.32, green: 0.80, blue: 0.55)
+            case .app: return Color(white: 0.75)
+            }
+        }
+    }
+
+    let id = UUID()
+    let kind: Kind
+    let title: String
+    let subtitle: String?
+    let date: Date
+
+    init(kind: Kind, title: String, subtitle: String? = nil, date: Date = Date()) {
+        self.kind = kind
+        self.title = title
+        self.subtitle = subtitle
+        self.date = date
+    }
+
+    static func == (lhs: NotchEvent, rhs: NotchEvent) -> Bool { lhs.id == rhs.id }
+}
+
+/// Central, bounded event log. Services post, the feed widget observes.
+@MainActor
+final class EventCenter: ObservableObject {
+    private static let capacity = 60
+
+    @Published private(set) var events: [NotchEvent] = []
+    /// Most recent event, used to drive the transient banner in the peek state.
+    @Published private(set) var latest: NotchEvent?
+
+    private var lastSignature: String?
+    private var lastPostedAt: Date = .distantPast
+
+    func post(_ event: NotchEvent) {
+        // Collapse identical back-to-back events (a stalled download re-reporting
+        // the same byte count should not spam the feed).
+        let signature = "\(event.kind.rawValue)|\(event.title)|\(event.subtitle ?? "")"
+        if signature == lastSignature, event.date.timeIntervalSince(lastPostedAt) < 2 {
+            return
+        }
+        lastSignature = signature
+        lastPostedAt = event.date
+
+        events.insert(event, at: 0)
+        if events.count > Self.capacity { events.removeLast(events.count - Self.capacity) }
+        latest = event
+    }
+
+    func clear() {
+        events.removeAll()
+        latest = nil
+        lastSignature = nil
+    }
+}

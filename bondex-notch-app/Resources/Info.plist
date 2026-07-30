@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>BondexNotch</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.bondex.notch</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Bondex Notch</string>
+	<key>CFBundleDisplayName</key>
+	<string>Bondex Notch</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+
+	<!-- Agent app: lives in the notch and the menu bar, never the Dock. -->
+	<key>LSUIElement</key>
+	<true/>
+
+	<!-- Shown in the Automation consent prompt when Bondex first scripts
+	     Music or Spotify for now-playing information. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Bondex Notch reads and controls playback in Music and Spotify so it can show what you are listening to in the notch.</string>
+
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Bondex Notch watches your Downloads folder so it can show transfer progress in the notch.</string>
+
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Bondex. All rights reserved.</string>
+</dict>
+</plist>
