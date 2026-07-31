@@ -27,10 +27,10 @@
 	<key>LSUIElement</key>
 	<true/>
 
-	<!-- Shown in the Automation consent prompt when Bondex first scripts
-	     Music or Spotify for now-playing information. -->
+	<!-- Shown in the Automation consent prompt when Bondex first scripts a
+	     player or a browser for now-playing information. -->
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Bondex Notch reads and controls playback in Music and Spotify so it can show what you are listening to in the notch.</string>
+	<string>Bondex Notch reads and controls playback in Music, Spotify and your browser so it can show what you are listening to or watching in the notch.</string>
 
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Bondex Notch watches your Downloads folder so it can show transfer progress in the notch.</string>

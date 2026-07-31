@@ -48,7 +48,9 @@ struct HomeWidget: View {
                         text: track.title.isEmpty ? "Unknown Track" : track.title,
                         font: .system(size: 12, weight: .semibold)
                     )
-                    Text(track.artist.isEmpty ? track.source.displayName : track.artist)
+                    Text(track.artist.isEmpty
+                         ? track.source.displayName
+                         : "\(track.artist) · \(track.source.displayName)")
                         .font(.system(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                         .lineLimit(1)
@@ -56,35 +58,56 @@ struct HomeWidget: View {
 
                 Spacer(minLength: 4)
 
-                NotchButton(systemImage: "backward.fill", size: 10) {
-                    nowPlaying.previous()
-                }
-                NotchButton(
-                    systemImage: track.isPlaying ? "pause.fill" : "play.fill",
-                    size: 11,
-                    isProminent: true,
-                    tint: accent
-                ) {
-                    nowPlaying.playPause()
-                }
-                NotchButton(systemImage: "forward.fill", size: 10) {
-                    nowPlaying.next()
+                if track.supportsTransport {
+                    NotchButton(systemImage: "backward.fill", size: 10) {
+                        nowPlaying.previous()
+                    }
+                    NotchButton(
+                        systemImage: track.isPlaying ? "pause.fill" : "play.fill",
+                        size: 11,
+                        isProminent: true,
+                        tint: accent
+                    ) {
+                        nowPlaying.playPause()
+                    }
+                    NotchButton(systemImage: "forward.fill", size: 10) {
+                        nowPlaying.next()
+                    }
+                } else {
+                    AudioBars(isAnimating: track.isPlaying, tint: accent)
+                        .padding(.trailing, 4)
                 }
             }
             .notchCard()
         } else {
             HStack(spacing: 8) {
-                Image(systemName: "music.note")
+                Image(systemName: idleIcon)
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.tertiaryText)
-                Text(nowPlaying.automationDenied
-                     ? "Automation access needed for media control"
-                     : "Nothing playing")
+                Text(idleMessage)
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(1)
                 Spacer()
             }
             .notchCard()
         }
+    }
+
+    private var idleIcon: String {
+        if nowPlaying.automationDenied { return "hand.raised.fill" }
+        if nowPlaying.blockedBrowser != nil { return "curlybraces" }
+        return "music.note"
+    }
+
+    /// One line, so it has to say what to do rather than explain why.
+    private var idleMessage: String {
+        if nowPlaying.automationDenied {
+            return "Automation access needed for media control"
+        }
+        if let browser = nowPlaying.blockedBrowser {
+            return "Allow JavaScript from Apple Events in \(browser.displayName)"
+        }
+        return "Nothing playing"
     }
 }

@@ -18,10 +18,19 @@ struct Preferences: Codable, Equatable {
 
     /// Expand when the pointer rests on the notch, versus requiring a click.
     var expandOnHover = true
+    /// How long the pointer has to dwell on the notch before it opens.
+    ///
+    /// Without this the panel fires open every time the pointer crosses the top
+    /// of the screen on its way to the menu bar, which is the single biggest
+    /// source of "it feels twitchy".
+    var hoverDelay: Double = 0.18
     /// Grace period before the panel closes after the pointer leaves.
-    var closeDelay: Double = 0.25
+    var closeDelay: Double = 0.3
     /// Show a compact "peek" (album art + waveform) beside the notch while media plays.
     var peekWhilePlaying = true
+    /// Read media out of browser tabs as well as Music and Spotify. This is what
+    /// makes YouTube and other web players show up.
+    var browserMediaEnabled = true
 
     var downloadsFolderBookmark: Data?
     var launchAtLogin = false
@@ -58,12 +67,32 @@ final class SettingsStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if let data = defaults.data(forKey: Self.defaultsKey),
-           let decoded = try? JSONDecoder().decode(Preferences.self, from: data) {
-            preferences = decoded
-        } else {
-            preferences = Preferences()
+        preferences = defaults.data(forKey: Self.defaultsKey)
+            .flatMap(Self.decode) ?? Preferences()
+    }
+
+    /// Decodes a stored blob, tolerating one written by a different version.
+    ///
+    /// `Preferences` is persisted as a single JSON object, and the synthesized
+    /// decoder treats *any* missing key as an error — so shipping one new
+    /// preference would throw on every existing install and silently reset every
+    /// setting the user had chosen. Merging the stored values over a freshly
+    /// encoded default gives new fields their default and keeps everything the
+    /// user actually set, in both directions: fields that go away are ignored
+    /// rather than fatal.
+    static func decode(_ data: Data) -> Preferences? {
+        guard let stored = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let defaultData = try? JSONEncoder().encode(Preferences()),
+              var merged = try? JSONSerialization.jsonObject(with: defaultData) as? [String: Any]
+        else {
+            return try? JSONDecoder().decode(Preferences.self, from: data)
         }
+
+        merged.merge(stored) { _, stored in stored }
+        guard let mergedData = try? JSONSerialization.data(withJSONObject: merged) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(Preferences.self, from: mergedData)
     }
 
     var tier: LicenseTier { preferences.tier }

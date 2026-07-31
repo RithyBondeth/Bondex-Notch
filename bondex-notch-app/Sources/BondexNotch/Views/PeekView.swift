@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The compact state: a strip either side of the notch reporting one live
-/// thing. Nothing is ever drawn in the middle, where the hardware notch is.
+/// The compact state: a strip either side of the notch reporting one live thing.
+/// Nothing is ever drawn in the middle, where the hardware notch is.
 struct PeekView: View {
 
     @ObservedObject var environment: AppEnvironment
@@ -23,15 +23,18 @@ struct PeekView: View {
         HStack(spacing: 0) {
             leading
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 10)
+                .padding(.leading, 11)
 
             // Reserved for the hardware notch.
             Color.clear.frame(width: notchWidth)
 
             trailing
                 .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 10)
+                .padding(.trailing, 11)
         }
+        // The peek hangs a few points below the menu bar; centre content on the
+        // menu bar itself rather than on the panel, or it sits visibly low.
+        .padding(.bottom, 6)
         .frame(maxHeight: .infinity)
     }
 
@@ -43,10 +46,14 @@ struct PeekView: View {
             Image(systemName: banner.kind.systemImage)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(banner.kind.tint)
+                .frame(width: 22, height: 22)
+                .background(
+                    Circle().fill(banner.kind.tint.opacity(0.16))
+                )
                 .transition(.scale.combined(with: .opacity))
         } else if let track = nowPlaying.nowPlaying {
             ArtworkView(image: track.artwork, cornerRadius: 5, tint: accent)
-                .frame(width: 20, height: 20)
+                .frame(width: 21, height: 21)
                 .transition(.scale.combined(with: .opacity))
         }
     }
@@ -68,9 +75,12 @@ struct PeekView: View {
                         .lineLimit(1)
                 }
             }
-            .frame(maxWidth: 130, alignment: .trailing)
+            .frame(maxWidth: 150, alignment: .trailing)
             .transition(.opacity)
         } else if let track = nowPlaying.nowPlaying {
+            // Artwork and equaliser only. The title lives one hover away in the
+            // expanded panel; putting it here too made the peek a wide slab of
+            // text sitting over the menu bar all day.
             AudioBars(isAnimating: track.isPlaying, tint: accent)
                 .transition(.opacity)
         }

@@ -42,7 +42,7 @@ final class SystemMetricsService: ObservableObject {
         stop()
         sample()
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.sample() }
+            onMainActor { self?.sample() }
         }
         // `.common` keeps sampling alive while a menu or drag tracking loop runs.
         RunLoop.main.add(timer, forMode: .common)

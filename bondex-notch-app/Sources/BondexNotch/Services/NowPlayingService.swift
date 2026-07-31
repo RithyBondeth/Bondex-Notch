@@ -2,27 +2,8 @@ import AppKit
 import Foundation
 
 struct NowPlaying: Equatable {
-    enum Source: String {
-        case music = "com.apple.Music"
-        case spotify = "com.spotify.client"
 
-        var displayName: String {
-            switch self {
-            case .music: return "Music"
-            case .spotify: return "Spotify"
-            }
-        }
-
-        /// AppleScript application name.
-        var scriptName: String {
-            switch self {
-            case .music: return "Music"
-            case .spotify: return "Spotify"
-            }
-        }
-    }
-
-    var source: Source
+    var source: MediaApp
     var title: String
     var artist: String
     var album: String
@@ -30,10 +11,38 @@ struct NowPlaying: Equatable {
     var duration: TimeInterval
     var position: TimeInterval
     var artwork: NSImage?
+    /// Set instead of `artwork` when the art has to be fetched over the network
+    /// (Spotify and every browser report a URL, not bytes).
+    var artworkURL: URL?
+    /// When `position` was measured, so the UI can advance it between polls
+    /// instead of stepping once a second.
+    var sampledAt = Date()
+    /// False when playback can be seen but not driven — a browser read from its
+    /// window title has no handle on the media element to play or pause. The UI
+    /// hides the transport rather than offering buttons that do nothing.
+    var supportsTransport = true
+
+    /// True for a live stream, which reports no meaningful duration.
+    var isLive: Bool { duration <= 0 }
 
     var progress: Double {
         guard duration > 0 else { return 0 }
         return min(max(position / duration, 0), 1)
+    }
+
+    /// `position` carried forward by wall-clock time. Polling is once a second;
+    /// this is what keeps the progress bar and elapsed clock moving smoothly in
+    /// between.
+    func position(at date: Date) -> TimeInterval {
+        guard isPlaying else { return position }
+        let elapsed = max(date.timeIntervalSince(sampledAt), 0)
+        guard duration > 0 else { return position + elapsed }
+        return min(position + elapsed, duration)
+    }
+
+    func progress(at date: Date) -> Double {
+        guard duration > 0 else { return 0 }
+        return min(max(position(at: date) / duration, 0), 1)
     }
 
     static func == (lhs: NowPlaying, rhs: NowPlaying) -> Bool {
@@ -45,34 +54,51 @@ struct NowPlaying: Equatable {
             && abs(lhs.duration - rhs.duration) < 0.5
             && abs(lhs.position - rhs.position) < 0.9
             && lhs.artwork === rhs.artwork
+            && lhs.artworkURL == rhs.artworkURL
     }
 
-    /// Identity of the *track*, ignoring transport position. Used to decide
-    /// when to refetch artwork and when to announce a change.
-    var trackKey: String { "\(source.rawValue)|\(title)|\(artist)|\(album)" }
+    /// Identity of the *track*, ignoring transport position. Used to decide when
+    /// to refetch artwork and when to announce a change.
+    var trackKey: String {
+        "\(source.bundleIdentifier)|\(title)|\(artist)|\(album)"
+    }
 }
 
-/// Reads and controls playback in Music.app and Spotify.
+/// Reports what the Mac is playing, wherever it is playing from.
 ///
-/// macOS has no public system-wide Now Playing API. `MPNowPlayingInfoCenter`
-/// only reports the *current process*, and the private MediaRemote framework
-/// was gated in macOS 15.4. Scripting the two players that expose an AppleScript
-/// dictionary is the supported path; it costs an Automation consent prompt the
-/// first time (see `NSAppleEventsUsageDescription` in Info.plist) and covers
-/// the large majority of desktop listening.
+/// macOS has no public system-wide Now Playing API: `MPNowPlayingInfoCenter`
+/// only describes the *current process*, and the private MediaRemote framework
+/// has been entitlement-gated since macOS 15.4. So playback is read from the
+/// apps themselves — Music and Spotify over their scripting dictionaries, and
+/// browsers by evaluating a small script in the tab that owns the media, which
+/// is what makes YouTube and other web players visible.
 @MainActor
 final class NowPlayingService: ObservableObject {
 
     @Published private(set) var nowPlaying: NowPlaying?
-    /// True when the user denied (or has not yet granted) Automation access.
+    /// True when Automation access was denied for an app we tried to read.
     @Published private(set) var automationDenied = false
+    /// Set when a running browser still has "Allow JavaScript from Apple Events"
+    /// turned off, which is the one thing the user has to do by hand for web
+    /// media to appear.
+    @Published private(set) var blockedBrowser: MediaApp?
+
+    /// Whether browser tabs are scanned at all. Owned by settings.
+    var includeBrowsers = true {
+        didSet {
+            guard includeBrowsers != oldValue else { return }
+            if !includeBrowsers { blockedBrowser = nil }
+            reader.resetBrowserState()
+        }
+    }
 
     private var timer: Timer?
-    private let runner = AppleScriptRunner()
+    private let reader = MediaReader()
     private let events: EventCenter
     private var lastAnnouncedTrackKey: String?
-    private var cachedArtworkKey: String?
+    private var artworkKey: String?
     private var isSampling = false
+    private var artworkTask: Task<Void, Never>?
 
     init(events: EventCenter) {
         self.events = events
@@ -82,7 +108,7 @@ final class NowPlayingService: ObservableObject {
         stop()
         refresh()
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh() }
+            onMainActor { self?.refresh() }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -91,6 +117,16 @@ final class NowPlayingService: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        artworkTask?.cancel()
+        artworkTask = nil
+    }
+
+    /// Publishes a track without polling for it, so the offscreen preview tool can
+    /// render the playback states on a machine where nothing happens to be
+    /// playing. Nothing in the running app calls this.
+    func seedForPreview(_ track: NowPlaying) {
+        stop()
+        nowPlaying = track
     }
 
     // MARK: Transport
@@ -99,11 +135,12 @@ final class NowPlayingService: ObservableObject {
     func next() { perform(.next) }
     func previous() { perform(.previous) }
 
-    private func perform(_ command: AppleScriptRunner.Command) {
-        guard let source = nowPlaying?.source else { return }
-        let runner = self.runner
+    private func perform(_ command: MediaReader.Transport) {
+        guard let track = nowPlaying, track.supportsTransport else { return }
+        let source = track.source
+        let reader = self.reader
         Task.detached(priority: .userInitiated) {
-            runner.perform(command, on: source)
+            reader.perform(command, on: source)
             // Reflect the new transport state without waiting for the next tick.
             try? await Task.sleep(nanoseconds: 180_000_000)
             await MainActor.run { self.refresh() }
@@ -117,31 +154,39 @@ final class NowPlayingService: ObservableObject {
         guard !isSampling else { return }
         isSampling = true
 
-        let runner = self.runner
-        let wantsArtworkFor = cachedArtworkKey
+        // Which apps are running is an AppKit question, and `NSWorkspace` traps if
+        // it is asked off the main thread — so the target list is resolved here and
+        // handed to the reader, which then only talks to Apple Events.
+        let reader = self.reader
+        let players = MediaApp.runningPlayers()
+        let browsers = includeBrowsers ? MediaApp.runningBrowsers() : []
+
         Task.detached(priority: .utility) {
-            let result = runner.readNowPlaying(currentArtworkKey: wantsArtworkFor)
+            let result = reader.read(players: players, browsers: browsers)
             await MainActor.run { self.apply(result) }
         }
     }
 
-    private func apply(_ result: AppleScriptRunner.ReadResult) {
+    private func apply(_ result: MediaReader.Result) {
         isSampling = false
-        automationDenied = result.permissionDenied
+        automationDenied = result.automationDenied
+        blockedBrowser = includeBrowsers ? result.blockedBrowser : nil
 
-        guard var track = result.nowPlaying else {
+        guard var track = result.track else {
             nowPlaying = nil
             lastAnnouncedTrackKey = nil
-            cachedArtworkKey = nil
+            artworkKey = nil
+            artworkTask?.cancel()
+            artworkTask = nil
             return
         }
 
-        // Artwork is only refetched on track change, so carry the current one
-        // across position-only updates.
-        if track.artwork == nil, track.trackKey == cachedArtworkKey {
+        // Artwork is fetched once per track, so carry the current image across
+        // the position-only updates in between.
+        if track.artwork == nil, track.trackKey == artworkKey {
             track.artwork = nowPlaying?.artwork
         } else if track.artwork != nil {
-            cachedArtworkKey = track.trackKey
+            artworkKey = track.trackKey
         }
 
         if track.trackKey != lastAnnouncedTrackKey, track.isPlaying, !track.title.isEmpty {
@@ -154,78 +199,116 @@ final class NowPlayingService: ObservableObject {
         }
 
         nowPlaying = track
+        fetchArtworkIfNeeded(for: track)
+    }
+
+    /// Remote artwork is fetched off the Apple Event lock, so a slow CDN can
+    /// never wedge the transport controls.
+    private func fetchArtworkIfNeeded(for track: NowPlaying) {
+        guard track.artwork == nil,
+              let url = track.artworkURL,
+              track.trackKey != artworkKey else { return }
+
+        artworkKey = track.trackKey
+        artworkTask?.cancel()
+        let key = track.trackKey
+
+        artworkTask = Task { [weak self] in
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 4
+            guard let (data, _) = try? await URLSession.shared.data(for: request),
+                  let image = NSImage(data: data) else { return }
+
+            guard let self, !Task.isCancelled else { return }
+            // The track may have moved on while the image was in flight.
+            guard self.nowPlaying?.trackKey == key else { return }
+            self.nowPlaying?.artwork = image
+        }
     }
 }
 
-// MARK: - AppleScript
+// MARK: - Reading
 
-/// Serialises every Apple Event onto one queue. `NSAppleScript` is not safe to
-/// use from multiple threads concurrently.
-private final class AppleScriptRunner: @unchecked Sendable {
+/// Aggregates every place playback can be read from, in priority order.
+///
+/// Not `@MainActor`: it runs on a background queue behind a shared Apple Event
+/// lock, because a single blocked event can stall for seconds.
+private final class MediaReader: @unchecked Sendable {
 
-    enum Command {
-        case playPause, next, previous
+    typealias Transport = BrowserMediaReader.Transport
 
-        func script(for source: NowPlaying.Source) -> String {
-            let app = source.scriptName
-            switch self {
-            case .playPause: return "tell application \"\(app)\" to playpause"
-            case .next: return "tell application \"\(app)\" to next track"
-            case .previous:
-                // Two `previous track` calls would skip back twice in Music; the
-                // single call already restarts the track when past ~2s.
-                return "tell application \"\(app)\" to previous track"
-            }
-        }
+    struct Result {
+        var track: NowPlaying?
+        var automationDenied = false
+        var blockedBrowser: MediaApp?
     }
 
-    struct ReadResult {
-        var nowPlaying: NowPlaying?
-        var permissionDenied = false
+    private let engine = AppleScriptEngine()
+    private let browsers: BrowserMediaReader
+
+    init() {
+        browsers = BrowserMediaReader(engine: engine)
     }
 
-    private let queue = DispatchQueue(label: "com.bondex.notch.applescript")
-    private let lock = NSLock()
+    func resetBrowserState() {
+        engine.withLock { browsers.reset() }
+    }
 
     // MARK: Reading
 
-    func readNowPlaying(currentArtworkKey: String?) -> ReadResult {
-        lock.lock()
-        defer { lock.unlock() }
+    /// Music and Spotify win over a browser tab, and a playing source wins over a
+    /// paused one — so a paused YouTube tab never hides the album that is actually
+    /// playing.
+    ///
+    /// Both lists are resolved by the caller on the main actor; an empty
+    /// `browsers` means web media is switched off or no browser is open.
+    func read(players: [MediaApp], browsers browserApps: [MediaApp]) -> Result {
+        engine.withLock {
+            var result = Result()
+            var paused: NowPlaying?
 
-        var denied = false
-
-        // Music first: if both are running, Music wins unless it is stopped.
-        for source in [NowPlaying.Source.music, .spotify] {
-            guard isRunning(source) else { continue }
-            let outcome = read(source)
-            if outcome.denied { denied = true }
-            guard var track = outcome.track else { continue }
-
-            if track.trackKey != currentArtworkKey {
-                track.artwork = readArtwork(source)
+            for app in players {
+                let outcome = readPlayer(app)
+                if outcome.failure == .automationDenied { result.automationDenied = true }
+                guard let track = outcome.track else { continue }
+                if track.isPlaying {
+                    result.track = track
+                    return result
+                }
+                if paused == nil { paused = track }
             }
-            return ReadResult(nowPlaying: track, permissionDenied: denied)
+
+            if !browserApps.isEmpty {
+                let reading = browsers.read(in: browserApps)
+                switch reading.failure {
+                case .automationDenied: result.automationDenied = true
+                case .javaScriptDisabled: result.blockedBrowser = reading.failedApp
+                default: break
+                }
+                if let track = reading.track {
+                    if track.isPlaying {
+                        result.track = track
+                        return result
+                    }
+                    if paused == nil { paused = track }
+                }
+            }
+
+            result.track = paused
+            return result
         }
-
-        return ReadResult(nowPlaying: nil, permissionDenied: denied)
     }
 
-    private func isRunning(_ source: NowPlaying.Source) -> Bool {
-        !NSRunningApplication
-            .runningApplications(withBundleIdentifier: source.rawValue)
-            .isEmpty
-    }
+    // MARK: Native players
 
-    private func read(_ source: NowPlaying.Source) -> (track: NowPlaying?, denied: Bool) {
-        let app = source.scriptName
+    private func readPlayer(_ app: MediaApp) -> BrowserMediaReader.Reading {
         // Spotify reports duration in milliseconds, Music in seconds.
-        let durationExpression = source == .spotify
+        let durationExpression = app.engine == .spotify
             ? "((duration of current track) / 1000)"
             : "(duration of current track)"
 
         let script = """
-        tell application "\(app)"
+        tell application "\(app.scriptName)"
             if player state is stopped then return "STOPPED"
             set trackName to name of current track
             set trackArtist to artist of current track
@@ -238,15 +321,21 @@ private final class AppleScriptRunner: @unchecked Sendable {
         end tell
         """
 
-        let outcome = execute(script)
-        if outcome.denied { return (nil, true) }
-        guard let raw = outcome.value, raw != "STOPPED" else { return (nil, false) }
+        let outcome = engine.run(script)
+        if let failure = outcome.failure {
+            return BrowserMediaReader.Reading(track: nil, failure: failure)
+        }
+        guard let raw = outcome.value, raw != "STOPPED" else {
+            return BrowserMediaReader.Reading(track: nil, failure: nil)
+        }
 
         let fields = raw.components(separatedBy: "\n")
-        guard fields.count >= 6 else { return (nil, false) }
+        guard fields.count >= 6 else {
+            return BrowserMediaReader.Reading(track: nil, failure: nil)
+        }
 
-        return (NowPlaying(
-            source: source,
+        var track = NowPlaying(
+            source: app,
             title: fields[0],
             artist: fields[1],
             album: fields[2],
@@ -254,82 +343,54 @@ private final class AppleScriptRunner: @unchecked Sendable {
             duration: Double(fields[3]) ?? 0,
             position: Double(fields[4]) ?? 0,
             artwork: nil
-        ), false)
-    }
+        )
 
-    /// Only Music.app exposes raw artwork bytes over AppleScript. Spotify
-    /// exposes an artwork *URL*, which is fetched over the network instead.
-    private func readArtwork(_ source: NowPlaying.Source) -> NSImage? {
-        switch source {
+        switch app.engine {
         case .music:
-            let script = """
-            tell application "Music"
-                if (count of artworks of current track) is 0 then return missing value
-                return data of artwork 1 of current track
-            end tell
-            """
-            var error: NSDictionary?
-            guard let apple = NSAppleScript(source: script) else { return nil }
-            let descriptor = apple.executeAndReturnError(&error)
-            guard error == nil else { return nil }
-            let data = descriptor.data
-            guard !data.isEmpty else { return nil }
-            return NSImage(data: data)
-
+            // Only Music.app hands over raw artwork bytes, and it is cheap
+            // enough to read inline.
+            track.artwork = readMusicArtwork()
         case .spotify:
-            let outcome = execute(
-                "tell application \"Spotify\" to return artwork url of current track"
-            )
-            guard let urlString = outcome.value,
-                  let url = URL(string: urlString),
-                  let data = fetch(url) else { return nil }
-            return NSImage(data: data)
+            track.artworkURL = engine
+                .run("tell application \"Spotify\" to return artwork url of current track")
+                .value
+                .flatMap(URL.init(string:))
+        case .webkit, .chromium:
+            break
         }
+
+        return BrowserMediaReader.Reading(track: track, failure: nil)
     }
 
-    /// Bounded artwork fetch. This runs while the script lock is held, so an
-    /// unresponsive CDN must not be able to wedge the transport controls.
-    private func fetch(_ url: URL) -> Data? {
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 3
-        let semaphore = DispatchSemaphore(value: 0)
-        let box = DataBox()
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            box.value = data
-            semaphore.signal()
-        }.resume()
-        guard semaphore.wait(timeout: .now() + 3.5) == .success else { return nil }
-        return box.value
+    private func readMusicArtwork() -> NSImage? {
+        let script = """
+        tell application "Music"
+            if (count of artworks of current track) is 0 then return missing value
+            return data of artwork 1 of current track
+        end tell
+        """
+        guard let data = engine.runForData(script) else { return nil }
+        return NSImage(data: data)
     }
 
-    private final class DataBox: @unchecked Sendable {
-        var value: Data?
-    }
+    // MARK: Transport
 
-    // MARK: Writing
-
-    func perform(_ command: Command, on source: NowPlaying.Source) {
-        lock.lock()
-        defer { lock.unlock() }
-        _ = execute(command.script(for: source))
-    }
-
-    // MARK: Execution
-
-    private func execute(_ source: String) -> (value: String?, denied: Bool) {
-        var error: NSDictionary?
-        guard let script = NSAppleScript(source: source) else { return (nil, false) }
-        let descriptor = script.executeAndReturnError(&error)
-
-        if let error {
-            let code = error[NSAppleScript.errorNumber] as? Int ?? 0
-            // -1743: user denied Automation. -600/-609: app quit mid-script.
-            let denied = (code == -1743)
-            if !denied, code != -600, code != -609, code != 0 {
-                Log.music.debug("AppleScript error \(code): \(String(describing: error))")
+    func perform(_ transport: Transport, on app: MediaApp) {
+        engine.withLock {
+            if app.isBrowser {
+                _ = browsers.perform(transport, on: app)
+                return
             }
-            return (nil, denied)
+
+            let verb: String
+            switch transport {
+            case .playPause: verb = "playpause"
+            case .next: verb = "next track"
+            // A single `previous track` already restarts the track when the
+            // position is past ~2s, which is what users expect from one tap.
+            case .previous: verb = "previous track"
+            }
+            _ = engine.run("tell application \"\(app.scriptName)\" to \(verb)")
         }
-        return (descriptor.stringValue, false)
     }
 }

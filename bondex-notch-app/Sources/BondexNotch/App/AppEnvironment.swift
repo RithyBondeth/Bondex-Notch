@@ -67,6 +67,8 @@ final class AppEnvironment: ObservableObject {
     }
 
     private func applyWidgetActivation(_ preferences: Preferences) {
+        // Set before starting: it decides whether the first poll scans tabs.
+        nowPlaying.includeBrowsers = preferences.browserMediaEnabled
         if preferences.musicWidgetEnabled {
             nowPlaying.start()
         } else {

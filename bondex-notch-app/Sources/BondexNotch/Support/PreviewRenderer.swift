@@ -62,6 +62,28 @@ enum PreviewRenderer {
         environment.notch.collapse()
         if !render(environment, named: "collapsed", into: directory) { failures += 1 }
 
+        // The peek is the state most sessions actually see, and it has two very
+        // different shapes: a narrow strip while something is playing, and a wider
+        // one while a banner is up. Both are worth reviewing.
+        environment.nowPlaying.seedForPreview(NowPlaying(
+            source: .music,
+            title: "Weightless",
+            artist: "Marconi Union",
+            album: "Ambient Transmissions",
+            isPlaying: true,
+            duration: 489,
+            position: 128,
+            artwork: nil
+        ))
+        environment.notch.hasLiveActivity = true
+        environment.notch.collapse()
+        if !render(environment, named: "peek-playing", into: directory) { failures += 1 }
+
+        environment.events.post(NotchEvent(
+            kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
+        ))
+        if !render(environment, named: "peek-banner", into: directory) { failures += 1 }
+
         return failures == 0 ? 0 : 1
     }
 

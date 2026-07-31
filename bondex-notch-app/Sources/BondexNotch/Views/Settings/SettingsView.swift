@@ -53,6 +53,21 @@ private struct GeneralSettings: View {
                 Toggle("Show a compact peek while media is playing", isOn: binding(\.peekWhilePlaying))
 
                 HStack {
+                    Text("Hover delay")
+                    Slider(value: binding(\.hoverDelay), in: 0...0.6, step: 0.02)
+                    Text(String(format: "%.2fs", settings.preferences.hoverDelay))
+                        .font(.caption.monospacedDigit())
+                        .frame(width: 46, alignment: .trailing)
+                }
+                .disabled(!settings.preferences.expandOnHover)
+                Text("""
+                How long the pointer has to rest on the notch before it opens. \
+                Raise this if the panel opens while you are on your way to the menu bar.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                HStack {
                     Text("Close delay")
                     Slider(value: binding(\.closeDelay), in: 0...1.5, step: 0.05)
                     Text(String(format: "%.2fs", settings.preferences.closeDelay))
@@ -80,6 +95,15 @@ private struct GeneralSettings: View {
 private struct WidgetSettings: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject var settings: SettingsStore
+    /// Observed directly so the browser hint appears the moment a poll finds a
+    /// browser with JavaScript still switched off.
+    @ObservedObject private var nowPlaying: NowPlayingService
+
+    init(environment: AppEnvironment, settings: SettingsStore) {
+        self.environment = environment
+        self.settings = settings
+        self.nowPlaying = environment.nowPlaying
+    }
 
     var body: some View {
         Form {
@@ -100,6 +124,27 @@ private struct WidgetSettings: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Section {
+                Toggle("Include browser tabs", isOn: binding(\.browserMediaEnabled))
+                    .disabled(!settings.preferences.musicWidgetEnabled)
+
+                if let browser = nowPlaying.blockedBrowser {
+                    Text(browser.javaScriptHint)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Media")
+            } footer: {
+                Text("""
+                Music and Spotify report what they are playing directly. Browsers \
+                do not, so Bondex asks the tab that owns the audio — which is what \
+                makes YouTube, YouTube Music, SoundCloud and the rest show up. Each \
+                browser needs "Allow JavaScript from Apple Events" turned on once.
+                """)
+                .font(.caption)
             }
 
             Section {
@@ -245,16 +290,40 @@ private struct LicenseSettings: View {
 
 private struct PermissionsSettings: View {
     @ObservedObject var environment: AppEnvironment
+    @ObservedObject private var nowPlaying: NowPlayingService
+
+    init(environment: AppEnvironment) {
+        self.environment = environment
+        self.nowPlaying = environment.nowPlaying
+    }
 
     var body: some View {
         Form {
             Section {
                 permissionRow(
                     title: "Automation",
-                    detail: "Lets Bondex read and control Music and Spotify.",
-                    isGranted: !environment.nowPlaying.automationDenied,
+                    detail: "Lets Bondex read and control Music, Spotify and your browser.",
+                    isGranted: !nowPlaying.automationDenied,
                     settingsPane: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
                 )
+
+                if let browser = nowPlaying.blockedBrowser {
+                    // Not a TCC permission, so there is no pane to open — it is a
+                    // switch inside the browser itself.
+                    HStack(alignment: .top) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("JavaScript from Apple Events").fontWeight(.medium)
+                            Text(browser.javaScriptHint)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 3)
+                }
 
                 permissionRow(
                     title: "Files and Folders",
@@ -274,7 +343,8 @@ private struct PermissionsSettings: View {
                 Text("""
                 macOS provides no public way to read other apps' notifications or \
                 system-wide Now Playing data, so the Activity feed reports what \
-                Bondex observes directly and media comes from Music and Spotify.
+                Bondex observes directly, and media is read from the players and \
+                browser tabs themselves.
                 """)
                 .font(.caption)
                 .foregroundStyle(.secondary)

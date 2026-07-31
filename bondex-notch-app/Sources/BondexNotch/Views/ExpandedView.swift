@@ -22,9 +22,16 @@ struct ExpandedView: View {
     var body: some View {
         VStack(spacing: 10) {
             header
-            Divider().overlay(Theme.hairline)
+            // A system `Divider` renders as a light separator tuned for a light
+            // window; on a near-black panel it reads as a bright scratch.
+            Rectangle()
+                .fill(Theme.hairline)
+                .frame(height: 1)
             widget
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Swapping tabs is a content change, so it gets the content
+                // curve rather than the panel's.
+                .animation(Motion.content(settings.motion), value: notch.tab)
         }
         .padding(.top, topInset)
         .padding(.horizontal, Theme.contentPadding)
@@ -98,6 +105,15 @@ private struct TabChip: View {
                     Text(tab.title)
                         .font(.system(size: 10.5, weight: .semibold))
                         .fixedSize()
+                        // Width, not opacity: the label has to push the
+                        // neighbouring chips aside as it appears, or the strip
+                        // jumps a whole label's width in one frame.
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.animation(Motion.hover.delay(0.06)),
+                                removal: .opacity.animation(.linear(duration: 0.05))
+                            )
+                        )
                 }
             }
             .foregroundStyle(isSelected ? Color.black : Theme.secondaryText)
@@ -111,6 +127,7 @@ private struct TabChip: View {
                 )
             )
             .contentShape(Capsule())
+            .animation(Motion.hover, value: isHovering)
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }

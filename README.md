@@ -23,8 +23,11 @@ Each directory has its own README with architecture notes and caveats. Two
 points worth knowing up front, both covered in detail in
 [the app README](bondex-notch-app/README.md):
 
-- Media comes from Music.app and Spotify over AppleScript. macOS exposes no
-  public system-wide Now Playing API.
+- Media is read from the playing app itself, because macOS exposes no public
+  system-wide Now Playing API: Music and Spotify over their scripting
+  dictionaries, browser tabs by evaluating a small script in the tab that owns
+  the audio. Web players need "Allow JavaScript from Apple Events" enabled once
+  per browser; the panel says so when it is still off.
 - The "Activity" widget is a feed of events Bondex observes itself. No Mac app
   can read other applications' notifications.
 

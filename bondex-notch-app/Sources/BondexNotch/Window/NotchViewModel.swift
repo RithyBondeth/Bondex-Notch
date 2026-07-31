@@ -20,6 +20,7 @@ final class NotchViewModel: ObservableObject {
     /// Latched open by a click, so the panel stays put while the user works in it.
     private var isPinned = false
     private var closeWorkItem: DispatchWorkItem?
+    private var openWorkItem: DispatchWorkItem?
     private var bannerWorkItem: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
 
@@ -60,14 +61,17 @@ final class NotchViewModel: ObservableObject {
         geometry = measured
     }
 
-    var hitRect: CGRect { geometry.hitRect(for: state) }
+    /// The peek is narrower while it is only reporting playback than it is while
+    /// carrying a banner, so hit testing has to follow the banner too — otherwise
+    /// the panel keeps swallowing clicks in a margin it is no longer drawing.
+    var hitRect: CGRect { geometry.hitRect(for: state, hasBanner: banner != nil) }
 
     // MARK: Pointer
 
     func pointerMoved(to location: CGPoint) {
         // While expanded, the whole panel keeps it open; while closed, only the
         // notch strip does.
-        let liveRect = geometry.hoverRect(for: state)
+        let liveRect = geometry.hoverRect(for: state, hasBanner: banner != nil)
         let triggerRect = geometry.hoverRect(for: .collapsed)
 
         if state.isExpanded {
@@ -79,17 +83,25 @@ final class NotchViewModel: ObservableObject {
             return
         }
 
-        guard settings.preferences.expandOnHover else { return }
+        guard settings.preferences.expandOnHover else {
+            cancelPendingOpen()
+            return
+        }
 
         if triggerRect.contains(location) || liveRect.contains(location) {
             cancelPendingClose()
-            expand()
+            scheduleOpen()
+        } else {
+            // Left the strip before the dwell elapsed: this was a pointer on its
+            // way somewhere else, not a request to open.
+            cancelPendingOpen()
         }
     }
 
     // MARK: Transitions
 
     func expand() {
+        cancelPendingOpen()
         guard state != .expanded else { return }
         cancelPendingClose()
         withAnimation(Motion.panel(settings.motion)) {
@@ -100,6 +112,7 @@ final class NotchViewModel: ObservableObject {
 
     func collapse() {
         isPinned = false
+        cancelPendingOpen()
         cancelPendingClose()
         withAnimation(Motion.panel(settings.motion)) {
             state = idleState
@@ -149,10 +162,18 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// Starts the close countdown, and leaves an already-running one alone.
+    ///
+    /// Restarting it here would mean the deadline is pushed back by every mouse
+    /// move anywhere on screen — so the panel would stay open for as long as the
+    /// pointer kept moving, however far away it was. Re-entering the panel is
+    /// what cancels the countdown, not moving outside it.
     private func scheduleClose() {
-        cancelPendingClose()
+        guard closeWorkItem == nil else { return }
         let work = DispatchWorkItem { [weak self] in
-            guard let self, !self.isPinned else { return }
+            guard let self else { return }
+            self.closeWorkItem = nil
+            guard !self.isPinned else { return }
             withAnimation(Motion.panel(self.settings.motion)) {
                 self.state = self.idleState
             }
@@ -169,6 +190,36 @@ final class NotchViewModel: ObservableObject {
         closeWorkItem = nil
     }
 
+    // MARK: Hover intent
+
+    /// Requires the pointer to dwell on the notch before opening.
+    ///
+    /// `pointerMoved` fires on every mouse-moved event, so without a dwell the
+    /// panel opens on the way past. Re-entering while a dwell is already pending
+    /// must not restart it, or a slow drift across the strip never opens at all.
+    private func scheduleOpen() {
+        guard openWorkItem == nil else { return }
+
+        let delay = settings.preferences.hoverDelay
+        guard delay > 0 else {
+            expand()
+            return
+        }
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.openWorkItem = nil
+            self.expand()
+        }
+        openWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private func cancelPendingOpen() {
+        openWorkItem?.cancel()
+        openWorkItem = nil
+    }
+
     // MARK: Banners
 
     private func show(banner event: NotchEvent) {
@@ -177,14 +228,18 @@ final class NotchViewModel: ObservableObject {
         guard !state.isExpanded else { return }
 
         bannerWorkItem?.cancel()
-        withAnimation(Motion.content(settings.motion)) {
+        // Growing out of the notch is a panel move; swapping one banner for the
+        // next inside an existing peek is only a content change.
+        let resizes = state == .collapsed
+        withAnimation(resizes ? Motion.panel(settings.motion) : Motion.content(settings.motion)) {
             banner = event
             if state == .collapsed { state = .peek }
         }
 
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            withAnimation(Motion.content(self.settings.motion)) {
+            self.bannerWorkItem = nil
+            withAnimation(Motion.panel(self.settings.motion)) {
                 self.banner = nil
                 if !self.state.isExpanded { self.state = self.idleState }
             }

@@ -45,22 +45,68 @@ enum Theme {
     // MARK: Surfaces
 
     static let surface = Color.black
-    static let surfaceElevated = Color(white: 0.10)
+    static let surfaceElevated = Color(white: 0.11)
     static let hairline = Color.white.opacity(0.10)
     static let primaryText = Color.white
     static let secondaryText = Color.white.opacity(0.62)
     static let tertiaryText = Color.white.opacity(0.38)
+
+    /// Fill for the expanded panel.
+    ///
+    /// Flat black is right where the panel abuts the hardware notch, but a large
+    /// slab of it reads as a hole in the screen rather than as a surface. The
+    /// gradient stays black at the very top — so the seam with the notch is still
+    /// invisible — and lifts a couple of percent by the bottom edge, which is
+    /// just enough to give the panel a body.
+    static let panelFill = LinearGradient(
+        stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: 0.34),
+            .init(color: Color(white: 0.055), location: 1)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    /// Rim light along the panel's edge. Brightest at the bottom corners, where a
+    /// real object would catch the light coming off the display.
+    static let panelRim = LinearGradient(
+        stops: [
+            .init(color: .white.opacity(0.05), location: 0),
+            .init(color: .white.opacity(0.06), location: 0.5),
+            .init(color: .white.opacity(0.14), location: 1)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
 
     // MARK: Metrics
 
     /// Concave fillet where the panel meets the top edge of the screen.
     static let flareRadius: CGFloat = 11
     /// Convex radius on the two bottom corners.
-    static let bottomRadius: CGFloat = 22
+    static let bottomRadius: CGFloat = 24
+    static let peekBottomRadius: CGFloat = 15
     static let collapsedBottomRadius: CGFloat = 10
 
     static let contentPadding: CGFloat = 16
     static let widgetSpacing: CGFloat = 12
+}
+
+extension View {
+    /// Fades a horizontally-clipped run of text out at both ends, so an
+    /// overflowing title dissolves instead of being chopped off mid-glyph.
+    func edgeFade(_ width: CGFloat = 12) -> some View {
+        mask(
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: width)
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: width)
+            }
+        )
+    }
 }
 
 extension View {

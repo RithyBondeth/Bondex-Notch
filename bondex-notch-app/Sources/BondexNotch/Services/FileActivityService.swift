@@ -78,7 +78,7 @@ final class FileActivityService: ObservableObject {
             queue: .main
         )
         source.setEventHandler { [weak self] in
-            MainActor.assumeIsolated { self?.scan() }
+            onMainActor { self?.scan() }
         }
         source.setCancelHandler { [descriptor] in
             if descriptor >= 0 { close(descriptor) }
@@ -90,7 +90,7 @@ final class FileActivityService: ObservableObject {
         // in place does not always mutate the directory, so also poll while
         // something is in flight.
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
+            onMainActor {
                 guard let self, self.activities.contains(where: { !$0.isComplete }) else { return }
                 self.scan()
             }

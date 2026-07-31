@@ -15,19 +15,27 @@ struct MusicWidget: View {
     private var accent: Color { settings.effectiveAccent.color }
 
     var body: some View {
-        if service.automationDenied {
+        if let track = service.nowPlaying {
+            player(track)
+        } else if service.automationDenied {
             EmptyStateView(
                 systemImage: "hand.raised.fill",
                 title: "Automation access needed",
-                subtitle: "System Settings › Privacy & Security › Automation,\nthen enable Music and Spotify for Bondex Notch."
+                subtitle: "System Settings › Privacy & Security › Automation,\nthen enable the players you use for Bondex Notch."
             )
-        } else if let track = service.nowPlaying {
-            player(track)
+        } else if let browser = service.blockedBrowser {
+            // The one thing the user has to do by hand for web media to appear.
+            // Saying nothing here is what "YouTube shows nothing" feels like.
+            EmptyStateView(
+                systemImage: "curlybraces",
+                title: "Turn on JavaScript from Apple Events",
+                subtitle: browser.javaScriptHint
+            )
         } else {
             EmptyStateView(
                 systemImage: "music.note",
                 title: "Nothing playing",
-                subtitle: "Start a track in Music or Spotify."
+                subtitle: "Start something in Music, Spotify, or a browser tab."
             )
         }
     }
@@ -43,25 +51,36 @@ struct MusicWidget: View {
                         text: track.title.isEmpty ? "Unknown Track" : track.title,
                         font: .system(size: 13, weight: .semibold)
                     )
-                    Text(subtitle(for: track))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.secondaryText)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Text(subtitle(for: track))
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.secondaryText)
+                            .lineLimit(1)
+                        sourceBadge(track)
+                    }
                 }
 
                 progress(track)
 
                 HStack(spacing: 2) {
-                    NotchButton(systemImage: "backward.fill", size: 11) { service.previous() }
-                    NotchButton(
-                        systemImage: track.isPlaying ? "pause.fill" : "play.fill",
-                        size: 12,
-                        isProminent: true,
-                        tint: accent
-                    ) {
-                        service.playPause()
+                    if track.supportsTransport {
+                        NotchButton(systemImage: "backward.fill", size: 11) { service.previous() }
+                        NotchButton(
+                            systemImage: track.isPlaying ? "pause.fill" : "play.fill",
+                            size: 12,
+                            isProminent: true,
+                            tint: accent
+                        ) {
+                            service.playPause()
+                        }
+                        NotchButton(systemImage: "forward.fill", size: 11) { service.next() }
+                    } else {
+                        // Read from the window title: visible, but not drivable.
+                        Text("Playing in \(track.source.displayName)")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Theme.tertiaryText)
+                            .lineLimit(1)
                     }
-                    NotchButton(systemImage: "forward.fill", size: 11) { service.next() }
 
                     Spacer()
 
@@ -78,19 +97,57 @@ struct MusicWidget: View {
         return parts.isEmpty ? track.source.displayName : parts.joined(separator: " — ")
     }
 
+    /// Names where the audio is coming from. With browsers in the mix there can
+    /// be several plausible sources, so "Chrome" is genuinely useful information.
+    @ViewBuilder
+    private func sourceBadge(_ track: NowPlaying) -> some View {
+        Text(track.source.displayName)
+            .font(.system(size: 8.5, weight: .semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
+            .background(
+                Capsule(style: .continuous).fill(Color.white.opacity(0.09))
+            )
+            .fixedSize()
+    }
+
     @ViewBuilder
     private func progress(_ track: NowPlaying) -> some View {
-        VStack(spacing: 3) {
-            MeterBar(value: track.progress, tint: accent, height: 3)
-            HStack {
-                Text(track.position.clockString)
+        if track.isLive {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 5, height: 5)
+                Text("Live")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Theme.secondaryText)
                 Spacer()
-                Text(track.duration.clockString)
             }
-            .font(.system(size: 9, weight: .medium).monospacedDigit())
-            .foregroundStyle(Theme.tertiaryText)
+            .frame(height: 16)
+        } else {
+            // Playback is polled once a second, so the position is advanced from
+            // the sample's timestamp instead of being stepped. A 15Hz timeline
+            // recomputing the real position beats animating between one-second
+            // jumps: it stays correct through a seek, and it costs nothing while
+            // paused because the schedule stops.
+            TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: !track.isPlaying)) { timeline in
+                let position = track.position(at: timeline.date)
+                VStack(spacing: 3) {
+                    MeterBar(
+                        value: track.duration > 0 ? position / track.duration : 0,
+                        tint: accent,
+                        height: 3
+                    )
+                    HStack {
+                        Text(position.clockString)
+                        Spacer()
+                        Text(track.duration.clockString)
+                    }
+                    .font(.system(size: 9, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Theme.tertiaryText)
+                }
+            }
         }
-        // Position updates once a second; smooth the bar between samples.
-        .animation(.linear(duration: 0.9), value: track.position)
     }
 }

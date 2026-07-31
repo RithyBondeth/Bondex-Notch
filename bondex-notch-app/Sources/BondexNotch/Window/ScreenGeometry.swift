@@ -55,14 +55,27 @@ struct NotchGeometry: Equatable {
     /// Extra room around the content for the drop shadow and the hover margin.
     static let windowInset = CGSize(width: 90, height: 60)
 
-    var peekSize: CGSize {
-        CGSize(width: max(notchSize.width + 190, 320), height: max(notchSize.height + 6, 38))
+    private var peekHeight: CGFloat { max(notchSize.height + 8, 40) }
+
+    /// While media is playing: artwork on one side of the notch, the equaliser on
+    /// the other, and nothing else. Only as wide as those two need, so the strips
+    /// sit close to the notch rather than stranded at the far edges.
+    var mediaPeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 120, 240), height: peekHeight)
     }
 
-    func contentSize(for state: NotchState) -> CGSize {
+    /// While a banner is up: wide enough to carry a readable line or two of text,
+    /// because a transient notification is nothing without its message.
+    var bannerPeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 260, 360), height: peekHeight)
+    }
+
+    /// - Parameter hasBanner: whether the peek is currently carrying a banner,
+    ///   which is the only thing in it that needs room for text.
+    func contentSize(for state: NotchState, hasBanner: Bool = false) -> CGSize {
         switch state {
         case .collapsed: return notchSize
-        case .peek: return peekSize
+        case .peek: return hasBanner ? bannerPeekSize : mediaPeekSize
         case .expanded: return Self.expandedContentSize
         }
     }
@@ -88,8 +101,8 @@ struct NotchGeometry: Equatable {
 
     /// Interactive area for a given state, in window coordinates (bottom-left
     /// origin), used for hit testing.
-    func hitRect(for state: NotchState) -> CGRect {
-        let content = contentSize(for: state)
+    func hitRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
+        let content = contentSize(for: state, hasBanner: hasBanner)
         let window = windowSize
         return CGRect(
             x: (window.width - content.width) / 2,
@@ -100,8 +113,8 @@ struct NotchGeometry: Equatable {
     }
 
     /// Same rect in screen coordinates, for the global pointer test.
-    func screenRect(for state: NotchState) -> CGRect {
-        let rect = hitRect(for: state)
+    func screenRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
+        let rect = hitRect(for: state, hasBanner: hasBanner)
         let origin = windowFrame.origin
         return rect.offsetBy(dx: origin.x, dy: origin.y)
     }
@@ -109,8 +122,8 @@ struct NotchGeometry: Equatable {
     /// The zone the pointer has to be in to keep a given state alive. Padded
     /// outward so arriving from below the menu bar registers, and so small
     /// pointer jitter at the edge does not flicker the panel shut.
-    func hoverRect(for state: NotchState) -> CGRect {
-        let rect = screenRect(for: state)
+    func hoverRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
+        let rect = screenRect(for: state, hasBanner: hasBanner)
         let padX: CGFloat = state.isExpanded ? 12 : 18
         let padY: CGFloat = state.isExpanded ? 12 : 4
         return CGRect(
