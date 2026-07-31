@@ -41,7 +41,7 @@ struct HomeWidget: View {
         if let track = nowPlaying.nowPlaying {
             HStack(spacing: 10) {
                 ArtworkView(image: track.artwork, cornerRadius: 7, tint: accent)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 32, height: 32)
 
                 VStack(alignment: .leading, spacing: 1) {
                     MarqueeText(
@@ -78,7 +78,7 @@ struct HomeWidget: View {
                         .padding(.trailing, 4)
                 }
             }
-            .notchCard()
+            .notchCard(padding: Theme.compactCardPadding)
         } else {
             HStack(spacing: 8) {
                 Image(systemName: idleIcon)
@@ -90,7 +90,7 @@ struct HomeWidget: View {
                     .lineLimit(1)
                 Spacer()
             }
-            .notchCard()
+            .notchCard(padding: Theme.compactCardPadding)
         }
     }
 

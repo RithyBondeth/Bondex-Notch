@@ -34,10 +34,10 @@ struct NotchRootView: View {
     private var geometry: NotchGeometry { notch.geometry }
     private var state: NotchState { notch.state }
 
-    /// The size the silhouette is animating towards.
-    private var contentSize: CGSize {
-        geometry.contentSize(for: state, hasBanner: notch.banner != nil)
-    }
+    /// The size the silhouette is animating towards. For the expanded panel this
+    /// is measured from the content rather than fixed, so the panel is only as
+    /// tall as what it is showing.
+    private var contentSize: CGSize { notch.contentSize }
 
     /// Constant box every state's content is composed inside, so the content
     /// layer's own layout never depends on the animating size.
@@ -150,8 +150,15 @@ struct NotchRootView: View {
                         .animation(Motion.content(settings.motion))
                 )
         case .expanded:
+            // Fixed width, natural height: the height is the measurement the panel
+            // sizes itself from, so it must not be dictated here. Top-aligned in
+            // the canvas so the content does not shift as the height settles.
             ExpandedView(environment: environment)
-                .frame(width: canvasSize.width, height: canvasSize.height)
+                .frame(width: canvasSize.width)
+                .frame(maxHeight: canvasSize.height, alignment: .top)
+                .onPreferenceChange(ExpandedHeightKey.self) { height in
+                    notch.setMeasuredExpandedHeight(height)
+                }
                 .transition(
                     .opacity
                         .combined(with: .offset(y: -10))

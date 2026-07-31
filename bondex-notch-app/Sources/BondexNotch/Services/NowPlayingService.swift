@@ -99,12 +99,15 @@ final class NowPlayingService: ObservableObject {
     private var artworkKey: String?
     private var isSampling = false
     private var artworkTask: Task<Void, Never>?
+    /// See `seedForPreview`. Always false in the running app.
+    private var isPreviewSeeded = false
 
     init(events: EventCenter) {
         self.events = events
     }
 
     func start(interval: TimeInterval = 1.0) {
+        guard !isPreviewSeeded else { return }
         stop()
         refresh()
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
@@ -124,8 +127,12 @@ final class NowPlayingService: ObservableObject {
     /// Publishes a track without polling for it, so the offscreen preview tool can
     /// render the playback states on a machine where nothing happens to be
     /// playing. Nothing in the running app calls this.
-    func seedForPreview(_ track: NowPlaying) {
+    ///
+    /// Latches polling off for good: a read already in flight would otherwise land
+    /// afterwards and clear the seeded track back to "nothing playing".
+    func seedForPreview(_ track: NowPlaying?) {
         stop()
+        isPreviewSeeded = true
         nowPlaying = track
     }
 
@@ -169,6 +176,7 @@ final class NowPlayingService: ObservableObject {
 
     private func apply(_ result: MediaReader.Result) {
         isSampling = false
+        guard !isPreviewSeeded else { return }
         automationDenied = result.automationDenied
         blockedBrowser = includeBrowsers ? result.blockedBrowser : nil
 

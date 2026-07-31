@@ -60,14 +60,14 @@ struct SystemWidget: View {
                     .font(.system(size: 10, weight: .semibold).monospacedDigit())
                     .foregroundStyle(Theme.primaryText)
             }
-            .frame(width: compact ? 34 : 42, height: compact ? 34 : 42)
+            .frame(width: compact ? 30 : 42, height: compact ? 30 : 42)
 
             Text(title)
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
         }
         .frame(maxWidth: .infinity)
-        .notchCard()
+        .notchCard(padding: compact ? Theme.compactCardPadding : 10)
         .help(help)
     }
 
@@ -86,7 +86,7 @@ struct SystemWidget: View {
                         .foregroundStyle(Theme.tertiaryText)
                 }
             }
-            .frame(width: compact ? 34 : 42, height: compact ? 34 : 42)
+            .frame(width: compact ? 30 : 42, height: compact ? 30 : 42)
 
             Text(batteryCaption)
                 .font(.system(size: 9, weight: .medium))
@@ -94,7 +94,7 @@ struct SystemWidget: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
-        .notchCard()
+        .notchCard(padding: compact ? Theme.compactCardPadding : 10)
         .help(batteryHelp)
     }
 
@@ -124,7 +124,7 @@ struct SystemWidget: View {
                 .foregroundStyle(Theme.tertiaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .notchCard()
+        .notchCard(padding: compact ? Theme.compactCardPadding : 10)
     }
 
     private func throughput(systemImage: String, rate: Double, tint: Color) -> some View {

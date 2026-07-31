@@ -61,17 +61,59 @@ final class NotchViewModel: ObservableObject {
         geometry = measured
     }
 
+    /// Height the expanded panel needs for what it is currently showing, measured
+    /// from the content itself. Nil until the first measurement arrives.
+    @Published private(set) var measuredExpandedHeight: CGFloat?
+
+    /// Never let the panel collapse to a sliver if a measurement arrives wrong.
+    private let minimumExpandedHeight: CGFloat = 120
+
+    /// What the panel is currently drawing.
+    ///
+    /// The expanded height is measured rather than fixed, so the panel is exactly
+    /// as tall as its content: the Home tab is shorter with nothing playing than
+    /// with a media row, and the Music tab does not have to reserve room for the
+    /// tallest tab. A single fixed height cannot be right for both — it is either
+    /// too short for one (clipping it) or too tall for the other (dead space).
+    var contentSize: CGSize {
+        guard state.isExpanded else {
+            return geometry.contentSize(for: state, hasBanner: banner != nil)
+        }
+        let maximum = NotchGeometry.expandedContentSize
+        let measured = measuredExpandedHeight ?? maximum.height
+        return CGSize(
+            width: maximum.width,
+            height: min(max(measured, minimumExpandedHeight), maximum.height)
+        )
+    }
+
     /// The peek is narrower while it is only reporting playback than it is while
-    /// carrying a banner, so hit testing has to follow the banner too — otherwise
-    /// the panel keeps swallowing clicks in a margin it is no longer drawing.
-    var hitRect: CGRect { geometry.hitRect(for: state, hasBanner: banner != nil) }
+    /// carrying a banner, and the expanded panel is only as tall as its content —
+    /// so hit testing follows what is drawn, or the panel keeps swallowing clicks
+    /// in a margin it is no longer filling.
+    var hitRect: CGRect { geometry.hitRect(ofSize: contentSize) }
+
+    /// Reported by the view once SwiftUI has laid the expanded content out.
+    func setMeasuredExpandedHeight(_ height: CGFloat) {
+        guard height > 0 else { return }
+        guard let current = measuredExpandedHeight else {
+            // First measurement: adopt it outright. Animating from nothing would
+            // fight the spring that is already opening the panel.
+            measuredExpandedHeight = height
+            return
+        }
+        guard abs(current - height) > 0.5 else { return }
+        withAnimation(Motion.content(settings.motion)) {
+            measuredExpandedHeight = height
+        }
+    }
 
     // MARK: Pointer
 
     func pointerMoved(to location: CGPoint) {
         // While expanded, the whole panel keeps it open; while closed, only the
         // notch strip does.
-        let liveRect = geometry.hoverRect(for: state, hasBanner: banner != nil)
+        let liveRect = geometry.hoverRect(ofSize: contentSize, isExpanded: state.isExpanded)
         let triggerRect = geometry.hoverRect(for: .collapsed)
 
         if state.isExpanded {

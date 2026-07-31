@@ -48,9 +48,18 @@ struct NotchGeometry: Equatable {
 
     // MARK: Content sizes
 
-    /// Widest/tallest the content can ever be. The window is sized from this
-    /// once, so resizing never fights the SwiftUI animation.
-    static let expandedContentSize = CGSize(width: 560, height: 210)
+    /// The widest and *tallest the panel is ever allowed to get*, not the size it
+    /// is drawn at. The window is sized from this once, so resizing never fights
+    /// the SwiftUI animation, and the expanded content is laid out inside it.
+    ///
+    /// The height the panel actually uses is measured from its content — see
+    /// `NotchViewModel.contentSize`. This is only the ceiling that measurement is
+    /// clamped to, so it should be comfortably larger than the tallest tab rather
+    /// than tuned to it: a ceiling that fits exactly is a ceiling that clips the
+    /// moment a widget grows a row, on a Mac with a taller notch, or at a larger
+    /// text size. Extra headroom here costs nothing — the window is transparent
+    /// and the panel simply never grows into it.
+    static let expandedContentSize = CGSize(width: 560, height: 320)
 
     /// Extra room around the content for the drop shadow and the hover margin.
     static let windowInset = CGSize(width: 90, height: 60)
@@ -102,7 +111,32 @@ struct NotchGeometry: Equatable {
     /// Interactive area for a given state, in window coordinates (bottom-left
     /// origin), used for hit testing.
     func hitRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
-        let content = contentSize(for: state, hasBanner: hasBanner)
+        hitRect(ofSize: contentSize(for: state, hasBanner: hasBanner))
+    }
+
+    /// Same rect in screen coordinates, for the global pointer test.
+    func screenRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
+        screenRect(ofSize: contentSize(for: state, hasBanner: hasBanner))
+    }
+
+    /// The zone the pointer has to be in to keep a given state alive. Padded
+    /// outward so arriving from below the menu bar registers, and so small
+    /// pointer jitter at the edge does not flicker the panel shut.
+    func hoverRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
+        hoverRect(
+            ofSize: contentSize(for: state, hasBanner: hasBanner),
+            isExpanded: state.isExpanded
+        )
+    }
+
+    // MARK: Measured sizes
+
+    /// The expanded panel is only as tall as its content, which is not something
+    /// geometry can know — it depends on which widget is showing and what is in
+    /// it. These take the size directly so the panel can be hit-tested against
+    /// what is actually on screen rather than against its maximum.
+
+    func hitRect(ofSize content: CGSize) -> CGRect {
         let window = windowSize
         return CGRect(
             x: (window.width - content.width) / 2,
@@ -112,20 +146,14 @@ struct NotchGeometry: Equatable {
         )
     }
 
-    /// Same rect in screen coordinates, for the global pointer test.
-    func screenRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
-        let rect = hitRect(for: state, hasBanner: hasBanner)
-        let origin = windowFrame.origin
-        return rect.offsetBy(dx: origin.x, dy: origin.y)
+    func screenRect(ofSize content: CGSize) -> CGRect {
+        hitRect(ofSize: content).offsetBy(dx: windowFrame.origin.x, dy: windowFrame.origin.y)
     }
 
-    /// The zone the pointer has to be in to keep a given state alive. Padded
-    /// outward so arriving from below the menu bar registers, and so small
-    /// pointer jitter at the edge does not flicker the panel shut.
-    func hoverRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
-        let rect = screenRect(for: state, hasBanner: hasBanner)
-        let padX: CGFloat = state.isExpanded ? 12 : 18
-        let padY: CGFloat = state.isExpanded ? 12 : 4
+    func hoverRect(ofSize content: CGSize, isExpanded: Bool) -> CGRect {
+        let rect = screenRect(ofSize: content)
+        let padX: CGFloat = isExpanded ? 12 : 18
+        let padY: CGFloat = isExpanded ? 12 : 4
         return CGRect(
             x: rect.minX - padX,
             y: rect.minY - padY,

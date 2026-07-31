@@ -50,7 +50,33 @@ enum PreviewRenderer {
         battery=\(snapshot.batteryLevel.map { "\(Int($0 * 100))%" } ?? "none")
         """)
 
+        // Seed playback before rendering anything: the media row and the music
+        // player are part of what these shots exist to review, and on a machine
+        // with nothing playing they would all render as the empty state.
+        let playing = NowPlaying(
+            source: .music,
+            title: "Weightless",
+            artist: "Marconi Union",
+            album: "Ambient Transmissions",
+            isPlaying: true,
+            duration: 489,
+            position: 128,
+            artwork: nil
+        )
+
         var failures = 0
+
+        // Home with nothing playing, before anything is seeded. The panel is sized
+        // from its content, so this must come out visibly shorter than the same tab
+        // with a media row — that difference is the whole point, and a fixed height
+        // got one of the two wrong however it was tuned.
+        environment.nowPlaying.seedForPreview(nil)
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-home-idle", into: directory) { failures += 1 }
+
+        environment.nowPlaying.seedForPreview(playing)
+
         for tab in NotchTab.allCases {
             environment.notch.tab = tab
             environment.notch.expand()
@@ -65,16 +91,6 @@ enum PreviewRenderer {
         // The peek is the state most sessions actually see, and it has two very
         // different shapes: a narrow strip while something is playing, and a wider
         // one while a banner is up. Both are worth reviewing.
-        environment.nowPlaying.seedForPreview(NowPlaying(
-            source: .music,
-            title: "Weightless",
-            artist: "Marconi Union",
-            album: "Ambient Transmissions",
-            isPlaying: true,
-            duration: 489,
-            position: 128,
-            artwork: nil
-        ))
         environment.notch.hasLiveActivity = true
         environment.notch.collapse()
 

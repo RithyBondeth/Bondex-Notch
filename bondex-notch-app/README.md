@@ -75,8 +75,22 @@ re-derived on `didChangeScreenParametersNotification`.
 | State | Size | When |
 |---|---|---|
 | `collapsed` | exactly the notch | nothing live; invisible on notched Macs |
-| `peek` | notch + strips either side | media playing, or a transient banner |
-| `expanded` | 560 × 210 | pointer on the notch, or clicked to pin |
+| `peek` | notch + 120 while playing, + 260 for a banner | media playing, or a transient banner |
+| `expanded` | 560 wide, height **measured from the content** | pointer on the notch, or clicked to pin |
+
+Only the widths are fixed. The expanded panel's height comes from what it is
+actually showing: `ExpandedView` reports its laid-out height through
+`ExpandedHeightKey`, and `NotchViewModel.contentSize` clamps that between a floor
+and `expandedContentSize.height` — a *ceiling*, not the panel's size.
+
+This is worth keeping. A single fixed height cannot be right for every tab, and
+getting it wrong is not obvious: the panel mask simply cuts the bottom off
+whatever overflowed, which reads as inconsistent padding rather than as clipping.
+Both directions were shipped and reported before this was measured instead —
+Home clipped its gauges once a media row appeared, and Music sat in dead space
+whenever the height was raised enough to fix Home. Tabs that scroll opt out with
+`NotchTab.widgetHeight`, because a panel that resized as feed items arrived and
+aged out would be worse than one that stays put.
 
 ## What macOS does and does not allow
 

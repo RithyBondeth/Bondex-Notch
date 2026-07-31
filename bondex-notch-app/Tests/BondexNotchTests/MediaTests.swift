@@ -194,6 +194,70 @@ final class MediaAppTests: XCTestCase {
     }
 }
 
+@MainActor
+final class ExpandedSizingTests: XCTestCase {
+
+    private let geometry = NotchGeometry(
+        notchSize: CGSize(width: 179, height: 32),
+        hasHardwareNotch: true,
+        screenFrame: CGRect(x: 0, y: 0, width: 1470, height: 956)
+    )
+
+    func testContentSizedTabsAreMeasuredRatherThanFixed() {
+        // Home and Music report no fixed height, which is what lets the panel
+        // shrink when Home has nothing playing.
+        XCTAssertNil(NotchTab.home.widgetHeight)
+        XCTAssertNil(NotchTab.music.widgetHeight)
+    }
+
+    func testListTabsKeepAStableArea() {
+        // A panel that resized as feed items arrived and aged out would be worse
+        // than one that stays put.
+        for tab in [NotchTab.files, .activity, .shelf] {
+            XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) would resize as its list changed")
+        }
+    }
+
+    func testAMeasuredPanelIsHitTestedWhereItIsDrawn() {
+        // The rect has to follow the measured height, or the panel keeps claiming
+        // clicks in the empty space below whatever it actually drew.
+        let short = geometry.hitRect(ofSize: CGSize(width: 560, height: 150))
+        let tall = geometry.hitRect(ofSize: CGSize(width: 560, height: 224))
+
+        XCTAssertLessThan(short.height, tall.height)
+        XCTAssertEqual(short.maxY, tall.maxY, accuracy: 0.5, "Both hang from the top")
+        XCTAssertEqual(short.midX, tall.midX, accuracy: 0.5)
+        XCTAssertGreaterThan(short.minY, tall.minY, "The shorter panel stops higher up")
+    }
+
+    func testMeasuredRectsAgreeWithTheStateBasedOnes() {
+        for state in [NotchState.collapsed, .peek, .expanded] {
+            let size = geometry.contentSize(for: state)
+            XCTAssertEqual(geometry.hitRect(ofSize: size), geometry.hitRect(for: state))
+            XCTAssertEqual(geometry.screenRect(ofSize: size), geometry.screenRect(for: state))
+        }
+    }
+
+    func testTheCeilingClearsTheTallestTab() {
+        // A ceiling tuned to exactly fit is one that clips the moment a widget
+        // grows a row, or on a Mac whose notch is taller. Chrome is the notch
+        // inset plus the tab strip, divider and the panel's own padding.
+        let chrome = geometry.notchSize.height + 80
+        let tallest = NotchTab.allCases.compactMap(\.widgetHeight).max() ?? 0
+
+        XCTAssertLessThan(
+            chrome + tallest,
+            NotchGeometry.expandedContentSize.height,
+            "The tallest tab would be clamped, which shows up as a clipped bottom edge"
+        )
+    }
+
+    func testTheWholePanelStillFitsItsWindow() {
+        let bounds = CGRect(origin: .zero, size: geometry.windowSize)
+        XCTAssertTrue(bounds.contains(geometry.hitRect(ofSize: NotchGeometry.expandedContentSize)))
+    }
+}
+
 final class BannerPolicyTests: XCTestCase {
 
     func testPlaybackNeverBanners() {

@@ -90,6 +90,9 @@ enum Theme {
     static let collapsedBottomRadius: CGFloat = 10
 
     static let contentPadding: CGFloat = 16
+    /// Card padding on the Home tab, which stacks two rows where the other tabs
+    /// have one.
+    static let compactCardPadding: CGFloat = 8
     static let widgetSpacing: CGFloat = 12
 }
 
@@ -111,8 +114,11 @@ extension View {
 
 extension View {
     /// Standard row treatment used inside the expanded panel.
-    func notchCard() -> some View {
-        padding(10)
+    ///
+    /// - Parameter padding: tightened on the Home tab, which has to fit two rows
+    ///   of cards into the same panel every other tab fills with one.
+    func notchCard(padding: CGFloat = 10) -> some View {
+        self.padding(padding)
             .background(Theme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
