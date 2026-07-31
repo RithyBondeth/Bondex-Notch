@@ -118,12 +118,54 @@ private struct WidgetSettings: View {
                     .disabled(!settings.isUnlocked(.fileActivity))
                 Toggle("Drop shelf", isOn: binding(\.shelfEnabled))
                     .disabled(!settings.isUnlocked(.shelf))
+                Toggle("Dev status", isOn: binding(\.devWidgetEnabled))
+                    .disabled(!settings.isUnlocked(.devTools))
 
                 if settings.tier != .pro {
                     Text("Pro widgets stay visible but inactive until a license key is added.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Section {
+                LabeledContent("Project") {
+                    HStack(spacing: 8) {
+                        Text(devProjectLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                        Button("Choose…") {
+                            if let path = DevProjectPicker.choose(
+                                startingAt: settings.preferences.devProjectPath
+                            ) {
+                                settings.preferences.devProjectPath = path
+                            }
+                        }
+                        if !settings.preferences.devProjectPath.isEmpty {
+                            Button("Clear") { settings.preferences.devProjectPath = "" }
+                        }
+                    }
+                }
+                .disabled(!settings.isUnlocked(.devTools) || !settings.preferences.devWidgetEnabled)
+
+                if DevProjectService.gitExecutable == nil {
+                    Text("Git was not found. Install the Xcode Command Line Tools, or Git via Homebrew.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Dev Status")
+            } footer: {
+                Text("""
+                The Dev tab reports one Git working copy: its branch, how far it \
+                has drifted from its upstream, what is uncommitted, and the last \
+                commit. It watches the repository's .git directory rather than \
+                polling, so it costs nothing between operations. Read-only — \
+                nothing here can change the repository.
+                """)
+                .font(.caption)
             }
 
             Section {
@@ -161,6 +203,12 @@ private struct WidgetSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var devProjectLabel: String {
+        let path = settings.preferences.devProjectPath
+        guard !path.isEmpty else { return "None chosen" }
+        return (path as NSString).abbreviatingWithTildeInPath
     }
 
     private var downloadsPath: String {

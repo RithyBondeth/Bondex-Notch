@@ -12,6 +12,7 @@ struct NotchEvent: Identifiable, Equatable {
         case download
         case system
         case shelf
+        case dev
         case app
 
         var systemImage: String {
@@ -20,6 +21,7 @@ struct NotchEvent: Identifiable, Equatable {
             case .download: return "arrow.down.circle.fill"
             case .system: return "cpu"
             case .shelf: return "tray.full.fill"
+            case .dev: return "arrow.triangle.branch"
             case .app: return "bell.fill"
             }
         }
@@ -30,6 +32,7 @@ struct NotchEvent: Identifiable, Equatable {
             case .download: return Color(red: 0.29, green: 0.62, blue: 0.98)
             case .system: return Color(red: 0.99, green: 0.72, blue: 0.25)
             case .shelf: return Color(red: 0.32, green: 0.80, blue: 0.55)
+            case .dev: return Color(red: 0.62, green: 0.55, blue: 0.98)
             case .app: return Color(white: 0.75)
             }
         }
@@ -42,9 +45,13 @@ struct NotchEvent: Identifiable, Equatable {
         /// artwork and the equaliser, for as long as it lasts. Bannering it too
         /// would flash the track title over the menu bar for a few seconds on
         /// every change — putting back exactly the text the peek leaves out.
+        /// Dev events are the second exception, for the opposite reason to
+        /// playback: you are the one who ran the checkout, so interrupting the
+        /// screen to announce it is reporting your own keystroke back at you.
+        /// The feed still keeps it, as a record of what the working copy did.
         var deservesBanner: Bool {
             switch self {
-            case .music: return false
+            case .music, .dev: return false
             case .download, .system, .shelf, .app: return true
             }
         }

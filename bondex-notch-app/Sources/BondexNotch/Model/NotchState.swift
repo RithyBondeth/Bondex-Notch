@@ -16,6 +16,7 @@ enum NotchState: Equatable {
 enum NotchTab: String, CaseIterable, Identifiable {
     case home
     case music
+    case dev
     case files
     case activity
     case shelf
@@ -26,6 +27,7 @@ enum NotchTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "Home"
         case .music: return "Music"
+        case .dev: return "Dev"
         case .files: return "Files"
         case .activity: return "Activity"
         case .shelf: return "Shelf"
@@ -36,6 +38,7 @@ enum NotchTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "square.grid.2x2.fill"
         case .music: return "music.note"
+        case .dev: return "chevron.left.forwardslash.chevron.right"
         case .files: return "arrow.down.circle.fill"
         case .activity: return "bell.fill"
         case .shelf: return "tray.full.fill"
@@ -46,6 +49,7 @@ enum NotchTab: String, CaseIterable, Identifiable {
         switch self {
         case .files: return .fileActivity
         case .shelf: return .shelf
+        case .dev: return .devTools
         default: return nil
         }
     }
@@ -60,7 +64,7 @@ enum NotchTab: String, CaseIterable, Identifiable {
     var widgetHeight: CGFloat? {
         switch self {
         case .home, .music: return nil
-        case .files, .activity, .shelf: return 148
+        case .dev, .files, .activity, .shelf: return 148
         }
     }
 }
