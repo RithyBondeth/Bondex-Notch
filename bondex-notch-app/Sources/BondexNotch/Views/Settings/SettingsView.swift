@@ -109,6 +109,7 @@ private struct WidgetSettings: View {
         Form {
             Section("Free") {
                 Toggle("Music", isOn: binding(\.musicWidgetEnabled))
+                Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
                 Toggle("System", isOn: binding(\.systemWidgetEnabled))
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
             }
@@ -124,6 +125,18 @@ private struct WidgetSettings: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Section {
+                AgentSetupHelp(environment: environment)
+            } header: {
+                Text("Agent Activity")
+            } footer: {
+                Text("""
+                Shows a mark beside the notch while Claude Code or Codex is \
+                working, with what it is doing and how long it has been at it.
+                """)
+                .font(.caption)
             }
 
             Section {

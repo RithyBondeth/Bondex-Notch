@@ -15,6 +15,8 @@ struct Preferences: Codable, Equatable {
     var fileActivityEnabled = true
     var activityFeedEnabled = true
     var shelfEnabled = true
+    /// Show a mark beside the notch while Claude Code or Codex is working.
+    var agentActivityEnabled = true
 
     /// Expand when the pointer rests on the notch, versus requiring a click.
     var expandOnHover = true

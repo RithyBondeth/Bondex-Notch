@@ -12,6 +12,7 @@ final class AppEnvironment: ObservableObject {
     let metrics: SystemMetricsService
     let files: FileActivityService
     let shelf: ShelfService
+    let agents: AgentActivityService
     let notifications: NotificationService
     let notch: NotchViewModel
 
@@ -29,6 +30,7 @@ final class AppEnvironment: ObservableObject {
         self.metrics = SystemMetricsService(events: events)
         self.files = FileActivityService(events: events)
         self.shelf = ShelfService(events: events)
+        self.agents = AgentActivityService(events: events)
         self.notifications = NotificationService(events: events)
         self.notch = NotchViewModel(settings: settings, events: events, screen: screen)
 
@@ -37,11 +39,23 @@ final class AppEnvironment: ObservableObject {
 
     private func wire() {
         // The peek state exists to report live media, so it follows playback.
+        // The peek reports whatever is live: playback, or an agent working.
         nowPlaying.$nowPlaying
             .map { $0?.isPlaying ?? false }
             .removeDuplicates()
             .sink { [weak self] isPlaying in
-                self?.notch.hasLiveActivity = isPlaying
+                self?.isPlaying = isPlaying
+                self?.refreshLiveActivity()
+            }
+            .store(in: &cancellables)
+
+        agents.$active
+            .map { !$0.isEmpty }
+            .removeDuplicates()
+            .sink { [weak self] isWorking in
+                self?.isAgentWorking = isWorking
+                self?.notch.hasAgentActivity = isWorking
+                self?.refreshLiveActivity()
             }
             .store(in: &cancellables)
 
@@ -64,6 +78,17 @@ final class AppEnvironment: ObservableObject {
         nowPlaying.stop()
         metrics.stop()
         files.stop()
+        agents.stop()
+    }
+
+    private var isPlaying = false
+    private var isAgentWorking = false
+
+    /// `hasLiveActivity` stays about *playback* only; agent work is carried
+    /// separately, because the two are gated by different preferences and need
+    /// different peek widths.
+    private func refreshLiveActivity() {
+        notch.hasLiveActivity = isPlaying
     }
 
     private func applyWidgetActivation(_ preferences: Preferences) {
@@ -79,6 +104,12 @@ final class AppEnvironment: ObservableObject {
             metrics.start()
         } else {
             metrics.stop()
+        }
+
+        if preferences.agentActivityEnabled {
+            agents.start()
+        } else {
+            agents.stop()
         }
 
         let filesUnlocked = preferences.tier == .pro

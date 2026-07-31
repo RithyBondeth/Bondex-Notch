@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Logs and local env
+npm-debug.log*
+yarn-error.log*
+.env*.local
+.DS_Store

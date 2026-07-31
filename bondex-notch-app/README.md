@@ -92,6 +92,53 @@ whenever the height was raised enough to fix Home. Tabs that scroll opt out with
 `NotchTab.widgetHeight`, because a panel that resized as feed items arrived and
 aged out would be worse than one that stays put.
 
+### Agent activity
+
+While Claude Code or Codex is working, the peek shows a mark beside the notch
+with what the agent is doing and how long it has been at it.
+
+**The agent has to say so, and that is not a shortcut.** The obvious design is to
+find the agent's process and watch its CPU, and it does not work. Measured
+against three live Claude Code processes and a Codex process on a machine where
+an agent was mid-task, CPU over a two-second window was **0.000–0.001 cores**,
+and `proc_listchildpids` reported no children. An agent that is "working" is
+almost always *blocked* — on a streaming API response, or on a tool running
+elsewhere. That signal is not weak, it is absent, and an indicator built on it
+would have looked like a feature while essentially never lighting up.
+
+So the agent declares itself, through one hook:
+
+```bash
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-busy claude "Editing Foo.swift"
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-idle claude
+```
+
+Settings › Widgets shows both lines with the real binary path filled in, and a
+Copy button. Wire `--agent-busy` to whatever fires per tool call and
+`--agent-idle` to whatever fires at the end of a turn.
+
+Those write and remove `~/.bondex-notch/agents/<agent>`, which the app watches
+with a dispatch source — no polling, and nothing running at all when no agent is
+working. The file's modification date is a heartbeat and its first line is the
+status to show. A 90-second staleness backstop covers an agent killed mid-run
+without its idle hook firing; it is deliberately long, because it must sit
+through a single slow tool call without blinking out.
+
+The orb is Core Animation, not SwiftUI, for the reason in *Keeping it cheap* —
+it is on screen for the entire length of a run. The agent's mark inside it is
+drawn from a grid of strings rather than shipped as an image, so it scales
+without a set of `@2x` exports and is tinted by fill rather than by compositing,
+which matters on a near-black panel. At 21pt the whole mark is 13pt wide and a
+cell is under a point, so the cells are drawn at exactly one cell with no
+overlap: dilating each one to hide seams instead closes the single-cell gaps
+that are the eyes.
+
+Process discovery is still here, but only to answer "is this agent installed",
+which is what lets Settings show setup instructions for the agents you use and
+stay quiet about the rest. `proc_pidpath` resolves every process the user owns
+(measured at 617 of 617). Matching is case-sensitive on purpose: Claude Code's
+binary is `claude`, the Claude desktop app's is `Claude`.
+
 ## What macOS does and does not allow
 
 Two features in the original proposal cannot be built as literally described.
