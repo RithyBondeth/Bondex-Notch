@@ -4,30 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bondex Notch — Your Mac's notch, finally useful</title>
-<meta name="description" content="A native macOS utility that turns the notch into a live view of your music, downloads, system status and files. Built in Swift. Under 40 MB of memory.">
-<meta name="theme-color" content="#000000">
+<meta name="description" content="A native macOS utility that turns the notch into a live view of your music, downloads, system status and files. Built in Swift. No Electron, no web view.">
+<meta name="theme-color" content="#1D62D7">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Bondex Notch — Your Mac's notch, finally useful">
 <meta property="og:description" content="A native macOS utility that turns the notch into a live view of your music, downloads, system status and files.">
 
-<link rel="preconnect" href="">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=DM+Sans:opsz,wght@9..40,300..600&family=JetBrains+Mono:wght@400..600&display=swap">
 <link rel="stylesheet" href="styles.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23000'/><rect x='28' y='18' width='44' height='20' rx='9' fill='%23fff'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23000'/><rect x='28' y='18' width='44' height='20' rx='9' fill='%233CC1F6'/></svg>">
 </head>
 <body>
 
 <a class="skip-link" href="#main">Skip to content</a>
 
-<header class="nav" id="nav">
-  <div class="wrap nav__inner">
+<!-- The wallpaper. Canvas draws the waved stripe field; the pseudo-elements
+     on .field add grain and vignette. -->
+<div class="field" aria-hidden="true"><canvas id="field"></canvas></div>
+
+<!-- The navigation is the product: a notch hanging off the top edge of the
+     screen, fillets and all. It collapses as you scroll. -->
+<header class="notchbar" id="notchbar">
+  <div class="notchbar__body">
     <a class="brand" href="#main" aria-label="Bondex Notch home">
       <span class="brand__mark" aria-hidden="true"></span>
       <span class="brand__name">Bondex&nbsp;Notch</span>
     </a>
-    <nav class="nav__links" aria-label="Primary">
+    <span class="notchbar__lens" aria-hidden="true"></span>
+    <nav class="notchbar__links" aria-label="Primary">
       <a href="#features">Features</a>
-      <a href="#how">How it works</a>
+      <a href="#how">States</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
     </nav>
@@ -40,10 +49,12 @@
   <!-- ───────────────────────── Hero ───────────────────────── -->
   <section class="hero">
     <div class="wrap">
-      <p class="eyebrow">Native macOS utility · Apple silicon &amp; Intel</p>
-      <h1 class="hero__title">
-        Your Mac's notch,<br><span class="grad">finally useful.</span>
+      <p class="label label--light">Native macOS · Apple silicon &amp; Intel</p>
+
+      <h1 class="hero__title" id="heroTitle">
+        Your Mac's notch,<br><span class="hero__title-b">finally useful.</span>
       </h1>
+
       <p class="hero__lede">
         Bondex Notch turns the dead space around your camera into a live view of
         what your Mac is doing — the track that's playing, the file that's
@@ -51,15 +62,16 @@
         and disappears when you don't.
       </p>
 
-      <div class="hero__actions">
+      <div class="actions">
         <a class="btn" href="#download">Download for macOS</a>
         <a class="btn btn--ghost" href="#how">See how it works</a>
       </div>
 
-      <p class="hero__meta">Requires macOS 14 Sonoma or later · Free tier, no account</p>
+      <p class="meta">macOS 14+ · Free tier · No account · Nothing leaves your Mac</p>
 
-      <!-- Interactive demo -->
-      <div class="stage" id="stage">
+      <!-- Interactive demo. The frame is glass, so the page's own wallpaper
+           shows through it — which is exactly where the panel really sits. -->
+      <div class="stage">
         <div class="stage__screen">
           <div class="stage__menubar" aria-hidden="true">
             <span class="stage__menubar-left"></span>
@@ -153,17 +165,17 @@
                   <!-- Activity -->
                   <div class="view" data-view="activity">
                     <div class="row row--slim">
-                      <span class="dot dot--blue" aria-hidden="true"></span>
+                      <span class="dot dot--azure" aria-hidden="true"></span>
                       <span class="row__text"><b>Xcode_26.xip</b><em>Download complete · 7.4 GB</em></span>
                       <span class="row__time">4:14 PM</span>
                     </div>
                     <div class="row row--slim">
-                      <span class="dot dot--pink" aria-hidden="true"></span>
+                      <span class="dot dot--mauve" aria-hidden="true"></span>
                       <span class="row__text"><b>Weightless</b><em>Marconi Union</em></span>
                       <span class="row__time">4:11 PM</span>
                     </div>
                     <div class="row row--slim">
-                      <span class="dot dot--amber" aria-hidden="true"></span>
+                      <span class="dot dot--cobalt" aria-hidden="true"></span>
                       <span class="row__text"><b>Low Battery</b><em>14% remaining</em></span>
                       <span class="row__time">3:58 PM</span>
                     </div>
@@ -182,100 +194,119 @@
   <!-- ───────────────────────── Features ───────────────────────── -->
   <section id="features" class="section">
     <div class="wrap">
-      <h2 class="section__title">Everything at the top of the screen</h2>
-      <p class="section__lede">
-        Five widgets, one surface. Each one answers a question you'd otherwise
-        have to open an app to answer.
-      </p>
-
-      <div class="grid">
-        <article class="feature">
-          <span class="feature__icon" data-icon="music" aria-hidden="true"></span>
-          <h3>Music</h3>
-          <p>
-            Track, artist, album art and a scrubbing progress bar for Music and
-            Spotify — with transport controls that don't steal focus from what
-            you're typing.
+      <div class="slab">
+        <header class="slab__head">
+          <p class="label">Six widgets</p>
+          <h2 class="title">Everything at the top of the screen</h2>
+          <p class="lede">
+            Each widget answers a question you'd otherwise have to open an app to
+            answer. Switch one off and it stops sampling entirely.
           </p>
-        </article>
+        </header>
 
-        <article class="feature">
-          <span class="feature__icon" data-icon="files" aria-hidden="true"></span>
-          <h3>File activity</h3>
-          <p>
-            Watches your Downloads folder and reports transfers as they land,
-            with live throughput. Click through to reveal anything in Finder.
-          </p>
-          <span class="tag">Pro</span>
-        </article>
+        <div class="grid">
+          <article class="feature">
+            <span class="feature__icon" data-icon="music" aria-hidden="true"></span>
+            <h3>Music</h3>
+            <p>
+              Track, artist, album art and a scrubbing progress bar for Music and
+              Spotify — with transport controls that don't steal focus from what
+              you're typing.
+            </p>
+          </article>
 
-        <article class="feature">
-          <span class="feature__icon" data-icon="system" aria-hidden="true"></span>
-          <h3>System</h3>
-          <p>
-            CPU load, memory pressure, battery level and time remaining, and
-            real network throughput — sampled straight from the kernel, not
-            estimated.
-          </p>
-        </article>
+          <article class="feature">
+            <span class="feature__icon" data-icon="files" aria-hidden="true"></span>
+            <h3>File activity</h3>
+            <p>
+              Watches your Downloads folder and reports transfers as they land,
+              with live throughput. Click through to reveal anything in Finder.
+            </p>
+            <span class="tag">Pro</span>
+          </article>
 
-        <article class="feature">
-          <span class="feature__icon" data-icon="bell" aria-hidden="true"></span>
-          <h3>Activity feed</h3>
-          <p>
-            A running log of what changed: tracks, finished downloads, power
-            events, shelf drops. Transient events also flash as a banner beside
-            the notch.
-          </p>
-        </article>
+          <article class="feature">
+            <span class="feature__icon" data-icon="system" aria-hidden="true"></span>
+            <h3>System</h3>
+            <p>
+              CPU load, memory pressure, battery level and time remaining, and
+              real network throughput — sampled straight from the kernel, not
+              estimated.
+            </p>
+          </article>
 
-        <article class="feature">
-          <span class="feature__icon" data-icon="tray" aria-hidden="true"></span>
-          <h3>Drop shelf</h3>
-          <p>
-            Drag files onto the notch to park them, then drag them back out
-            anywhere. Nothing is copied — the shelf holds references to your
-            real files.
-          </p>
-          <span class="tag">Pro</span>
-        </article>
+          <article class="feature">
+            <span class="feature__icon" data-icon="bell" aria-hidden="true"></span>
+            <h3>Activity feed</h3>
+            <p>
+              A running log of what changed: tracks, finished downloads, power
+              events, shelf drops. Transient events also flash as a banner beside
+              the notch.
+            </p>
+          </article>
 
-        <article class="feature">
-          <span class="feature__icon" data-icon="bolt" aria-hidden="true"></span>
-          <h3>Genuinely light</h3>
-          <p>
-            Swift and SwiftUI throughout, no Electron and no web view. Widgets
-            you switch off stop sampling entirely, so they cost nothing.
-          </p>
-        </article>
+          <article class="feature">
+            <span class="feature__icon" data-icon="tray" aria-hidden="true"></span>
+            <h3>Drop shelf</h3>
+            <p>
+              Drag files onto the notch to park them, then drag them back out
+              anywhere. Nothing is copied — the shelf holds references to your
+              real files.
+            </p>
+            <span class="tag">Pro</span>
+          </article>
+
+          <article class="feature">
+            <span class="feature__icon" data-icon="bolt" aria-hidden="true"></span>
+            <h3>Genuinely light</h3>
+            <p>
+              Swift and SwiftUI throughout, no Electron and no web view. Widgets
+              you switch off stop sampling entirely, so they cost nothing.
+            </p>
+          </article>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ───────────────────────── How it works ───────────────────────── -->
-  <section id="how" class="section section--alt">
+  <!-- ───────────────────────── States ─────────────────────────
+       The three states are a real progression, and each one is a real
+       width. So the diagram is the notch itself, drawn to scale. -->
+  <section id="how" class="section">
     <div class="wrap">
-      <h2 class="section__title">Three states, one gesture</h2>
+      <header class="head head--center">
+        <p class="label label--light">One gesture</p>
+        <h2 class="title title--light">Three states, drawn to scale</h2>
+        <p class="lede lede--light">
+          The panel is the same object throughout. It only ever changes size.
+        </p>
+      </header>
 
-      <ol class="steps">
-        <li class="step">
-          <span class="step__n">1</span>
+      <ol class="states">
+        <li class="state">
+          <div class="state__art" aria-hidden="true">
+            <span class="mini" data-mini="collapsed"></span>
+          </div>
           <h3>Collapsed</h3>
           <p>
             Exactly the size of your hardware notch, and completely invisible
             against it. Bondex is doing nothing to your screen.
           </p>
         </li>
-        <li class="step">
-          <span class="step__n">2</span>
+        <li class="state">
+          <div class="state__art" aria-hidden="true">
+            <span class="mini" data-mini="peek"></span>
+          </div>
           <h3>Peek</h3>
           <p>
             When something is live — a track playing, a download finishing — a
             thin strip grows either side of the notch. Never over it.
           </p>
         </li>
-        <li class="step">
-          <span class="step__n">3</span>
+        <li class="state">
+          <div class="state__art" aria-hidden="true">
+            <span class="mini" data-mini="expanded"></span>
+          </div>
           <h3>Expanded</h3>
           <p>
             Move the pointer to the notch and the full panel springs down. Move
@@ -285,11 +316,12 @@
       </ol>
 
       <div class="callout">
+        <p class="label">Displays</p>
         <h3>No notch? No problem.</h3>
         <p>
           On external displays and pre-2021 Macs, Bondex draws its own pill in
-          the same place and behaves identically. It follows the built-in
-          display when you plug in, and re-measures itself whenever your display
+          the same place and behaves identically. It follows the built-in display
+          when you plug in, and re-measures itself whenever your display
           arrangement changes.
         </p>
       </div>
@@ -299,128 +331,139 @@
   <!-- ───────────────────────── Pricing ───────────────────────── -->
   <section id="pricing" class="section">
     <div class="wrap">
-      <h2 class="section__title">Pay once, or don't pay at all</h2>
-      <p class="section__lede">
-        No subscription for the app itself. Buy the license, keep the version
-        you bought, forever.
-      </p>
+      <div class="slab">
+        <header class="slab__head">
+          <p class="label">Pricing</p>
+          <h2 class="title">Pay once, or don't pay at all</h2>
+          <p class="lede">
+            No subscription for the app itself. Buy the license, keep the version
+            you bought, forever.
+          </p>
+        </header>
 
-      <div class="plans">
-        <article class="plan">
-          <h3 class="plan__name">Free</h3>
-          <p class="plan__price"><span>$0</span></p>
-          <p class="plan__note">Everything you need to live in the notch.</p>
-          <ul class="plan__list">
-            <li>Music widget with playback controls</li>
-            <li>System widget — CPU, memory, battery, network</li>
-            <li>Activity feed</li>
-            <li>Hover, peek and expand behaviour</li>
-            <li>Graphite theme</li>
-          </ul>
-          <a class="btn btn--ghost btn--block" href="#download">Download</a>
-        </article>
+        <div class="plans">
+          <article class="plan">
+            <h3 class="plan__name">Free</h3>
+            <p class="plan__price"><span>$0</span></p>
+            <p class="plan__note">Everything you need to live in the notch.</p>
+            <ul class="plan__list">
+              <li>Music widget with playback controls</li>
+              <li>System widget — CPU, memory, battery, network</li>
+              <li>Activity feed</li>
+              <li>Hover, peek and expand behaviour</li>
+              <li>Graphite theme</li>
+            </ul>
+            <a class="btn btn--ghost btn--block" href="#download">Download</a>
+          </article>
 
-        <article class="plan plan--featured">
-          <span class="plan__badge">Most popular</span>
-          <h3 class="plan__name">Pro</h3>
-          <p class="plan__price"><span>$14.99</span><small>one-time</small></p>
-          <p class="plan__note">Everything in Free, plus:</p>
-          <ul class="plan__list">
-            <li>File activity widget</li>
-            <li>Drop shelf</li>
-            <li>All accent themes</li>
-            <li>Lifetime license, no account</li>
-          </ul>
-          <a class="btn btn--block" href="#download">Get Pro</a>
-        </article>
+          <article class="plan plan--featured">
+            <span class="plan__badge">Most popular</span>
+            <h3 class="plan__name">Pro</h3>
+            <p class="plan__price"><span>$14.99</span><small>one-time</small></p>
+            <p class="plan__note">Everything in Free, plus:</p>
+            <ul class="plan__list">
+              <li>File activity widget</li>
+              <li>Drop shelf</li>
+              <li>All accent themes</li>
+              <li>Lifetime license, no account</li>
+            </ul>
+            <a class="btn btn--block" href="#download">Get Pro</a>
+          </article>
 
-        <article class="plan">
-          <h3 class="plan__name">AI add-on</h3>
-          <p class="plan__price"><span>$4</span><small>/month</small></p>
-          <p class="plan__note">Optional. Cancel whenever.</p>
-          <ul class="plan__list">
-            <li>Notification summarisation</li>
-            <li>Smart replies</li>
-            <li>Calendar assistance</li>
-            <li>Requires a Pro license</li>
-          </ul>
-          <span class="plan__soon">On the roadmap</span>
-        </article>
+          <article class="plan">
+            <h3 class="plan__name">AI add-on</h3>
+            <p class="plan__price"><span>$4</span><small>/month</small></p>
+            <p class="plan__note">Optional. Cancel whenever.</p>
+            <ul class="plan__list">
+              <li>Notification summarisation</li>
+              <li>Smart replies</li>
+              <li>Calendar assistance</li>
+              <li>Requires a Pro license</li>
+            </ul>
+            <span class="plan__soon">On the roadmap</span>
+          </article>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- ───────────────────────── FAQ ───────────────────────── -->
-  <section id="faq" class="section section--alt">
+  <section id="faq" class="section">
     <div class="wrap wrap--narrow">
-      <h2 class="section__title">Straight answers</h2>
+      <div class="slab">
+        <header class="slab__head">
+          <p class="label">The honest answers</p>
+          <h2 class="title">What it can and can't do</h2>
+        </header>
 
-      <details class="qa" open>
-        <summary>Which music apps are supported?</summary>
-        <p>
-          Apple Music and Spotify. macOS has no public system-wide "now playing"
-          API — <code>MPNowPlayingInfoCenter</code> only reports the calling
-          process, and the private framework that used to work was locked down
-          in macOS 15.4. Bondex uses each app's scripting interface instead,
-          which is the supported route. You'll be asked for Automation
-          permission the first time.
-        </p>
-      </details>
+        <details class="qa" open>
+          <summary>Which music apps are supported?</summary>
+          <p>
+            Apple Music and Spotify. macOS has no public system-wide "now
+            playing" API — <code>MPNowPlayingInfoCenter</code> only reports the
+            calling process, and the private framework that used to work was
+            locked down in macOS 15.4. Bondex uses each app's scripting interface
+            instead, which is the supported route. You'll be asked for Automation
+            permission the first time.
+          </p>
+        </details>
 
-      <details class="qa">
-        <summary>Does it show my other apps' notifications?</summary>
-        <p>
-          No, and no Mac app can. Notification Center's database is protected by
-          System Integrity Protection and there's no API to read it. Rather than
-          pretend otherwise, Bondex shows an <em>activity feed</em>: what it
-          observes directly — track changes, completed downloads, power events,
-          shelf drops.
-        </p>
-      </details>
+        <details class="qa">
+          <summary>Does it show my other apps' notifications?</summary>
+          <p>
+            No, and no Mac app can. Notification Center's database is protected
+            by System Integrity Protection and there's no API to read it. Rather
+            than pretend otherwise, Bondex shows an <em>activity feed</em>: what
+            it observes directly — track changes, completed downloads, power
+            events, shelf drops.
+          </p>
+        </details>
 
-      <details class="qa">
-        <summary>How much memory does it actually use?</summary>
-        <p>
-          It's a small Swift agent with no web view and no background helpers.
-          Sampling is throttled and widgets you disable stop sampling entirely.
-          Check it yourself in Activity Monitor — that's the honest answer.
-        </p>
-      </details>
+        <details class="qa">
+          <summary>How much memory does it actually use?</summary>
+          <p>
+            It's a small Swift agent with no web view and no background helpers.
+            Sampling is throttled and widgets you disable stop sampling entirely.
+            Check it yourself in Activity Monitor — that's the honest answer.
+          </p>
+        </details>
 
-      <details class="qa">
-        <summary>What permissions does it ask for?</summary>
-        <p>
-          Three, all optional and all requested only when the relevant widget is
-          on. <b>Automation</b> for Music and Spotify, <b>Files and Folders</b>
-          to watch Downloads, and <b>Notifications</b> if you want Bondex to
-          post its own alerts. Nothing leaves your Mac.
-        </p>
-      </details>
+        <details class="qa">
+          <summary>What permissions does it ask for?</summary>
+          <p>
+            Three, all optional and all requested only when the relevant widget
+            is on. <b>Automation</b> for Music and Spotify, <b>Files and
+            Folders</b> to watch Downloads, and <b>Notifications</b> if you want
+            Bondex to post its own alerts. Nothing leaves your Mac.
+          </p>
+        </details>
 
-      <details class="qa">
-        <summary>Will it work on my display?</summary>
-        <p>
-          macOS 14 Sonoma or later, Apple silicon or Intel. Notch or no notch —
-          on displays without one, Bondex draws a matching pill in the same
-          position.
-        </p>
-      </details>
+        <details class="qa">
+          <summary>Will it work on my display?</summary>
+          <p>
+            macOS 14 Sonoma or later, Apple silicon or Intel. Notch or no notch —
+            on displays without one, Bondex draws a matching pill in the same
+            position.
+          </p>
+        </details>
+      </div>
     </div>
   </section>
 
   <!-- ───────────────────────── Download ───────────────────────── -->
   <section id="download" class="section section--cta">
     <div class="wrap wrap--narrow">
-      <h2 class="section__title">Put the notch to work</h2>
-      <p class="section__lede">
+      <p class="label label--light">Get it</p>
+      <h2 class="title title--light title--xl">Put the notch to work</h2>
+      <p class="lede lede--light">
         Free tier, no account, no telemetry. Build it from source or grab the
         signed release.
       </p>
-      <div class="hero__actions hero__actions--center">
+      <div class="actions actions--center">
         <a class="btn" href="#">Download for macOS</a>
         <a class="btn btn--ghost" href="#">View on GitHub</a>
       </div>
-      <p class="hero__meta">macOS 14+ · Universal binary · ~4 MB</p>
+      <p class="meta">macOS 14+ · Universal binary · ~4 MB</p>
     </div>
   </section>
 
@@ -438,6 +481,7 @@
   </div>
 </footer>
 
+<script src="field.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
