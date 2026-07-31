@@ -1,22 +1,33 @@
 # Bondex Notch — marketing site
 
-Static, dependency-free: four files, no build step, no framework.
+Next.js 16 (App Router, React 19, TypeScript), built as a fully static export.
 
 ```
-index.html   structure and copy
-styles.css   the whole design system
-field.js     the Ribbon Field wallpaper (canvas)
-app.js       the notch bar, the interactive notch demo, tab switching
+app/layout.tsx      metadata, fonts, the wallpaper and the notch bar
+app/page.tsx        section order
+app/globals.css     the whole design system
+components/         one component per section, plus the three client ones
+content/site.ts     features, panel states and pricing as typed data
+lib/ribbonField.ts  the gradient maths, framework-free
 ```
 
 ## Run it
 
 ```bash
-python3 -m http.server 4173 --directory bondex-notch-web
+cd bondex-notch-web && npm install && npm run dev
 ```
 
-Then open <http://localhost:4173>. Opening `index.html` directly works too.
-Deploy by copying the four files to any static host.
+Then open <http://localhost:4173>.
+
+```bash
+npm run build
+```
+
+Writes plain files to `out/`. Deploy by copying that directory to any static
+host — no server, no runtime, nothing to configure, the same deploy story the
+site had before the migration. `npm start` serves the export locally.
+
+`npm run lint` and `npm run typecheck` both run clean.
 
 ## The idea
 
@@ -33,7 +44,8 @@ The product is a black panel that lives on top of your wallpaper, so the page
 
 ## The Ribbon Field
 
-`field.js` renders the 21st.dev "my gradient" Ribbon Field to a canvas.
+`lib/ribbonField.ts` paints the 21st.dev "my gradient" Ribbon Field to a canvas.
+`components/RibbonField.tsx` is a thin client wrapper around it.
 
 The stop list in that file is the exact stripe layout 21st.dev computes from the
 source parameters (angle 135, scale 68, count 6, spread −20, softness 26,
@@ -49,12 +61,17 @@ Two deliberate departures from the published values, both for legibility:
 
 - The grain layer is held at `opacity: .55` rather than full strength. The
   bitmap itself is the reference texture, unmodified.
-- Hero and download copy sit on the bare field, so each of those sections lays
-  a soft radial pool of shade under its own text.
+- The hero, the download call to action and the states heading are the only copy
+  set directly on the bare field, so each pools a little shade under its own
+  text. White type on its own is not enough where the pale Mauve ribbon crosses.
 
-The field is static (`animated: false` in the source parameters), so it renders
-once on load and again on a debounced resize, into a buffer capped at 1100px on
+The field is static (`animated: false` in the source parameters), so it paints
+once on mount and again on a debounced resize, into a buffer capped at 1100px on
 its longest edge and upscaled. Roughly 0.7 MP of work, once.
+
+`.field` is promoted with `transform: translateZ(0)`. Without it a full-viewport
+fixed canvas sitting under blended and blurred content gets dropped by the
+compositor part-way down the page, and whole sections render as flat colour.
 
 ## The demo
 
@@ -62,6 +79,10 @@ The hero contains a working replica of the panel, driven by the same state
 machine as the app: `collapsed → peek → expanded`, hover to open, click to pin,
 `Escape` to close. It is keyboard reachable and announces its state via
 `aria-expanded`.
+
+`idleState` and `pinned` are refs rather than state — the ambient loop and the
+close timer both read them from callbacks that outlive a render, and neither
+should trigger one on its own.
 
 The concave fillets either side of the notch are drawn with `box-shadow` on two
 pseudo-elements rather than SVG, so the shape animates with the panel width. The
@@ -74,12 +95,21 @@ first interaction, and never starts under `prefers-reduced-motion`.
 
 ## Conventions
 
+- **One global stylesheet, not CSS Modules.** The design is a small token system
+  with primitives (`.btn`, `.label`, `.title`, `.slab`) that cut across every
+  section. Scoping them per component would fragment the system without making
+  anything safer.
+- **Server components by default.** Only the wallpaper, the notch bar and the
+  demo are client components; every other section ships no JavaScript.
+- **Content lives in `content/site.ts`.** The panel-state diagram reads its
+  widths from there rather than from CSS, because those are facts about the
+  product, not styling.
 - **Type.** Archivo for display (variable on the width axis — the hero headline
   opens from `wdth` 74 to 112 on load, once, the way the panel widens when it
   wakes), DM Sans for body, JetBrains Mono for labels and the panel's readouts,
-  where tabular figures are the point. This replaces the previous
-  system-font-only rule: the site now has its own identity rather than
-  impersonating the platform. Cost is one Google Fonts request.
+  where tabular figures are the point. All three are self-hosted at build time
+  by `next/font`, so the exported HTML makes no third-party requests. The
+  headline animation is pure CSS, so it survives with JavaScript disabled.
 - **Palette is dark-on-saturated in every mode.** The product is a black panel
   on a desktop, and a light rendering would misrepresent it.
   `prefers-contrast: more` firms up text, slabs and hairlines and drops the
@@ -96,5 +126,8 @@ first interaction, and never starts under `prefers-reduced-motion`.
   proposal's $9.99–$19.99 and $3–$5. Confirm before publishing.
 - The "Genuinely light" card deliberately does not quote a memory figure. Add
   one only once it has been measured on a release build.
-- Fonts load from Google Fonts. Self-host the four files if you'd rather not
-  depend on a third party at runtime.
+- `npm audit` reports high-severity libvips advisories against `sharp`, which
+  Next pulls in as an optional dependency for image optimisation. Nothing here
+  uses `next/image` and the export is static, so `sharp` never runs — but the
+  advisory will keep showing until Next ships a bumped version. Do not let
+  `npm audit fix --force` "fix" it: it downgrades Next to 9.x.

@@ -6,7 +6,7 @@ Dynamic Island-style surface — and the site that sells it.
 | Directory | What it is |
 |---|---|
 | [`bondex-notch-app`](bondex-notch-app/) | The macOS app. Swift 6, SwiftUI, AppKit, no dependencies. |
-| [`bondex-notch-web`](bondex-notch-web/) | The marketing site. Static HTML/CSS/JS, no build step. |
+| [`bondex-notch-web`](bondex-notch-web/) | The marketing site. Next.js 16, React 19, TypeScript, static export. |
 | [`docs`](docs/) | Original project proposal. |
 
 ## Quick start
@@ -16,7 +16,7 @@ cd bondex-notch-app && ./scripts/build-app.sh release && open "build/Bondex Notc
 ```
 
 ```bash
-python3 -m http.server 4173 --directory bondex-notch-web
+cd bondex-notch-web && npm install && npm run dev
 ```
 
 Each directory has its own README with architecture notes and caveats. Two
