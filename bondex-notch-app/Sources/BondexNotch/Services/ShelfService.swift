@@ -70,18 +70,12 @@ final class ShelfService: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([item.url])
     }
 
-    /// Resolves the file URLs out of a drop. Returns on the main actor once
-    /// every provider has reported.
+    /// Resolves a drop into file URLs. Returns on the main actor once every
+    /// provider has reported.
     func resolve(providers: [NSItemProvider]) async -> [URL] {
         await withTaskGroup(of: URL?.self) { group in
             for provider in providers {
-                group.addTask {
-                    await withCheckedContinuation { continuation in
-                        _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                            continuation.resume(returning: url)
-                        }
-                    }
-                }
+                group.addTask { await Self.fileURL(from: provider) }
             }
             var urls: [URL] = []
             for await url in group {
@@ -90,4 +84,92 @@ final class ShelfService: ObservableObject {
             return urls
         }
     }
+
+    /// A file on disk for whatever was dropped.
+    ///
+    /// Most drops are a file URL and are only referenced, never copied. Some have
+    /// no file behind them at all: a screenshot dragged straight off its thumbnail
+    /// has not been written to disk yet, and an image dragged out of a browser
+    /// never will be. Those arrive as raw data, so there is nothing to point at
+    /// until it is written somewhere — which is what `stage` does.
+    private static func fileURL(from provider: NSItemProvider) async -> URL? {
+        if provider.canLoadObject(ofClass: URL.self) {
+            let url: URL? = await withCheckedContinuation { continuation in
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    continuation.resume(returning: url)
+                }
+            }
+            // A promised file reports a URL before anything exists at it, and a
+            // browser drag reports an https one. Either way, fall through.
+            if let url, url.isFileURL, FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+        }
+        return await stageImage(from: provider)
+    }
+
+    /// Writes dropped image data out and returns where it landed.
+    private static func stageImage(from provider: NSItemProvider) async -> URL? {
+        let candidates: [UTType] = [.png, .jpeg, .heic, .tiff, .gif, .pdf, .image]
+
+        for type in candidates
+        where provider.hasItemConformingToTypeIdentifier(type.identifier) {
+            let data: Data? = await withCheckedContinuation { continuation in
+                _ = provider.loadDataRepresentation(
+                    forTypeIdentifier: type.identifier
+                ) { data, _ in
+                    continuation.resume(returning: data)
+                }
+            }
+            guard let data, !data.isEmpty else { continue }
+            if let url = write(data, as: type) { return url }
+        }
+        return nil
+    }
+
+    private static func write(_ data: Data, as type: UTType) -> URL? {
+        let directory = stagingDirectory
+        do {
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true
+            )
+        } catch {
+            Log.shelf.error("Could not create the shelf staging folder: \(error.localizedDescription)")
+            return nil
+        }
+
+        let stamp = Self.stampFormatter.string(from: Date())
+        let ext = type.preferredFilenameExtension ?? "png"
+        var url = directory.appendingPathComponent("Dropped \(stamp).\(ext)")
+
+        // Two drops in the same second must not overwrite one another.
+        var attempt = 2
+        while FileManager.default.fileExists(atPath: url.path) {
+            url = directory.appendingPathComponent("Dropped \(stamp) (\(attempt)).\(ext)")
+            attempt += 1
+        }
+
+        do {
+            try data.write(to: url)
+            return url
+        } catch {
+            Log.shelf.error("Could not stage a dropped image: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Dropped data is written here rather than into the user's own folders, so
+    /// the shelf never litters the Desktop with things they only parked briefly.
+    private static var stagingDirectory: URL {
+        let base = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return base.appendingPathComponent("Bondex Notch/Dropped", isDirectory: true)
+    }
+
+    private static let stampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        return formatter
+    }()
 }

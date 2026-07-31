@@ -150,6 +150,33 @@ struct NotchGeometry: Equatable {
         hitRect(ofSize: content).offsetBy(dx: windowFrame.origin.x, dy: windowFrame.origin.y)
     }
 
+    /// Where a file being dragged has to reach for the panel to open itself.
+    ///
+    /// Deliberately far more generous than the hover zone. The collapsed panel is
+    /// the notch and nothing else — on a Mac that means the camera housing, where
+    /// the pointer is *invisible*, so asking someone to release a file onto it is
+    /// asking them to aim at something they cannot see. Opening as the drag gets
+    /// close turns an invisible 179pt strip into the whole expanded panel.
+    ///
+    /// It can afford to be this large because it only applies while a drag is
+    /// actually in flight; nothing here affects ordinary clicks.
+    func dropCatchRect() -> CGRect {
+        dropCatchHitRect().offsetBy(dx: windowFrame.origin.x, dy: windowFrame.origin.y)
+    }
+
+    /// The same zone in window coordinates, for hit testing.
+    func dropCatchHitRect() -> CGRect {
+        let rect = hitRect(for: .collapsed)
+        let padX: CGFloat = 150
+        let padY: CGFloat = 60
+        return CGRect(
+            x: rect.minX - padX,
+            y: rect.minY - padY,
+            width: rect.width + padX * 2,
+            height: rect.height + padY
+        )
+    }
+
     func hoverRect(ofSize content: CGSize, isExpanded: Bool) -> CGRect {
         let rect = screenRect(ofSize: content)
         let padX: CGFloat = isExpanded ? 12 : 18

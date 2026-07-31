@@ -69,11 +69,17 @@ struct NotchRootView: View {
             .frame(width: contentSize.width, height: contentSize.height, alignment: .top)
             .contentShape(Rectangle())
             .onTapGesture { notch.toggle() }
-            .modifier(ShelfDropModifier(environment: environment, isDisabled: isRenderingOffscreen))
 
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Drops are accepted across the whole window rather than just the drawn
+        // panel. Sized to the silhouette, this region was the collapsed notch —
+        // so a file released a few points off target landed nowhere. What keeps
+        // the large region from swallowing ordinary clicks is `hitTest`, which
+        // only opens up while a file drag is actually in flight.
+        .contentShape(Rectangle())
+        .modifier(ShelfDropModifier(environment: environment, isDisabled: isRenderingOffscreen))
     }
 
     // MARK: Silhouette
@@ -177,7 +183,7 @@ private struct ShelfDropModifier: ViewModifier {
             content
         } else {
             content.onDrop(
-                of: [.fileURL],
+                of: ShelfDropDelegate.acceptedTypes,
                 delegate: ShelfDropDelegate(environment: environment)
             )
         }
@@ -198,12 +204,18 @@ private struct ShelfDropDelegate: DropDelegate {
         MainActor.assumeIsolated { environment.notch.dragExited() }
     }
 
+    /// Files, plus anything that arrives as image data with no file behind it —
+    /// a screenshot dragged off its thumbnail before it has been saved, or an
+    /// image dragged out of a browser. Accepting only `fileURL` silently rejected
+    /// both, which looked exactly like the shelf being broken.
+    static let acceptedTypes: [UTType] = [.fileURL, .image, .pdf]
+
     func validateDrop(info: DropInfo) -> Bool {
-        info.hasItemsConforming(to: [.fileURL])
+        info.hasItemsConforming(to: Self.acceptedTypes)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        let providers = info.itemProviders(for: [.fileURL])
+        let providers = info.itemProviders(for: Self.acceptedTypes)
         guard !providers.isEmpty else { return false }
 
         return MainActor.assumeIsolated {
