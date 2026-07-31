@@ -32,9 +32,11 @@ struct PeekView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 11)
         }
-        // The peek hangs a few points below the menu bar; centre content on the
-        // menu bar itself rather than on the panel, or it sits visibly low.
-        .padding(.bottom, 6)
+        // Centre the content on the menu bar rather than on the panel. Where the
+        // peek hangs below the notch — only on displays without one — centring
+        // on the panel puts the artwork visibly below the menu bar it belongs
+        // to. Flush against a real notch this is zero, and the two agree.
+        .padding(.bottom, notch.geometry.peekOverhang(hasBanner: notch.banner != nil))
         .frame(maxHeight: .infinity)
     }
 

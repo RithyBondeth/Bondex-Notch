@@ -64,19 +64,42 @@ struct NotchGeometry: Equatable {
     /// Extra room around the content for the drop shadow and the hover margin.
     static let windowInset = CGSize(width: 90, height: 60)
 
-    private var peekHeight: CGFloat { max(notchSize.height + 8, 40) }
+    /// How far the peek hangs below the notch.
+    ///
+    /// While media is playing, on a Mac with a real notch: not at all. That peek
+    /// is meant to read as the notch itself having grown sideways, and any
+    /// overhang breaks it — a dark tab below the menu bar with two rounded
+    /// corners, visible against every window behind it, for as long as anything
+    /// is playing. It is the single longest-lived thing this app draws, so it is
+    /// the one that has to disappear into the hardware.
+    ///
+    /// A banner is the opposite case and gets its drop back. It carries two lines
+    /// of text, it is gone in three seconds, and a notification squeezed into the
+    /// menu bar band to avoid being noticed has argued itself out of existing.
+    ///
+    /// Without a notch there is nothing to be flush with either way, so the
+    /// synthetic pill always keeps an edge to be seen against.
+    func peekOverhang(hasBanner: Bool) -> CGFloat {
+        if hasBanner { return 12 }
+        return hasHardwareNotch ? 0 : 8
+    }
+
+    private func peekHeight(hasBanner: Bool) -> CGFloat {
+        let height = notchSize.height + peekOverhang(hasBanner: hasBanner)
+        return hasHardwareNotch ? height : max(height, 40)
+    }
 
     /// While media is playing: artwork on one side of the notch, the equaliser on
     /// the other, and nothing else. Only as wide as those two need, so the strips
     /// sit close to the notch rather than stranded at the far edges.
     var mediaPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 120, 240), height: peekHeight)
+        CGSize(width: max(notchSize.width + 120, 240), height: peekHeight(hasBanner: false))
     }
 
     /// While a banner is up: wide enough to carry a readable line or two of text,
     /// because a transient notification is nothing without its message.
     var bannerPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 260, 360), height: peekHeight)
+        CGSize(width: max(notchSize.width + 260, 360), height: peekHeight(hasBanner: true))
     }
 
     /// - Parameter hasBanner: whether the peek is currently carrying a banner,
@@ -152,8 +175,12 @@ struct NotchGeometry: Equatable {
 
     func hoverRect(ofSize content: CGSize, isExpanded: Bool) -> CGRect {
         let rect = screenRect(ofSize: content)
-        let padX: CGFloat = isExpanded ? 12 : 18
-        let padY: CGFloat = isExpanded ? 12 : 4
+        // Closed, this is the zone that *opens* the panel, so it is kept close to
+        // the notch: every point of slack here is a point at which crossing the
+        // menu bar on the way to something else fires the panel open. Expanded,
+        // it only decides when to close, where a little forgiveness is welcome.
+        let padX: CGFloat = isExpanded ? 12 : 6
+        let padY: CGFloat = isExpanded ? 12 : 2
         return CGRect(
             x: rect.minX - padX,
             y: rect.minY - padY,

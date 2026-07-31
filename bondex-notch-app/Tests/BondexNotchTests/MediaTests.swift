@@ -285,14 +285,64 @@ final class PeekWidthTests: XCTestCase {
         screenFrame: CGRect(x: 0, y: 0, width: 1470, height: 956)
     )
 
-    func testPlaybackPeekIsNarrowerThanABanner() {
-        // Playing shows artwork and the equaliser only, so the strips can sit
-        // close to the notch; a banner has to carry a line of text.
+    /// The peek has to read as the notch itself having grown sideways. Any drop
+    /// below the notch is a dark tab hanging under the menu bar with two rounded
+    /// corners on it — visible against every window behind it, for as long as
+    /// anything is playing.
+    func testThePlaybackPeekIsFlushWithARealNotch() {
+        let peek = geometry.contentSize(for: .peek, hasBanner: false)
+        XCTAssertEqual(peek.height, geometry.notchSize.height, accuracy: 0.01)
+        XCTAssertEqual(geometry.peekOverhang(hasBanner: false), 0)
+    }
+
+    /// With no notch there is nothing to be flush with, so the synthetic pill
+    /// keeps an edge to be seen against.
+    func testTheSyntheticPillStillHangsBelowTheMenuBar() {
+        let synthetic = NotchGeometry(
+            notchSize: CGSize(width: 190, height: 32),
+            hasHardwareNotch: false,
+            screenFrame: CGRect(x: 0, y: 0, width: 1470, height: 956)
+        )
+        XCTAssertGreaterThan(synthetic.peekOverhang(hasBanner: false), 0)
+        XCTAssertGreaterThan(
+            synthetic.contentSize(for: .peek, hasBanner: false).height,
+            synthetic.notchSize.height
+        )
+    }
+
+    /// The zone that *opens* the panel is the notch, not the peek drawn over it.
+    ///
+    /// The peek is on screen for as long as anything is playing and reaches far
+    /// wider than the notch, so letting it trigger the hover meant the panel
+    /// sprang open from most of the way across the menu bar whenever music was
+    /// on. This pins the two apart.
+    func testTheOpenTriggerIsTheNotchAndNotTheWholePeek() {
+        let trigger = geometry.hoverRect(for: .collapsed)
+        let peek = geometry.screenRect(for: .peek, hasBanner: false)
+
+        XCTAssertLessThan(
+            trigger.width, peek.width,
+            "the trigger must not span the whole peek"
+        )
+        XCTAssertFalse(
+            trigger.contains(CGPoint(x: peek.minX + 4, y: trigger.midY)),
+            "the far end of the peek must not open the panel"
+        )
+        // It still has to cover the thing it is aimed at, with a little slack.
+        let notch = geometry.screenRect(for: .collapsed)
+        XCTAssertTrue(trigger.contains(notch))
+        XCTAssertLessThan(trigger.width - notch.width, 24, "slack here is what makes it twitchy")
+    }
+
+    func testPlaybackPeekIsSmallerThanABanner() {
+        // Playing shows artwork and the equaliser only, so the strip can sit
+        // close to the notch and flush with it. A banner has to carry two lines
+        // of text and is gone in three seconds, so it gets its drop back.
         let playing = geometry.contentSize(for: .peek, hasBanner: false)
         let banner = geometry.contentSize(for: .peek, hasBanner: true)
 
         XCTAssertLessThan(playing.width, banner.width)
-        XCTAssertEqual(playing.height, banner.height, "Only the width should differ")
+        XCTAssertLessThan(playing.height, banner.height)
     }
 
     func testPlaybackPeekStillClearsTheNotchOnBothSides() {
