@@ -6,17 +6,15 @@ struct PeekView: View {
 
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var notch: NotchViewModel
-    @ObservedObject private var settings: SettingsStore
     @ObservedObject private var nowPlaying: NowPlayingService
 
     init(environment: AppEnvironment) {
         self.environment = environment
         self.notch = environment.notch
-        self.settings = environment.settings
         self.nowPlaying = environment.nowPlaying
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    @Environment(\.notchTint) private var accent
     private var notchWidth: CGFloat { notch.geometry.notchSize.width }
 
     var body: some View {
@@ -52,9 +50,42 @@ struct PeekView: View {
                 )
                 .transition(.scale.combined(with: .opacity))
         } else if let track = nowPlaying.nowPlaying {
-            ArtworkView(image: track.artwork, cornerRadius: 5, tint: accent)
-                .frame(width: 21, height: 21)
+            artwork(track)
                 .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    /// Album art with the track's progress drawn around it.
+    ///
+    /// The peek's whole job is to answer "what is playing" without a click, and
+    /// how far through it is is the one other thing worth knowing at a glance —
+    /// but there is no room beside the notch for a bar and two clocks. A ring
+    /// around art that is already there costs no width at all.
+    @ViewBuilder
+    private func artwork(_ track: NowPlaying) -> some View {
+        let art = ArtworkView(image: track.artwork, cornerRadius: 5, tint: accent)
+            .frame(width: 21, height: 21)
+
+        if track.isLive || track.duration <= 0 {
+            // A stream has no end to be a fraction of, and a full ring would
+            // claim it was about to finish.
+            art
+        } else {
+            // Ticked once a second, not at the 15Hz the expanded player uses.
+            // The peek is on screen for as long as anything is playing, and a
+            // timeline tick re-renders the panel — at this size a second's worth
+            // of a three-minute track is a third of a degree of arc, so the
+            // faster schedule would buy nothing visible for a permanent cost.
+            TimelineView(.animation(minimumInterval: 1, paused: !track.isPlaying)) { timeline in
+                art.overlay(
+                    ProgressRing(
+                        value: track.progress(at: timeline.date),
+                        tint: accent,
+                        lineWidth: 1.6
+                    )
+                    .padding(-3.5)
+                )
+            }
         }
     }
 

@@ -6,16 +6,14 @@ struct ShelfWidget: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var service: ShelfService
     @ObservedObject private var notch: NotchViewModel
-    @ObservedObject private var settings: SettingsStore
 
     init(environment: AppEnvironment) {
         self.environment = environment
         self.service = environment.shelf
         self.notch = environment.notch
-        self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    @Environment(\.notchTint) private var accent
 
     var body: some View {
         VStack(spacing: 8) {

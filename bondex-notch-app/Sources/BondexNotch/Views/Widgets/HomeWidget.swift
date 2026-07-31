@@ -15,7 +15,7 @@ struct HomeWidget: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    @Environment(\.notchTint) private var accent
 
     var body: some View {
         VStack(spacing: 10) {

@@ -12,7 +12,7 @@ struct MusicWidget: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    @Environment(\.notchTint) private var accent
 
     var body: some View {
         if let track = service.nowPlaying {
@@ -44,6 +44,11 @@ struct MusicWidget: View {
         HStack(spacing: 14) {
             ArtworkView(image: track.artwork, cornerRadius: 10, tint: accent)
                 .frame(width: 78, height: 78)
+                // A cover sitting directly on black has nothing holding it to the
+                // panel. A shadow in its own dominant colour reads as the art
+                // lighting the surface it is on, which is the same idea as the
+                // panel's ambient wash at a scale you notice up close.
+                .shadow(color: accent.opacity(0.34), radius: 14, y: 4)
 
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 1) {

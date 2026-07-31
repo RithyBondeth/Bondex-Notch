@@ -17,7 +17,7 @@ struct SystemWidget: View {
         self.compact = compact
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    @Environment(\.notchTint) private var accent
     private var snapshot: SystemSnapshot { service.snapshot }
 
     var body: some View {

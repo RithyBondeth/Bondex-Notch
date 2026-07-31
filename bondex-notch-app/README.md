@@ -92,6 +92,31 @@ whenever the height was raised enough to fix Home. Tabs that scroll opt out with
 `NotchTab.widgetHeight`, because a panel that resized as feed items arrived and
 aged out would be worse than one that stays put.
 
+### Artwork lighting
+
+While something is playing, the panel takes its colour from the album art.
+`ArtworkPalette` downsamples the cover to 32×32, buckets its pixels by hue and
+weights them by saturation, and returns two hue-distinct colours already lifted
+into a brightness band that reads on a near-black surface — a black-metal cover
+is not a usable accent, so dark results are brightened rather than used raw. The
+result is cached per *track*, because `nowPlaying` republishes once a second with
+the same image attached.
+
+That palette drives two things, both Pro (they are the same promise as the accent
+picker: the panel is not stuck being grey) and both switchable in Settings ›
+Appearance:
+
+- **The accent.** Resolved once in `NotchRootView` and passed down through
+  `\.notchTint`, so every control in the panel is guaranteed to agree on it.
+  Falls back to the chosen accent whenever there is no artwork.
+- **The wash.** `AmbientWash` bleeds the two colours into the panel behind its
+  content, drifting slowly. It is drawn **only in the expanded state**, and even
+  there it is masked off the top edge: the peek and collapsed strips sit level
+  with the hardware notch, and any light across those makes the seam visible.
+
+The drift is two `repeatForever` offsets handed to Core Animation, for the same
+reason the equaliser is — see *Keeping it cheap*.
+
 ## What macOS does and does not allow
 
 Two features in the original proposal cannot be built as literally described.

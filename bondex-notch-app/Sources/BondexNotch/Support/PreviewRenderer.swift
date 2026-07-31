@@ -61,7 +61,7 @@ enum PreviewRenderer {
             isPlaying: true,
             duration: 489,
             position: 128,
-            artwork: nil
+            artwork: sampleArtwork()
         )
 
         var failures = 0
@@ -146,6 +146,33 @@ enum PreviewRenderer {
             FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
             return false
         }
+    }
+
+    /// Stand-in album art.
+    ///
+    /// Real artwork cannot be used here — nothing is playing on the machine
+    /// rendering these, and shipping a cover into the repository is a licensing
+    /// problem — but *some* artwork is needed, because the adaptive tint and the
+    /// ambient wash are both derived from it. Rendered with no art at all, the
+    /// previews would silently show the fallback accent and no glow, which is
+    /// exactly the case they are least useful for reviewing.
+    private static func sampleArtwork() -> NSImage {
+        let size = NSSize(width: 300, height: 300)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSGradient(
+            colors: [
+                NSColor(srgbRed: 0.16, green: 0.30, blue: 0.62, alpha: 1),
+                NSColor(srgbRed: 0.85, green: 0.32, blue: 0.36, alpha: 1)
+            ]
+        )?.draw(in: NSRect(origin: .zero, size: size), angle: 55)
+
+        // A second, hue-distinct mass, so the extractor has a real secondary
+        // colour to find rather than one hue's worth of shading.
+        NSColor(srgbRed: 0.98, green: 0.78, blue: 0.22, alpha: 1).setFill()
+        NSBezierPath(ovalIn: NSRect(x: 168, y: 34, width: 104, height: 104)).fill()
+        image.unlockFocus()
+        return image
     }
 
     /// Deterministic content so previews are comparable between runs.
