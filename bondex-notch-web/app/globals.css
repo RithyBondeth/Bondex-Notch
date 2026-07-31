@@ -299,6 +299,8 @@ code {
 
 .notchbar__body {
   --pad: 22px;
+  --fillet: 20px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 22px;
@@ -316,13 +318,22 @@ code {
   content: "";
   position: absolute;
   top: 0;
-  width: 20px;
-  height: 20px;
-  box-shadow: 0 -10px 0 0 var(--panel);
+  width: calc(var(--fillet) + 1px);
+  height: var(--fillet);
   pointer-events: none;
 }
-.notchbar__body::before { right: 100%; border-top-right-radius: 20px; }
-.notchbar__body::after  { left: 100%;  border-top-left-radius: 20px; }
+.notchbar__body::before {
+  right: 100%;
+  margin-right: -1px;   /* bridges any sub-pixel seam against the bar */
+  background: radial-gradient(circle at 0 100%,
+    transparent var(--fillet), var(--panel) calc(var(--fillet) + .6px));
+}
+.notchbar__body::after {
+  left: 100%;
+  margin-left: -1px;
+  background: radial-gradient(circle at 100% 100%,
+    transparent var(--fillet), var(--panel) calc(var(--fillet) + .6px));
+}
 
 .notchbar.is-stuck .notchbar__body { --pad: 16px; height: 46px; gap: 16px; }
 
@@ -480,6 +491,7 @@ code {
 .notch__body {
   --w: 190px;
   --h: 30px;
+  --fillet: 11px;
   width: var(--w);
   height: var(--h);
   background: #000;
@@ -497,13 +509,22 @@ code {
   content: "";
   position: absolute;
   top: 0;
-  width: 11px;
-  height: 11px;
-  box-shadow: 0 -6px 0 0 #000;
+  width: calc(var(--fillet) + 1px);
+  height: var(--fillet);
   pointer-events: none;
 }
-.notch__body::before { right: 100%; border-top-right-radius: 11px; }
-.notch__body::after  { left: 100%;  border-top-left-radius: 11px; }
+.notch__body::before {
+  right: 100%;
+  margin-right: -1px;
+  background: radial-gradient(circle at 0 100%,
+    transparent var(--fillet), #000 calc(var(--fillet) + .6px));
+}
+.notch__body::after {
+  left: 100%;
+  margin-left: -1px;
+  background: radial-gradient(circle at 100% 100%,
+    transparent var(--fillet), #000 calc(var(--fillet) + .6px));
+}
 
 .notch[data-state="peek"] .notch__body     { --w: 330px; --h: 34px; }
 /* The expanded height is a fallback only. NotchDemo measures the active view
@@ -885,6 +906,7 @@ code {
   --w: 74px;
   --h: 14px;
   --r: 6px;
+  --fillet: 6px;
   width: var(--w);
   height: var(--h);
   background: #000;
@@ -896,11 +918,21 @@ code {
   content: "";
   position: absolute;
   top: 0;
-  width: 6px; height: 6px;
-  box-shadow: 0 -3px 0 0 #000;
+  width: calc(var(--fillet) + 1px);
+  height: var(--fillet);
 }
-.mini::before { right: 100%; border-top-right-radius: 6px; }
-.mini::after  { left: 100%;  border-top-left-radius: 6px; }
+.mini::before {
+  right: 100%;
+  margin-right: -1px;
+  background: radial-gradient(circle at 0 100%,
+    transparent var(--fillet), #000 calc(var(--fillet) + .6px));
+}
+.mini::after {
+  left: 100%;
+  margin-left: -1px;
+  background: radial-gradient(circle at 100% 100%,
+    transparent var(--fillet), #000 calc(var(--fillet) + .6px));
+}
 
 .callout {
   margin-top: 18px;
