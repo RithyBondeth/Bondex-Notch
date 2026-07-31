@@ -7,13 +7,25 @@
   const prefersReducedMotion =
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ── Sticky nav hairline ─────────────────────────────── */
+  /* ── The notch bar collapses on scroll ───────────────── */
 
-  const nav = document.getElementById('nav');
-  if (nav) {
-    const onScroll = () => nav.classList.toggle('is-stuck', window.scrollY > 8);
+  const bar = document.getElementById('notchbar');
+  if (bar) {
+    const onScroll = () => bar.classList.toggle('is-stuck', window.scrollY > 24);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  /* ── Headline reveal ─────────────────────────────────── */
+
+  // Archivo is variable on the width axis, so the headline can open the way
+  // the panel opens: narrow, then wide. One line, once, on load.
+  const title = document.getElementById('heroTitle');
+  if (title && !prefersReducedMotion) {
+    title.classList.add('is-loading');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => title.classList.remove('is-loading'));
+    });
   }
 
   /* ── Interactive notch demo ──────────────────────────── */
