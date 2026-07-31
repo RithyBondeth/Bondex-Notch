@@ -1,0 +1,26 @@
+{
+  "name": "bondex-notch-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marketing site for Bondex Notch.",
+  "scripts": {
+    "dev": "next dev --port 4173",
+    "build": "next build",
+    "start": "npx serve out --listen 4173",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.2.12",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.2.12",
+    "typescript": "^5.9.3"
+  }
+}
