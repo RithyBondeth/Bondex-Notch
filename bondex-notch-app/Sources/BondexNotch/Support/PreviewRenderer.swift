@@ -108,6 +108,23 @@ enum PreviewRenderer {
         ))
         if !render(environment, named: "peek-banner", into: directory) { failures += 1 }
 
+        // The agent indicator, which on a machine with nothing running would
+        // otherwise never appear in a preview — and it is the state the peek
+        // spends its time in for anyone who uses a coding agent.
+        // Expanding clears the banner still up from the shot above, which would
+        // otherwise outrank the agent in the peek and render the same image twice.
+        environment.notch.expand()
+        environment.notch.hasAgentActivity = true
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Editing PeekView.swift"
+            )
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agent", into: directory) { failures += 1 }
+
         return failures == 0 ? 0 : 1
     }
 

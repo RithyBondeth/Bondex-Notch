@@ -18,6 +18,14 @@ struct BondexNotch {
             exit(PreviewRenderer.run(outputDirectory: directory))
         }
 
+        // What an agent's hook actually runs. Writing the signal through the app
+        // rather than asking users to `mkdir -p` and `touch` keeps the location
+        // an implementation detail, and makes the hook a single line that cannot
+        // be typo'd into a file the watcher never sees.
+        if let status = AgentSignalCommand.parse(arguments) {
+            exit(status.run())
+        }
+
         let application = NSApplication.shared
         let delegate = AppDelegate()
         application.delegate = delegate

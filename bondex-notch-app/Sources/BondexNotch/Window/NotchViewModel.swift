@@ -36,6 +36,21 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// Set while a coding agent is working, which the peek reports with a name,
+    /// a status and a clock. Kept separate from `hasLiveActivity` because it also
+    /// decides how *wide* the peek has to be: playback needs room for artwork and
+    /// an equaliser, text needs a great deal more.
+    @Published var hasAgentActivity = false {
+        didSet {
+            guard hasAgentActivity != oldValue else { return }
+            refreshIdleState()
+        }
+    }
+
+    /// Whether the peek is currently carrying text rather than just artwork.
+    /// Both a banner and an agent do; playback on its own does not.
+    var peekCarriesText: Bool { banner != nil || hasAgentActivity }
+
     init(settings: SettingsStore, events: EventCenter, screen: NSScreen) {
         self.settings = settings
         self.events = events
@@ -77,7 +92,7 @@ final class NotchViewModel: ObservableObject {
     /// too short for one (clipping it) or too tall for the other (dead space).
     var contentSize: CGSize {
         guard state.isExpanded else {
-            return geometry.contentSize(for: state, hasBanner: banner != nil)
+            return geometry.contentSize(for: state, hasBanner: peekCarriesText)
         }
         let maximum = NotchGeometry.expandedContentSize
         let measured = measuredExpandedHeight ?? maximum.height
@@ -193,6 +208,11 @@ final class NotchViewModel: ObservableObject {
     /// What the panel falls back to when nothing is hovering it: a peek when
     /// something is live, otherwise fully closed.
     private var idleState: NotchState {
+        // An agent working is not gated behind the *media* peek preference —
+        // someone who turned off "peek while playing" was asking not to see
+        // album art over the menu bar, which says nothing about whether they
+        // want to know their agent is still running.
+        if hasAgentActivity, settings.preferences.agentActivityEnabled { return .peek }
         guard hasLiveActivity, settings.preferences.peekWhilePlaying else { return .collapsed }
         return .peek
     }
