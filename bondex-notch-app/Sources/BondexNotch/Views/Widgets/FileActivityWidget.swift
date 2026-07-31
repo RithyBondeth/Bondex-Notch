@@ -4,15 +4,13 @@ struct FileActivityWidget: View {
 
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var service: FileActivityService
-    @ObservedObject private var settings: SettingsStore
 
     init(environment: AppEnvironment) {
         self.environment = environment
         self.service = environment.files
-        self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    @Environment(\.notchTint) private var accent
 
     var body: some View {
         if service.accessDenied {

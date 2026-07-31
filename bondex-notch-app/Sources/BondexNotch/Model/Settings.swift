@@ -10,6 +10,12 @@ struct Preferences: Codable, Equatable {
     var accent: Theme.Accent = .graphite
     var motionSpeed: Motion.Speed = .standard
 
+    /// Take the accent from the current album art instead of the fixed one.
+    /// Falls back to `accent` whenever there is no artwork to read.
+    var adaptiveArtworkTint = true
+    /// Wash the expanded panel with the artwork's colours.
+    var ambientGlow = true
+
     var musicWidgetEnabled = true
     var systemWidgetEnabled = true
     var fileActivityEnabled = true
@@ -112,6 +118,29 @@ final class SettingsStore: ObservableObject {
     }
 
     var motion: Motion.Speed { preferences.motionSpeed }
+
+    /// The accent to draw with, given what is playing.
+    ///
+    /// Artwork tinting is grouped with the custom accents rather than given away,
+    /// because it is the same promise — the panel is not stuck being grey — and
+    /// letting it through for free would make the accent picker the only locked
+    /// half of a feature the user already has.
+    ///
+    /// - Parameter palette: colours from the current album art, if any.
+    func accent(for palette: ArtworkPalette?) -> Color {
+        guard preferences.adaptiveArtworkTint,
+              isUnlocked(.customThemes),
+              let palette
+        else { return effectiveAccent.color }
+        return palette.accent
+    }
+
+    /// Whether the artwork wash should be drawn at all. Same gate as the tint:
+    /// with no palette there is nothing to wash the panel with.
+    func ambientPalette(for palette: ArtworkPalette?) -> ArtworkPalette? {
+        guard preferences.ambientGlow, isUnlocked(.customThemes) else { return nil }
+        return palette
+    }
 
     private func persist() {
         guard let data = try? JSONEncoder().encode(preferences) else { return }

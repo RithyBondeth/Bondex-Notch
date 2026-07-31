@@ -75,7 +75,14 @@ struct NowPlaying: Equatable {
 @MainActor
 final class NowPlayingService: ObservableObject {
 
-    @Published private(set) var nowPlaying: NowPlaying?
+    @Published private(set) var nowPlaying: NowPlaying? {
+        didSet { refreshPalette() }
+    }
+    /// Colours pulled out of the current artwork, for the panel to light itself
+    /// from. Nil whenever there is no artwork to read — which is often, so every
+    /// consumer has to have an answer for that rather than treating it as an
+    /// error case.
+    @Published private(set) var palette: ArtworkPalette?
     /// True when Automation access was denied for an app we tried to read.
     @Published private(set) var automationDenied = false
     /// Set when a running browser still has "Allow JavaScript from Apple Events"
@@ -99,6 +106,7 @@ final class NowPlayingService: ObservableObject {
     private var artworkKey: String?
     private var isSampling = false
     private var artworkTask: Task<Void, Never>?
+    private let paletteCache = ArtworkPaletteCache()
     /// See `seedForPreview`. Always false in the running app.
     private var isPreviewSeeded = false
 
@@ -208,6 +216,22 @@ final class NowPlayingService: ObservableObject {
 
         nowPlaying = track
         fetchArtworkIfNeeded(for: track)
+    }
+
+    /// Keeps `palette` in step with the artwork on `nowPlaying`.
+    ///
+    /// `nowPlaying` is republished once a second whether or not anything about
+    /// the track changed, so both the extraction *and* the publish have to be
+    /// suppressed when nothing moved: the cache handles the first, and comparing
+    /// the result handles the second. Without the comparison every consumer of
+    /// the palette would re-render every second for no reason.
+    private func refreshPalette() {
+        let extracted = paletteCache.palette(
+            for: nowPlaying?.artwork,
+            key: nowPlaying?.trackKey
+        )
+        guard extracted != palette else { return }
+        palette = extracted
     }
 
     /// Remote artwork is fetched off the Apple Event lock, so a slow CDN can

@@ -210,6 +210,22 @@ private struct AppearanceSettings: View {
                 }
             }
 
+            Section("Artwork") {
+                Toggle("Take the accent from album art", isOn: binding(\.adaptiveArtworkTint))
+                Text("""
+                While something is playing, controls are tinted with the cover's \
+                dominant colour and fall back to your accent the rest of the time.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Toggle("Light the panel with album art", isOn: binding(\.ambientGlow))
+                Text("Washes the open panel with the cover's colours.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .disabled(!settings.isUnlocked(.customThemes))
+
             Section("Motion") {
                 Picker("Animation speed", selection: Binding(
                     get: { settings.preferences.motionSpeed },
@@ -223,6 +239,13 @@ private struct AppearanceSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func binding<T>(_ keyPath: WritableKeyPath<Preferences, T>) -> Binding<T> {
+        Binding(
+            get: { settings.preferences[keyPath: keyPath] },
+            set: { settings.preferences[keyPath: keyPath] = $0 }
+        )
     }
 }
 

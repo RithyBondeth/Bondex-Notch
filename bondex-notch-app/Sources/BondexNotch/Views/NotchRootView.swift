@@ -17,6 +17,10 @@ struct NotchRootView: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var notch: NotchViewModel
     @ObservedObject private var settings: SettingsStore
+    /// Observed here only for the artwork palette: the panel lights itself from
+    /// whatever is playing, so the root has to re-render when the art changes
+    /// even though it draws none of the media itself.
+    @ObservedObject private var nowPlaying: NowPlayingService
 
     /// `ImageRenderer` cannot rasterise `.onDrop`, and substitutes a yellow
     /// placeholder for the whole subtree. The offscreen preview tool sets this to
@@ -27,10 +31,29 @@ struct NotchRootView: View {
         self.environment = environment
         self.notch = environment.notch
         self.settings = environment.settings
+        self.nowPlaying = environment.nowPlaying
         self.isRenderingOffscreen = isRenderingOffscreen
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    /// Resolved once here and handed down through the environment, so every
+    /// control in the panel is guaranteed to be drawing the same colour.
+    private var accent: Color { settings.accent(for: nowPlaying.palette) }
+
+    /// The artwork colours to light the panel with, or nil when the wash is off,
+    /// locked, or there is no artwork to read.
+    private var ambientPalette: ArtworkPalette? {
+        settings.ambientPalette(for: nowPlaying.palette)
+    }
+
+    /// The wash is drawn in the expanded panel and nowhere else.
+    ///
+    /// The peek and collapsed states are strips a few points tall that sit
+    /// *level with the hardware notch*, and the whole illusion there rests on
+    /// them being the same black as the housing. Any light at all across those
+    /// makes the seam visible — which is a far worse trade than a peek without
+    /// a glow. The expanded panel hangs below the notch and has room for it.
+    private var ambientIntensity: Double { state.isExpanded ? 1 : 0 }
+
     private var geometry: NotchGeometry { notch.geometry }
     private var state: NotchState { notch.state }
 
@@ -74,6 +97,11 @@ struct NotchRootView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .environment(\.notchTint, accent)
+        // One curve for the whole colour change. Without this the tint arrives
+        // instantly on the next track while the artwork beside it crossfades,
+        // which reads as the panel flickering rather than as it responding.
+        .animation(Motion.value(settings.motion), value: accent)
     }
 
     // MARK: Silhouette
@@ -85,10 +113,29 @@ struct NotchRootView: View {
         // 38pt peek strip just reads as having a defined bottom edge.
         shape
             .fill(Theme.panelFill)
+            .overlay(ambientLayer)
             .overlay(shape.stroke(strokeStyle, lineWidth: notch.isDropTargeted ? 1.6 : 1))
             .frame(width: silhouetteWidth, height: contentSize.height)
             .shadow(color: .black.opacity(state.isExpanded ? 0.5 : 0), radius: 20, y: 9)
             .opacity(silhouetteOpacity)
+    }
+
+    /// The artwork wash, clipped to the panel and drawn under the content.
+    ///
+    /// It lives inside the silhouette rather than as a sibling layer so it is
+    /// clipped by the same animating shape the panel is drawn with, for free —
+    /// a second copy of the mask would have to be kept in step with this one
+    /// through every transition.
+    @ViewBuilder
+    private var ambientLayer: some View {
+        if let palette = ambientPalette, ambientIntensity > 0 {
+            AmbientWash(palette: palette, intensity: ambientIntensity)
+                .clipShape(shape)
+                // The palette changes on a track change, which is exactly when
+                // the artwork beside it is crossfading.
+                .animation(Motion.value(settings.motion), value: palette)
+                .transition(.opacity.animation(Motion.content(settings.motion)))
+        }
     }
 
     private var shape: NotchShape {
