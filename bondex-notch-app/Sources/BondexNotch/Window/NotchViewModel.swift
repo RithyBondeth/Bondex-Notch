@@ -223,6 +223,9 @@ final class NotchViewModel: ObservableObject {
     // MARK: Banners
 
     private func show(banner event: NotchEvent) {
+        // Playback reaches the feed but never the banner; see `deservesBanner`.
+        guard event.kind.deservesBanner else { return }
+
         // Never interrupt the expanded panel with a banner; the feed already
         // shows it there.
         guard !state.isExpanded else { return }

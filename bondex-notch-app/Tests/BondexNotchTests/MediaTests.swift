@@ -194,6 +194,24 @@ final class MediaAppTests: XCTestCase {
     }
 }
 
+final class BannerPolicyTests: XCTestCase {
+
+    func testPlaybackNeverBanners() {
+        // The peek shows artwork and the equaliser for as long as playback lasts,
+        // deliberately without the title. A banner would put that title straight
+        // back over the menu bar for a few seconds every time a track changed.
+        XCTAssertFalse(NotchEvent.Kind.music.deservesBanner)
+    }
+
+    func testEverythingWithoutItsOwnIndicatorBanners() {
+        // These have no standing representation in the notch, so a banner is the
+        // only time the user would ever see them.
+        for kind in [NotchEvent.Kind.download, .system, .shelf, .app] {
+            XCTAssertTrue(kind.deservesBanner, "\(kind.rawValue) would go unseen")
+        }
+    }
+}
+
 @MainActor
 final class PeekWidthTests: XCTestCase {
 

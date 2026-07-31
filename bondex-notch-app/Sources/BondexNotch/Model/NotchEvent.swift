@@ -33,6 +33,21 @@ struct NotchEvent: Identifiable, Equatable {
             case .app: return Color(white: 0.75)
             }
         }
+
+        /// Whether this is worth interrupting the notch with a transient banner.
+        ///
+        /// Everything here belongs in the activity feed; a banner is a stronger
+        /// claim, reserved for things the user would otherwise have no sign of.
+        /// Playback is the exception: the peek already reports it directly, with
+        /// artwork and the equaliser, for as long as it lasts. Bannering it too
+        /// would flash the track title over the menu bar for a few seconds on
+        /// every change — putting back exactly the text the peek leaves out.
+        var deservesBanner: Bool {
+            switch self {
+            case .music: return false
+            case .download, .system, .shelf, .app: return true
+            }
+        }
     }
 
     let id = UUID()

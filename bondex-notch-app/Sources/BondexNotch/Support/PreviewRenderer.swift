@@ -77,6 +77,14 @@ enum PreviewRenderer {
         ))
         environment.notch.hasLiveActivity = true
         environment.notch.collapse()
+
+        // Announce the track as well, which is what happens the moment playback is
+        // first detected. This render is the regression guard for it: playback
+        // must stay the narrow artwork-and-equaliser strip, never flash the title
+        // as a banner first.
+        environment.events.post(NotchEvent(
+            kind: .music, title: "Weightless", subtitle: "Marconi Union"
+        ))
         if !render(environment, named: "peek-playing", into: directory) { failures += 1 }
 
         environment.events.post(NotchEvent(
