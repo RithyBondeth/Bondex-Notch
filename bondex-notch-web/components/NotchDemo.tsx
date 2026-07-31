@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import PanelViews, { type TabId, tabs } from './PanelViews';
 
 type State = 'collapsed' | 'peek' | 'expanded';
@@ -20,6 +20,7 @@ export default function NotchDemo() {
   const [state, setState] = useState<State>('collapsed');
   const [tab, setTab] = useState<TabId>('home');
   const [interacted, setInteracted] = useState(false);
+  const [expandedHeight, setExpandedHeight] = useState<number | null>(null);
 
   // Mirrors the app: the panel falls back to a peek while "media is playing",
   // and only fully closes when nothing is live.
@@ -27,6 +28,7 @@ export default function NotchDemo() {
   const pinned = useRef(false);
   const interactedRef = useRef(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const viewsRef = useRef<HTMLDivElement>(null);
 
   const expand = useCallback(() => {
     clearTimeout(closeTimer.current);
@@ -79,6 +81,28 @@ export default function NotchDemo() {
     return () => clearTimeout(closeTimer.current);
   }, []);
 
+  /* The expanded panel is as tall as whichever view is showing. Hard-coding a
+     height means the tallest view spills onto the wallpaper and the shortest
+     leaves a void, so measure instead: the views box sits below the tabs and
+     the divider, and `offsetTop` already accounts for both plus the panel's
+     top padding. A ResizeObserver catches the tab switch and any reflow the
+     webfonts cause when they land. */
+  useEffect(() => {
+    const views = viewsRef.current;
+    const panel = views?.parentElement;
+    if (!views || !panel) return;
+
+    const measure = () => {
+      const padBottom = parseFloat(getComputedStyle(panel).paddingBottom) || 0;
+      setExpandedHeight(Math.ceil(views.offsetTop + views.offsetHeight + padBottom));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(views);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="stage">
       <div className="stage__screen">
@@ -117,7 +141,16 @@ export default function NotchDemo() {
             }
           }}
         >
-          <div className="notch__body">
+          <div
+            className="notch__body"
+            /* Only while expanded — collapsed and peek keep their own heights
+               from the stylesheet. */
+            style={
+              state === 'expanded' && expandedHeight
+                ? ({ '--h': `${expandedHeight}px` } as CSSProperties)
+                : undefined
+            }
+          >
             <div className="notch__peek">
               <span className="peek__art" aria-hidden="true" />
               <span className="notch__gap" aria-hidden="true" />
@@ -151,7 +184,7 @@ export default function NotchDemo() {
               </div>
 
               <div className="panel__divider" aria-hidden="true" />
-              <PanelViews active={tab} />
+              <PanelViews active={tab} ref={viewsRef} />
             </div>
           </div>
         </div>

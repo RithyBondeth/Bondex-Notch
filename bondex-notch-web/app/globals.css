@@ -326,6 +326,21 @@ code {
 
 .notchbar.is-stuck .notchbar__body { --pad: 16px; height: 46px; gap: 16px; }
 
+/* The default .btn is near-black with a wide drop shadow — inside a near-black
+   bar that leaves an invisible button and a 34px blur smudged across the
+   wallpaper. On the bar it is a light pill instead, and casts nothing. */
+.notchbar .btn {
+  background: var(--ink);
+  color: #06070E;
+  border-color: transparent;
+  box-shadow: none;
+}
+.notchbar .btn:hover {
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
 /* The camera. Present at rest, hidden once you scroll — the hardware doesn't
    move, but the joke only needs telling once. */
 .notchbar__lens {
@@ -491,7 +506,9 @@ code {
 .notch__body::after  { left: 100%;  border-top-left-radius: 11px; }
 
 .notch[data-state="peek"] .notch__body     { --w: 330px; --h: 34px; }
-.notch[data-state="expanded"] .notch__body { --w: 560px; --h: 214px; border-radius: 0 0 22px 22px; }
+/* The expanded height is a fallback only. NotchDemo measures the active view
+   and sets --h inline, because each view is a different height. */
+.notch[data-state="expanded"] .notch__body { --w: 560px; --h: 255px; border-radius: 0 0 22px 22px; }
 
 /* Peek row */
 .notch__peek {
@@ -541,6 +558,10 @@ code {
   pointer-events: none;
   transition: opacity .2s var(--ease);
   text-align: left;
+  /* Belt and braces: the height is measured to fit, but nothing inside the
+     panel may ever paint onto the wallpaper. Safe to clip here because the
+     concave fillets belong to .notch__body, outside this box. */
+  overflow: hidden;
 }
 .notch[data-state="expanded"] .notch__panel {
   opacity: 1;
