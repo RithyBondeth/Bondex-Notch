@@ -13,7 +13,7 @@ const revealGroups = [
   '.plan',
   '#faq .slab__head > *, .qa',
   '.section--cta .label, .section--cta .title, .section--cta .lede, .section--cta .actions, .section--cta .meta',
-  '.footer__inner > *',
+  '.footer__inner > *, .footer__bottom > *',
 ];
 
 /**

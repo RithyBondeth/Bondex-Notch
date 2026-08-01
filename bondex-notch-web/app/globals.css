@@ -2339,26 +2339,124 @@ button.real-empty { cursor:pointer; }
 /* ── Footer ────────────────────────────────────────────── */
 
 .footer {
-  background: var(--panel);
+  background:
+    radial-gradient(circle at 82% 0, rgba(60,193,246,.08), transparent 34%),
+    var(--panel);
   border-top: 1px solid rgba(255, 255, 255, .10);
-  padding: 32px 0;
+  padding: 58px 0 24px;
 }
 .footer__inner {
+  display: grid;
+  grid-template-columns: minmax(230px,.76fr) 140px minmax(410px,1.3fr);
+  align-items: start;
+  gap: clamp(34px,5vw,70px);
+}
+.footer__intro > p {
+  max-width: 35ch;
+  margin-top: 17px;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.footer__availability {
+  margin-top: 17px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 8.5px;
+}
+.footer__availability i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(111,227,176,.10);
+}
+.footer__nav {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+}
+.footer__nav b,
+.footer__contacts-head b {
+  margin-bottom: 3px;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+.footer__nav a {
+  color: var(--ink-3);
+  font-size: 12px;
+  transition: color .16s var(--ease), transform .16s var(--ease);
+}
+.footer__nav a:hover { color: var(--ink); transform: translateX(2px); }
+
+.footer__contacts-head {
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+}
+.footer__contacts-head span { color: var(--ink-3); font-size: 9px; }
+.footer__contact-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.footer__contact-card {
+  min-width: 0;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 32px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 11px;
+  background: rgba(255,255,255,.035);
+  color: var(--ink);
+  transition: transform .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
+}
+.footer__contact-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(60,193,246,.28);
+  background: rgba(60,193,246,.06);
+}
+.footer__contact-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(255,255,255,.08);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+}
+.footer__contact-card[data-service="instagram"] .footer__contact-mark { background: linear-gradient(145deg,#7b4bea,#ef4776 58%,#f2a33c); }
+.footer__contact-card[data-service="telegram"] .footer__contact-mark { background: linear-gradient(145deg,#55c5f2,#2488c8); }
+.footer__contact-card[data-service="whatsapp"] .footer__contact-mark { background: linear-gradient(145deg,#58df7b,#189d4c); }
+.footer__contact-card[data-service="email"] .footer__contact-mark { background: linear-gradient(145deg,var(--azure),var(--lapis)); }
+.footer__contact-card > span:nth-child(2) { min-width: 0; display: flex; flex-direction: column; }
+.footer__contact-card b { color: var(--ink); font-size: 10.5px; font-weight: 600; }
+.footer__contact-card small {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.footer__contact-card > i { color: var(--ink-3); font-size: 9px; font-style: normal; }
+
+.footer__bottom {
+  margin-top: 36px;
+  padding-top: 20px;
+  display: flex;
+  justify-content: space-between;
   gap: 18px;
-  flex-wrap: wrap;
+  border-top: 1px solid rgba(255,255,255,.08);
 }
 .footer__legal { font-size: 13.5px; color: var(--ink-3); }
-.footer__contact {
-  padding: 7px 11px;
-  border-radius: 999px;
-  color: var(--ink-2);
-  font-size: 12px;
-  transition: color .18s var(--ease), background .18s var(--ease);
-}
-.footer__contact:hover { color: var(--ink); background: rgba(255,255,255,.07); }
 
 /* ── Progressive motion system ───────────────────────────
    JavaScript only adds data attributes and live CSS variables. Without it,
@@ -2534,6 +2632,8 @@ html[data-motion-ready="true"] .state.is-visible .mini {
   .product-shot, .settings-shot { width: min(100%, 660px); justify-self: center; }
   .real-controls { flex-wrap: wrap; }
   .real-controls > span:first-child { display: none; }
+  .footer__inner { grid-template-columns: minmax(0,1fr) 150px; }
+  .footer__contacts { grid-column: 1 / -1; }
 }
 
 @media (max-width: 560px) {
@@ -2585,6 +2685,11 @@ html[data-motion-ready="true"] .state.is-visible .mini {
   .settings-sidebar { display:none; }
   .settings-main { padding:22px 16px; }
   .setting-line > span, .setting-block > span { min-width:74px; }
+  .footer { padding-top: 44px; }
+  .footer__inner { grid-template-columns: 1fr; gap: 30px; }
+  .footer__contacts { grid-column: auto; }
+  .footer__contact-grid { grid-template-columns: 1fr; }
+  .footer__bottom { flex-direction: column; gap: 5px; }
 }
 
 /* ── Motion & contrast preferences ─────────────────────── */
