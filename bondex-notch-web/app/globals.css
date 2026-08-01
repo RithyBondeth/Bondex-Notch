@@ -59,6 +59,11 @@ html {
   scroll-behavior: smooth;
   /* The notch bar overhangs the top of every anchor target. */
   scroll-padding-top: 108px;
+  /* The expanded panel's layout box is wider than a narrow viewport. The stage
+     clips it visually, but the viewport still scrolled sideways, because
+     `overflow-x` on the body alone does not stop the root from scrolling.
+     `clip` rather than `hidden`: it does not create a scroll container. */
+  overflow-x: clip;
 }
 
 body {
@@ -69,7 +74,7 @@ body {
   font-size: 16.5px;
   line-height: 1.62;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 h1, h2, h3 {
@@ -464,25 +469,177 @@ code {
   overflow: hidden;
 }
 
-.stage__menubar {
+/* ── Mock desktop: menu bar ────────────────────────────────
+   Furniture, so it stays quiet. The panel is what this section is
+   demonstrating and it must stay the brightest thing on the screen. */
+
+.menubar {
   position: absolute;
   inset: 0 0 auto;
   height: 30px;
-  background: rgba(0, 0, 0, .22);
-  border-bottom: 1px solid rgba(255, 255, 255, .09);
+  background: rgba(0, 0, 0, .26);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
+  padding: 0 13px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, .74);
+  z-index: 2;
 }
-.stage__menubar-left,
-.stage__menubar-right {
-  height: 7px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, .22);
+
+.menubar__group { display: flex; align-items: center; gap: 12px; }
+.menubar__group--right { gap: 11px; }
+.menubar__group b { font-weight: 600; color: #fff; }
+
+/* A leaf, not an Apple. The shape reads as a menu affordance without
+   borrowing anyone's mark. */
+.menubar__leaf {
+  width: 11px; height: 11px;
+  background: rgba(255, 255, 255, .88);
+  border-radius: 50% 8% 50% 8%;
+  transform: rotate(-8deg);
+  flex: none;
 }
-.stage__menubar-left  { width: 128px; }
-.stage__menubar-right { width: 96px; }
+
+.menubar__clock {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, .88);
+  white-space: nowrap;
+}
+
+.menubar__icon {
+  width: 13px; height: 13px;
+  flex: none;
+  background: rgba(255, 255, 255, .82);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.menubar__icon[data-icon="battery"] { width: 20px; -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 14'%3E%3Crect x='.6' y='.6' width='21' height='12.8' rx='4' fill='none' stroke='black' stroke-width='1.2'/%3E%3Crect x='2.6' y='2.6' width='14' height='8.8' rx='2.4'/%3E%3Cpath d='M23.4 4.6a3.2 3.2 0 0 1 0 4.8z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 14'%3E%3Crect x='.6' y='.6' width='21' height='12.8' rx='4' fill='none' stroke='black' stroke-width='1.2'/%3E%3Crect x='2.6' y='2.6' width='14' height='8.8' rx='2.4'/%3E%3Cpath d='M23.4 4.6a3.2 3.2 0 0 1 0 4.8z'/%3E%3C/svg%3E"); }
+.menubar__icon[data-icon="wifi"] { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 12.8a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8zM4.6 9.1l1.1 1.1a3.3 3.3 0 0 1 4.6 0l1.1-1.1a4.9 4.9 0 0 0-6.8 0zM2.3 6.8l1.1 1.1a6.5 6.5 0 0 1 9.2 0l1.1-1.1a8.1 8.1 0 0 0-11.4 0z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 12.8a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8zM4.6 9.1l1.1 1.1a3.3 3.3 0 0 1 4.6 0l1.1-1.1a4.9 4.9 0 0 0-6.8 0zM2.3 6.8l1.1 1.1a6.5 6.5 0 0 1 9.2 0l1.1-1.1a8.1 8.1 0 0 0-11.4 0z'/%3E%3C/svg%3E"); }
+.menubar__icon[data-icon="search"] { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 1.6a5.4 5.4 0 1 0 3.3 9.7l3.2 3.2 1.1-1.1-3.2-3.2A5.4 5.4 0 0 0 7 1.6zm0 1.6a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 1.6a5.4 5.4 0 1 0 3.3 9.7l3.2 3.2 1.1-1.1-3.2-3.2A5.4 5.4 0 0 0 7 1.6zm0 1.6a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6z'/%3E%3C/svg%3E"); }
+.menubar__icon[data-icon="control"] { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1.6 4h12.8v1.5H1.6zm0 3.3h12.8v1.5H1.6zm0 3.2h12.8V12H1.6z'/%3E%3Ccircle cx='5' cy='4.7' r='2.1'/%3E%3Ccircle cx='11' cy='8' r='2.1'/%3E%3Ccircle cx='6.5' cy='11.3' r='2.1'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1.6 4h12.8v1.5H1.6zm0 3.3h12.8v1.5H1.6zm0 3.2h12.8V12H1.6z'/%3E%3Ccircle cx='5' cy='4.7' r='2.1'/%3E%3Ccircle cx='11' cy='8' r='2.1'/%3E%3Ccircle cx='6.5' cy='11.3' r='2.1'/%3E%3C/svg%3E"); }
+
+/* ── Mock desktop: widgets ─────────────────────────────── */
+
+.widgets {
+  position: absolute;
+  top: 52px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 1;
+}
+
+.widget {
+  width: 118px;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: rgba(8, 11, 22, .42);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 16px 34px -18px rgba(2, 6, 30, .8);
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+}
+
+.widget__label {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .62);
+}
+.widget__date {
+  font-family: var(--display);
+  font-size: 38px;
+  font-variation-settings: "wdth" 108, "wght" 700;
+  line-height: 1.02;
+  letter-spacing: -.04em;
+  margin-top: 2px;
+}
+.widget--date .widget__label { color: var(--azure); }
+
+.widget__temp {
+  font-family: var(--display);
+  font-size: 28px;
+  font-variation-settings: "wdth" 108, "wght" 650;
+  line-height: 1.1;
+  letter-spacing: -.035em;
+  margin-top: 3px;
+}
+.widget__sub {
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, .60);
+  margin-top: 1px;
+}
+
+/* ── Mock desktop: dock ────────────────────────────────── */
+
+.dock {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .12);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow:
+    0 18px 40px -18px rgba(2, 6, 30, .75),
+    inset 0 1px 0 rgba(255, 255, 255, .26);
+  z-index: 1;
+}
+
+.dock__app {
+  position: relative;
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  flex: none;
+  background: linear-gradient(155deg, var(--from), var(--to));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .35),
+    0 3px 7px -3px rgba(0, 0, 0, .6);
+}
+/* The running dot lives below the tile, inside the dock's bottom padding. */
+.dock__app.is-running::after {
+  content: "";
+  position: absolute;
+  bottom: -5px; left: 50%;
+  transform: translateX(-50%);
+  width: 3.5px; height: 3.5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .82);
+}
+
+.dock__sep {
+  width: 1px;
+  height: 34px;
+  background: rgba(255, 255, 255, .26);
+  flex: none;
+  margin-inline: 2px;
+}
+
+.dock__app--trash {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, .30), rgba(255, 255, 255, .10));
+  border: 1px solid rgba(255, 255, 255, .30);
+}
 
 .notch {
   position: absolute;
@@ -760,7 +917,7 @@ code {
 
 .stage__hint {
   position: absolute;
-  bottom: 18px;
+  bottom: 78px;   /* clears the dock */
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--mono);
@@ -1125,6 +1282,15 @@ code {
   .stage__screen { aspect-ratio: 4 / 3; }
   .notch { transform: translateX(-50%) scale(.72); transform-origin: top center; }
 
+  /* Desktop furniture thins out before it starts crowding the panel. The menu
+     titles and the widgets go first; the dock reads at any width. */
+  .menubar__group span:not(.menubar__icon):not(.menubar__clock) { display: none; }
+  .widgets { display: none; }
+  .dock { gap: 6px; padding: 6px 8px; border-radius: 15px; }
+  .dock__app { width: 28px; height: 28px; border-radius: 8px; }
+  .dock__sep { height: 28px; }
+  .stage__hint { bottom: 64px; }
+
   /* Backdrop blur over a full-screen canvas is expensive on mobile GPUs, and
      the slabs are opaque enough without it. */
   .slab, .state, .callout {
@@ -1138,6 +1304,11 @@ code {
   html { scroll-padding-top: 84px; }
   .notch { transform: translateX(-50%) scale(.55); }
   .stage__screen { aspect-ratio: 1 / 1; }
+  /* Below this the dock's tiles are smaller than a fingertip and read as
+     noise; the menu bar alone carries the "this is a desktop" cue. */
+  .dock { display: none; }
+  .menubar__group b { display: none; }
+  .stage__hint { bottom: 22px; }
   .plan__price span { font-size: 36px; }
   .hero { padding-top: 116px; }
   .actions .btn { flex: 1 1 100%; }

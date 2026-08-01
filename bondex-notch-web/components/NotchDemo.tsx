@@ -1,6 +1,7 @@
 'use client';
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { DesktopWidgets, Dock, Menubar } from './DesktopChrome';
 import PanelViews, { type TabId, tabs } from './PanelViews';
 
 type State = 'collapsed' | 'peek' | 'expanded';
@@ -106,10 +107,8 @@ export default function NotchDemo() {
   return (
     <div className="stage">
       <div className="stage__screen">
-        <div className="stage__menubar" aria-hidden="true">
-          <span className="stage__menubar-left" />
-          <span className="stage__menubar-right" />
-        </div>
+        <Menubar />
+        <DesktopWidgets />
 
         <div
           className="notch"
@@ -192,6 +191,8 @@ export default function NotchDemo() {
         <p className={`stage__hint${interacted ? ' is-hidden' : ''}`}>
           Hover the notch
         </p>
+
+        <Dock />
       </div>
     </div>
   );
