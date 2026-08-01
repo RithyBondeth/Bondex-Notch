@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Ubuntu, Ubuntu_Mono } from 'next/font/google';
 import Footer from '@/components/Footer';
+import MotionEffects from '@/components/MotionEffects';
 import NotchBar from '@/components/NotchBar';
 import RibbonField from '@/components/RibbonField';
 import { FIELD_BACKDROP } from '@/lib/ribbonField';
@@ -69,6 +70,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <RibbonField />
+        <MotionEffects />
         <NotchBar />
         {children}
         <Footer />
