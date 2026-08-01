@@ -6,8 +6,8 @@ export default function Hero() {
       <div className="wrap">
         <p className="label label--light">A calmer control center for macOS</p>
 
-        {/* The headline opens on Archivo's width axis. Pure CSS animation, so
-            it needs no JS and reduced motion lands it on the end state. */}
+        {/* The headline opens with a pure CSS animation, so it needs no JS and
+            reduced motion lands it on the end state. */}
         <h1 className="hero__title">
           Your Mac&apos;s notch,
           <br />

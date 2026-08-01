@@ -1,31 +1,26 @@
 import type { Metadata, Viewport } from 'next';
-import { Archivo, DM_Sans, JetBrains_Mono } from 'next/font/google';
+import { Ubuntu, Ubuntu_Mono } from 'next/font/google';
 import Footer from '@/components/Footer';
 import NotchBar from '@/components/NotchBar';
 import RibbonField from '@/components/RibbonField';
 import { FIELD_BACKDROP } from '@/lib/ribbonField';
 import './globals.css';
 
-/* Self-hosted at build time, so there is no third-party round trip and no
-   layout shift. Archivo carries the width axis the headline animates on. */
+/* Self-hosted at build time, so there is no third-party round trip or layout
+   shift. Ubuntu is the shared display and body face; Ubuntu Mono keeps the
+   compact technical labels aligned with the same family. */
 
-const archivo = Archivo({
+const ubuntu = Ubuntu({
   subsets: ['latin'],
-  axes: ['wdth'],
-  variable: '--font-display',
+  weight: ['300', '400', '500', '700'],
+  variable: '--font-ubuntu',
   display: 'swap',
 });
 
-const dmSans = DM_Sans({
+const ubuntuMono = Ubuntu_Mono({
   subsets: ['latin'],
-  axes: ['opsz'],
-  variable: '--font-body',
-  display: 'swap',
-});
-
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
+  weight: ['400', '700'],
+  variable: '--font-ubuntu-mono',
   display: 'swap',
 });
 
@@ -67,7 +62,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${dmSans.variable} ${jetBrainsMono.variable}`}
+      className={`${ubuntu.variable} ${ubuntuMono.variable}`}
     >
       <body>
         <a className="skip-link" href="#main">
