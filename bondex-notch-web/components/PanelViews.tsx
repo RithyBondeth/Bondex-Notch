@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 
-export type TabId = 'home' | 'music' | 'files' | 'activity';
+export type TabId = 'home' | 'music' | 'system' | 'live' | 'files' | 'activity' | 'shelf';
 
 interface Tab {
   id: TabId;
   label: string;
   icon: ReactNode;
-  /** Three of the four chips are icon-only, as in the app. */
+  /** In the app, only the selected chip reveals its label. */
   iconOnly?: boolean;
 }
 
@@ -34,6 +34,26 @@ export const tabs: Tab[] = [
     ),
   },
   {
+    id: 'system',
+    label: 'System',
+    iconOnly: true,
+    icon: (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M2 11.5a6.2 6.2 0 1 1 12 0h-1.7a4.6 4.6 0 1 0-8.6 0zm5.4-.2 3.8-4.5.9.8-3.4 4.8a1.1 1.1 0 1 1-1.3-1.1z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'live',
+    label: 'Live',
+    iconOnly: true,
+    icon: (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M1.5 8h2.4l1.3-3.4 2.1 7 1.8-5 1.2 2.5h4.2v1.4h-5l-.4-.2-1-2-2.2 6.1-2.1-7L4.8 9.4H1.5z" />
+      </svg>
+    ),
+  },
+  {
     id: 'files',
     label: 'Files',
     iconOnly: true,
@@ -50,6 +70,16 @@ export const tabs: Tab[] = [
     icon: (
       <svg viewBox="0 0 16 16" aria-hidden="true">
         <path d="M8 1.8a4 4 0 0 0-4 4v2.6L2.7 11h10.6L12 8.4V5.8a4 4 0 0 0-4-4zM6.4 12a1.6 1.6 0 0 0 3.2 0z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'shelf',
+    label: 'Shelf',
+    iconOnly: true,
+    icon: (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M2 2.2h12v11.6H2zm1.5 1.5v6h2.1l.8 1.3h3.2l.8-1.3h2.1v-6z" />
       </svg>
     ),
   },
@@ -72,7 +102,7 @@ export default function PanelViews({
     <div className="panel__views" ref={ref}>
       <div className={view('home')} data-view="home">
         <div className="agent-card">
-          <span className="agent-card__mark" aria-hidden="true">✦</span>
+          <span className="agent-orb agent-orb--codex agent-card__orb" aria-hidden="true" />
           <span className="card__text">
             <b>Codex is working</b>
             <em>Refining the landing page</em>
@@ -118,6 +148,42 @@ export default function PanelViews({
             </span>
             <em>Network</em>
           </div>
+        </div>
+      </div>
+
+      <div className={view('system')} data-view="system">
+        <div className="tiles tiles--standalone">
+          <div className="tile">
+            <span className="ring" style={{ '--v': 0.23 } as React.CSSProperties}><b>23%</b></span>
+            <em>CPU</em>
+          </div>
+          <div className="tile">
+            <span className="ring ring--warn" style={{ '--v': 0.77 } as React.CSSProperties}><b>77%</b></span>
+            <em>Memory</em>
+          </div>
+          <div className="tile">
+            <span className="ring ring--ok" style={{ '--v': 1 } as React.CSSProperties}><b>⚡</b></span>
+            <em>AC power</em>
+          </div>
+          <div className="tile tile--net">
+            <span className="net"><i>↓</i> 3.2 MB/s</span>
+            <span className="net net--dim"><i>↑</i> 118 KB/s</span>
+            <em>Network</em>
+          </div>
+        </div>
+      </div>
+
+      <div className={view('live')} data-view="live">
+        <div className="mock-list__head"><span>Live activities</span><em>1 running</em></div>
+        <div className="row mock-live-row">
+          <span className="mock-progress" style={{ '--v': 0.72 } as React.CSSProperties}><i>↗</i></span>
+          <span className="row__text"><b>Building release</b><em>Running tests</em></span>
+          <strong>72%</strong>
+        </div>
+        <div className="row mock-live-row mock-live-row--quiet">
+          <span className="mock-live-pulse">⌁</span>
+          <span className="row__text"><b>Watching preview</b><em>localhost:4173</em></span>
+          <strong>Live</strong>
         </div>
       </div>
 
@@ -180,6 +246,16 @@ export default function PanelViews({
             <em>14% remaining</em>
           </span>
           <span className="row__time">3:58 PM</span>
+        </div>
+      </div>
+
+      <div className={view('shelf')} data-view="shelf">
+        <div className="mock-list__head"><span>3 items</span><em>Drag out to use</em></div>
+        <div className="mock-shelf">
+          <div><span className="mock-file mock-file--pdf">PDF</span><em>Launch brief.pdf</em></div>
+          <div><span className="mock-file mock-file--image">PNG</span><em>Hero artwork.png</em></div>
+          <div><span className="mock-file mock-file--code">TSX</span><em>NotchDemo.tsx</em></div>
+          <div className="mock-shelf__drop"><b>＋</b><em>Drop files here</em></div>
         </div>
       </div>
     </div>

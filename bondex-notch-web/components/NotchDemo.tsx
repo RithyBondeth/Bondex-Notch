@@ -163,23 +163,35 @@ export default function NotchDemo() {
 
             <div className="notch__panel">
               <div className="panel__tabs" role="tablist" aria-label="Demo widgets">
-                {tabs.map(({ id, label, icon, iconOnly }) => (
+                {tabs.map(({ id, label, icon }) => (
                   <button
                     key={id}
                     className={`chip${tab === id ? ' is-active' : ''}`}
                     role="tab"
                     aria-selected={tab === id}
-                    aria-label={iconOnly ? label : undefined}
+                    aria-label={tab === id ? undefined : label}
                     onClick={(event) => {
                       event.stopPropagation();
                       pinned.current = true;
                       setTab(id);
                     }}
-                  >
+                    >
                     {icon}
-                    {!iconOnly && <span>{label}</span>}
+                    {tab === id && <span>{label}</span>}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  className="panel__close"
+                  aria-label="Collapse panel"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    pinned.current = false;
+                    setState('collapsed');
+                  }}
+                >
+                  ×
+                </button>
               </div>
 
               <div className="panel__divider" aria-hidden="true" />
