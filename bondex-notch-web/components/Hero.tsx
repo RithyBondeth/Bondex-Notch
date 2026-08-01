@@ -21,8 +21,8 @@ export default function Hero() {
         </p>
 
         <div className="actions">
-          <a className="btn" href="#download">
-            Download for macOS
+          <a className="btn" href="#contact">
+            Request early access
           </a>
           <a className="btn btn--ghost" href="#how">
             See how it works
