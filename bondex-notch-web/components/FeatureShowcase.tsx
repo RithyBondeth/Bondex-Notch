@@ -41,9 +41,9 @@ export default function FeatureShowcase() {
                 so parallel work never becomes mystery work.
               </p>
               <ul className="story__points">
-                <li>Tap any agent in the live demo to start or stop it</li>
-                <li>Readable status from commands, patches and tools</li>
-                <li>Completion events flow into your activity history</li>
+                <li>Explore the same seven tabs as the real Mac panel</li>
+                <li>Signal agents, run builds and simulate downloads</li>
+                <li>Control music, change accents and drop files onto Shelf</li>
               </ul>
             </div>
 
