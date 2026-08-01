@@ -1191,13 +1191,38 @@ code {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 13px;
-  font-weight: 700;
-  color: #071018;
-  background: var(--azure);
+  background: rgba(104, 112, 250, .20);
+  border: 1px solid rgba(129, 136, 255, .34);
   box-shadow: 0 0 22px rgba(60,193,246,.32);
 }
-.agent-orb--claude { background: #e18966; box-shadow: 0 0 22px rgba(225,137,102,.28); }
+.agent-orb::before {
+  content: "";
+  width: 19px;
+  height: 19px;
+  background: #f6f7ff;
+  -webkit-mask: var(--agent-mark) center / contain no-repeat;
+  mask: var(--agent-mark) center / contain no-repeat;
+}
+.agent-orb--codex { --agent-mark: url('/agent-icons/codex.svg'); }
+.agent-orb--claude {
+  --agent-mark: url('/agent-icons/claude.svg');
+  background: rgba(225,137,102,.20);
+  border-color: rgba(225,137,102,.38);
+  box-shadow: 0 0 22px rgba(225,137,102,.25);
+}
+.agent-orb--gemini {
+  --agent-mark: url('/agent-icons/gemini.svg');
+  background: rgba(91, 142, 250, .18);
+  border-color: rgba(119, 167, 255, .34);
+  box-shadow: 0 0 22px rgba(91,142,250,.24);
+}
+.agent-orb--gemini::before { background: linear-gradient(145deg, #62a9ff, #a37bff 58%, #ef83c5); }
+.agent-orb--ollama {
+  --agent-mark: url('/agent-icons/ollama.svg');
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.20);
+  box-shadow: 0 0 22px rgba(255,255,255,.10);
+}
 .agent-row > span:nth-child(2),
 .download-row > span:nth-child(2),
 .music-copy { display: flex; flex-direction: column; min-width: 0; }

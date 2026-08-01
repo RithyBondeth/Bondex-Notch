@@ -50,18 +50,28 @@ export default function FeatureShowcase() {
               <div className="shot-panel">
                 <div className="shot-topline">
                   <span>Home</span>
-                  <span className="shot-status"><i /> 2 agents active</span>
+                  <span className="shot-status"><i /> 4 agents active</span>
                 </div>
                 <div className="agent-list">
                   <div className="agent-row">
-                    <span className="agent-orb agent-orb--codex">✦</span>
+                    <span className="agent-orb agent-orb--codex" aria-hidden="true" />
                     <span><b>Codex</b><small>Implementing the pricing section</small></span>
                     <time>04:18</time>
                   </div>
                   <div className="agent-row">
-                    <span className="agent-orb agent-orb--claude">C</span>
+                    <span className="agent-orb agent-orb--claude" aria-hidden="true" />
                     <span><b>Claude Code</b><small>Running the test suite</small></span>
                     <time>01:37</time>
+                  </div>
+                  <div className="agent-row">
+                    <span className="agent-orb agent-orb--gemini" aria-hidden="true" />
+                    <span><b>Gemini</b><small>Reviewing accessibility</small></span>
+                    <time>00:54</time>
+                  </div>
+                  <div className="agent-row">
+                    <span className="agent-orb agent-orb--ollama" aria-hidden="true" />
+                    <span><b>Ollama</b><small>Summarising local changes</small></span>
+                    <time>00:31</time>
                   </div>
                 </div>
                 <div className="live-task">

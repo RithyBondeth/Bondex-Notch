@@ -42,8 +42,8 @@ export const features: Feature[] = [
     icon: 'agent',
     title: 'Agent activity',
     body:
-      'Know when Codex, Claude Code or another CLI agent is working, what it is ' +
-      'doing, and how long it has been running — without returning to the terminal.',
+      'Know when Codex, Claude Code, Gemini, Ollama or another CLI agent is ' +
+      'working, what it is doing, and how long it has been running.',
   },
   {
     icon: 'live',
@@ -170,7 +170,7 @@ export const plans: Plan[] = [
     note: 'Everything you need to live in the notch.',
     items: [
       'Music and supported browser playback',
-      'Agent activity for Codex, Claude and custom agents',
+      'Agent activity for Codex, Claude, Gemini, Ollama and custom agents',
       'Custom live activities from scripts and Shortcuts',
       'System widget — CPU, memory, battery, network',
       'Activity feed',

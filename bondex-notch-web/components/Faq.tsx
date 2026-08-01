@@ -26,9 +26,10 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     a: (
       <>
         A small hook tells Bondex when an agent starts a tool, what it is doing,
-        and when the turn ends. Codex and Claude Code are supported directly, and
-        any CLI agent can use the same busy/idle commands. The signals stay on
-        your Mac and are watched without background polling.
+        and when the turn ends. Codex and Claude Code have direct setup flows;
+        Gemini, Ollama, and any other CLI agent can use the same open busy/idle
+        signal. Everything stays on your Mac and is watched without background
+        polling.
       </>
     ),
   },
