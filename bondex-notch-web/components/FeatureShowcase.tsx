@@ -1,3 +1,5 @@
+import AgentPlayground from './AgentPlayground';
+
 const trustItems = [
   ['Music', 'Native playback'],
   ['Spotify', 'Native playback'],
@@ -5,29 +7,6 @@ const trustItems = [
   ['Codex + Claude', 'Agent activity'],
   ['Shortcuts + scripts', 'Live activities'],
 ];
-
-const claudeCodePixels = [
-  '..XXXXXXXXXXXX..',
-  '..XXXXXXXXXXXX..',
-  '..XX.XXXXXX.XX..',
-  '..XX.XXXXXX.XX..',
-  'XXXXXXXXXXXXXXXX',
-  'XXXXXXXXXXXXXXXX',
-  '..XXXXXXXXXXXX..',
-  '..XXXXXXXXXXXX..',
-  '...X.X....X.X...',
-  '...X.X....X.X...',
-].join('');
-
-function ClaudeCodeMark() {
-  return (
-    <span className="claude-code-mark" aria-hidden="true">
-      {[...claudeCodePixels].map((pixel, index) => (
-        <i className={pixel === 'X' ? 'is-on' : undefined} key={index} />
-      ))}
-    </span>
-  );
-}
 
 export default function FeatureShowcase() {
   return (
@@ -62,53 +41,13 @@ export default function FeatureShowcase() {
                 so parallel work never becomes mystery work.
               </p>
               <ul className="story__points">
-                <li>Verified hooks for Codex and Claude Code</li>
+                <li>Tap any agent in the live demo to start or stop it</li>
                 <li>Readable status from commands, patches and tools</li>
                 <li>Completion events flow into your activity history</li>
               </ul>
             </div>
 
-            <div className="product-shot product-shot--agents" role="img" aria-label="Bondex agent activity and live task mockup">
-              <span className="shot-notch" />
-              <div className="shot-panel">
-                <div className="shot-topline">
-                  <span>Home</span>
-                  <span className="shot-status"><i /> 4 agents active</span>
-                </div>
-                <div className="agent-list">
-                  <div className="agent-row">
-                    <span className="agent-orb agent-orb--codex" aria-hidden="true" />
-                    <span><b>Codex</b><small>Implementing the pricing section</small></span>
-                    <time>04:18</time>
-                  </div>
-                  <div className="agent-row">
-                    <span className="agent-orb agent-orb--claude" aria-hidden="true">
-                      <ClaudeCodeMark />
-                    </span>
-                    <span><b>Claude Code</b><small>Running the test suite</small></span>
-                    <time>01:37</time>
-                  </div>
-                  <div className="agent-row">
-                    <span className="agent-orb agent-orb--gemini" aria-hidden="true" />
-                    <span><b>Gemini</b><small>Reviewing accessibility</small></span>
-                    <time>00:54</time>
-                  </div>
-                  <div className="agent-row">
-                    <span className="agent-orb agent-orb--ollama" aria-hidden="true" />
-                    <span><b>Ollama</b><small>Summarising local changes</small></span>
-                    <time>00:31</time>
-                  </div>
-                </div>
-                <div className="live-task">
-                  <div className="live-task__top">
-                    <span><i>↗</i><b>Building release</b><small>Running tests</small></span>
-                    <strong>72%</strong>
-                  </div>
-                  <span className="progress"><i style={{ width: '72%' }} /></span>
-                </div>
-              </div>
-              <span className="shot-caption">The quietest project manager on your Mac.</span>
-            </div>
+            <AgentPlayground />
           </article>
 
           <article className="story story--media">
