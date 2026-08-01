@@ -345,12 +345,18 @@ code {
   color: #06070E;
   border-color: transparent;
   box-shadow: none;
+  /* Collapses with the bar. Without this the button keeps its full 42px in a
+     46px bar — 2px of clearance either side — and reads as oversized. */
+  transition: transform .2s var(--ease), background .2s var(--ease),
+              padding .38s var(--spring), font-size .38s var(--spring);
 }
 .notchbar .btn:hover {
   background: #fff;
   transform: translateY(-1px);
   box-shadow: none;
 }
+
+.notchbar.is-stuck .btn { padding: 6px 15px; font-size: 12.5px; }
 
 /* The camera. Present at rest, hidden once you scroll — the hardware doesn't
    move, but the joke only needs telling once. */
