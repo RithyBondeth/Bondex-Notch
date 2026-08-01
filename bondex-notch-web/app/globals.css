@@ -2744,7 +2744,19 @@ button.real-empty { cursor:pointer; }
   transition: border-color .2s var(--ease), background .2s var(--ease), box-shadow .2s var(--ease);
 }
 .payment-field input { padding: 0 14px; }
-.payment-field select { padding: 0 10px; color-scheme: dark; }
+.payment-field select {
+  padding: 0 10px;
+  /* macOS renders the native popup on a light surface even when the closed
+     control lives on dark glass. Keep the control light-on-dark, but ask the
+     option menu for its native light palette. */
+  color: var(--ink);
+  color-scheme: light;
+}
+.payment-field select option {
+  background: #fff;
+  color: #111827;
+}
+.payment-field select option:disabled { color: #667085; }
 .payment-field input::placeholder { color: rgba(242,246,255,.3); }
 .payment-field input:focus,
 .payment-field select:focus {
