@@ -13,6 +13,7 @@ final class AppEnvironment: ObservableObject {
     let files: FileActivityService
     let shelf: ShelfService
     let agents: AgentActivityService
+    let liveActivities: LiveActivityService
     let notifications: NotificationService
     let notch: NotchViewModel
 
@@ -31,6 +32,7 @@ final class AppEnvironment: ObservableObject {
         self.files = FileActivityService(events: events)
         self.shelf = ShelfService(events: events)
         self.agents = AgentActivityService(events: events)
+        self.liveActivities = LiveActivityService(events: events)
         self.notifications = NotificationService(events: events)
         self.notch = NotchViewModel(settings: settings, events: events, screen: screen)
 
@@ -59,6 +61,14 @@ final class AppEnvironment: ObservableObject {
             }
             .store(in: &cancellables)
 
+        liveActivities.$active
+            .map(\.count)
+            .removeDuplicates()
+            .sink { [weak self] count in
+                self?.notch.customLiveActivityCount = count
+            }
+            .store(in: &cancellables)
+
         // Services are started and stopped as widgets are toggled, so a
         // disabled widget costs nothing at runtime.
         settings.$preferences
@@ -79,6 +89,7 @@ final class AppEnvironment: ObservableObject {
         metrics.stop()
         files.stop()
         agents.stop()
+        liveActivities.stop()
     }
 
     private var isPlaying = false
@@ -112,6 +123,12 @@ final class AppEnvironment: ObservableObject {
             agents.stop()
         }
 
+        if preferences.customLiveActivitiesEnabled {
+            liveActivities.start()
+        } else {
+            liveActivities.stop()
+        }
+
         let filesUnlocked = preferences.tier == .pro
         if preferences.fileActivityEnabled && filesUnlocked {
             files.start()
@@ -126,6 +143,8 @@ final class AppEnvironment: ObservableObject {
             switch tab {
             case .home: return true
             case .music: return settings.preferences.musicWidgetEnabled
+            case .system: return settings.preferences.systemWidgetEnabled
+            case .live: return settings.preferences.customLiveActivitiesEnabled
             case .files: return settings.preferences.fileActivityEnabled
             case .activity: return settings.preferences.activityFeedEnabled
             case .shelf: return settings.preferences.shelfEnabled

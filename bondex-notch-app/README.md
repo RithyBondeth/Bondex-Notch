@@ -114,16 +114,6 @@ explaining, and the peek widens as agents join. The card lists three and then
 counts, because the panel is measured from its content and an unbounded list
 would push Home past its height ceiling and be silently cut off at the bottom.
 
-### Customization
-
-Appearance settings apply live and persist as part of the version-tolerant
-preferences blob. Users can choose a preset or custom accent, pure-black,
-gradient, or accent-tinted panel treatment, panel width, opacity, bottom-corner
-and top-flare geometry, rim and shadow strength, and animation speed. Widget
-settings also control which tabs exist and their left-to-right order. The AppKit
-window always reserves the maximum footprint, so changing the width or shape
-does not resize the window or interrupt the panel animation.
-
 **The agent has to say so, and that is not a shortcut.** The obvious design is to
 find the agent's process and watch its CPU, and it does not work. Measured
 against three live Claude Code processes and a Codex process on a machine where
@@ -160,7 +150,7 @@ Code's `{matcher, hooks:[{type, command}]}` shape; Gemini renames the events:
 | Agent | File | Busy / idle events |
 |---|---|---|
 | Claude Code | `~/.claude/settings.json` | `PreToolUse` / `Stop` |
-| Codex | `~/.codex/hooks/hooks.json` | `PreToolUse` / `Stop` |
+| Codex | `~/.codex/hooks.json` | `PreToolUse` / `Stop` |
 | Gemini CLI | `~/.gemini/settings.json` | `BeforeTool` / `AfterAgent` |
 
 Claude Code's CLI and desktop app read the same file, so wiring it once covers
@@ -202,6 +192,40 @@ which is what lets Settings show setup instructions for the agents you use and
 stay quiet about the rest. `proc_pidpath` resolves every process the user owns
 (measured at 617 of 617). Matching is case-sensitive on purpose: Claude Code's
 binary is `claude`, the Claude desktop app's is `Claude`.
+
+### Customization
+
+Appearance settings apply live and persist as part of the version-tolerant
+preferences blob. Users can choose a preset or custom accent, pure-black,
+gradient, or accent-tinted panel treatment, panel width, opacity, bottom-corner
+and top-flare geometry, rim and shadow strength, and animation speed. Widget
+settings also control which tabs exist and their left-to-right order. CPU,
+memory, battery, and network throughput live together in a dedicated System tab;
+an optional compact summary can also be shown on Home. The AppKit window always
+reserves the maximum footprint, so changing the width or shape does not resize
+the window or interrupt the panel animation.
+
+### Custom live activities
+
+Any script, Shortcut, build tool, or terminal session can publish progress into
+Bondex without an SDK:
+
+```bash
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" \
+  --live-start build --title "Building release" --progress 0.2
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" \
+  --live-update build --subtitle "Running tests" --progress 0.75
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" \
+  --live-finish build --message "Build succeeded"
+```
+
+Progress is a number from `0` to `1`. IDs use letters, digits, `-`, and `_` and
+identify the activity across updates. Active items appear in the persistent
+peek, at the top of Home, and in the reorderable Live tab. Finishing one turns
+it into a normal activity-feed event and removes its signal. Signals are small
+JSON files in `~/.bondex-notch/live`; the app watches the directory with a
+dispatch source, so there is no polling when nothing changes. An abandoned
+activity expires after 24 hours.
 
 ## What macOS does and does not allow
 

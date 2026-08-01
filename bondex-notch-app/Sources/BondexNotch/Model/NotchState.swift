@@ -14,12 +14,13 @@ enum NotchState: Equatable {
 
 /// What a peek is currently reporting, which is what decides how wide it is.
 ///
-/// Three cases rather than a `hasBanner` flag, because the three need genuinely
-/// different room: artwork and an equaliser are small and fixed, a banner needs
-/// a readable line or two of text, and an agent strip grows with every agent
-/// that starts working.
+/// Separate cases rather than a `hasBanner` flag, because each needs genuinely
+/// different room: artwork and an equaliser are small and fixed, live progress
+/// needs readable text, a banner needs a line or two, and an agent strip grows
+/// with every agent that starts working.
 enum PeekContent: Equatable {
     case media
+    case live
     /// - Parameter agents: how many agents are working, each of which brings its
     ///   own mark and its own name.
     case agent(agents: Int)
@@ -30,6 +31,8 @@ enum PeekContent: Equatable {
 enum NotchTab: String, CaseIterable, Codable, Identifiable {
     case home
     case music
+    case system
+    case live
     case files
     case activity
     case shelf
@@ -40,6 +43,8 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .home: return "Home"
         case .music: return "Music"
+        case .system: return "System"
+        case .live: return "Live"
         case .files: return "Files"
         case .activity: return "Activity"
         case .shelf: return "Shelf"
@@ -50,6 +55,8 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .home: return "square.grid.2x2.fill"
         case .music: return "music.note"
+        case .system: return "gauge.medium"
+        case .live: return "waveform.path.ecg"
         case .files: return "arrow.down.circle.fill"
         case .activity: return "bell.fill"
         case .shelf: return "tray.full.fill"
@@ -68,12 +75,13 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     ///
     /// The list tabs scroll inside a stable area: a panel that grew and shrank as
     /// items arrived and aged out would be far more distracting than one that
-    /// stays put. Home and Music are measured instead, so the panel is exactly as
-    /// tall as what they are showing — which is why Home shrinks when nothing is
-    /// playing, and why Music does not have to reserve room for the tallest tab.
+    /// stays put. Home, Music, and System are measured instead, so the panel is
+    /// exactly as tall as what they show and does not reserve room for the
+    /// tallest tab.
     var widgetHeight: CGFloat? {
         switch self {
-        case .home, .music: return nil
+        case .home, .music, .system: return nil
+        case .live: return 148
         case .files, .activity, .shelf: return 148
         }
     }

@@ -204,16 +204,17 @@ final class ExpandedSizingTests: XCTestCase {
     )
 
     func testContentSizedTabsAreMeasuredRatherThanFixed() {
-        // Home and Music report no fixed height, which is what lets the panel
-        // shrink when Home has nothing playing.
+        // Home, Music, and System report no fixed height, which is what lets the
+        // panel hug their actual content.
         XCTAssertNil(NotchTab.home.widgetHeight)
         XCTAssertNil(NotchTab.music.widgetHeight)
+        XCTAssertNil(NotchTab.system.widgetHeight)
     }
 
     func testListTabsKeepAStableArea() {
         // A panel that resized as feed items arrived and aged out would be worse
         // than one that stays put.
-        for tab in [NotchTab.files, .activity, .shelf] {
+        for tab in [NotchTab.live, .files, .activity, .shelf] {
             XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) would resize as its list changed")
         }
     }
@@ -270,7 +271,7 @@ final class BannerPolicyTests: XCTestCase {
     func testEverythingWithoutItsOwnIndicatorBanners() {
         // These have no standing representation in the notch, so a banner is the
         // only time the user would ever see them.
-        for kind in [NotchEvent.Kind.download, .system, .shelf, .app] {
+        for kind in [NotchEvent.Kind.download, .system, .shelf, .live, .app] {
             XCTAssertTrue(kind.deservesBanner, "\(kind.rawValue) would go unseen")
         }
     }
@@ -306,7 +307,7 @@ final class PeekWidthTests: XCTestCase {
         let collapsed = geometry.contentSize(for: .collapsed)
         let expanded = geometry.contentSize(for: .expanded)
 
-        for content in [PeekContent.media, .agent(agents: 1), .agent(agents: 3), .banner] {
+        for content in [PeekContent.media, .live, .agent(agents: 1), .agent(agents: 3), .banner] {
             let peek = geometry.contentSize(for: .peek, peek: content)
             XCTAssertLessThan(collapsed.width, peek.width)
             XCTAssertLessThan(peek.width, expanded.width)
@@ -350,6 +351,14 @@ final class PreferencesDecodingTests: XCTestCase {
         // And the fields it had never heard of get their defaults.
         XCTAssertEqual(decoded.hoverDelay, Preferences().hoverDelay, accuracy: 0.0001)
         XCTAssertEqual(decoded.browserMediaEnabled, Preferences().browserMediaEnabled)
+        XCTAssertEqual(
+            decoded.showSystemSummaryOnHome,
+            Preferences().showSystemSummaryOnHome
+        )
+        XCTAssertEqual(
+            decoded.customLiveActivitiesEnabled,
+            Preferences().customLiveActivitiesEnabled
+        )
         XCTAssertEqual(decoded.panelWidth, Preferences().panelWidth, accuracy: 0.0001)
         XCTAssertEqual(decoded.panelStyle, Preferences().panelStyle)
         XCTAssertEqual(decoded.widgetOrder, NotchTab.allCases)
@@ -382,7 +391,7 @@ final class PreferencesDecodingTests: XCTestCase {
         original.flareRadius = 17
         original.rimStrength = 0.4
         original.shadowStrength = 0.2
-        original.widgetOrder = [.home, .activity, .music, .shelf, .files]
+        original.widgetOrder = [.home, .activity, .music, .system, .live, .shelf, .files]
         original.licenseKey = "BNDX-BEEF-1234-0000"
 
         let data = try JSONEncoder().encode(original)
@@ -397,7 +406,24 @@ final class PreferencesDecodingTests: XCTestCase {
         let store = SettingsStore(defaults: defaults)
         store.preferences.widgetOrder = [.shelf, .home, .shelf]
 
-        XCTAssertEqual(store.orderedTabs, [.shelf, .home, .music, .files, .activity])
+        XCTAssertEqual(
+            store.orderedTabs,
+            [.shelf, .home, .music, .system, .live, .files, .activity]
+        )
+    }
+
+    func testANewSystemTabLandsBesideMusicWithoutResettingCustomOrder() {
+        let suite = "com.bondex.notch.tests.system-order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let store = SettingsStore(defaults: defaults)
+        store.preferences.widgetOrder = [.activity, .home, .music, .shelf, .files]
+
+        XCTAssertEqual(
+            store.orderedTabs,
+            [.activity, .home, .music, .system, .live, .shelf, .files]
+        )
     }
 }
 

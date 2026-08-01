@@ -18,6 +18,16 @@ struct BondexNotch {
             exit(PreviewRenderer.run(outputDirectory: directory))
         }
 
+        switch LiveActivityCommand.parse(arguments) {
+        case .command(let command):
+            exit(command.run())
+        case .invalid(let flag, let message):
+            FileHandle.standardError.write(Data("bondex: \(flag) \(message)\n".utf8))
+            exit(2)
+        case .none:
+            break
+        }
+
         // What an agent's hook actually runs. Writing the signal through the app
         // rather than asking users to `mkdir -p` and `touch` keeps the location
         // an implementation detail, and makes the hook a single line that cannot

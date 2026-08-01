@@ -13,6 +13,7 @@ struct NotchEvent: Identifiable, Equatable {
         case system
         case shelf
         case agent
+        case live
         case app
 
         var systemImage: String {
@@ -22,6 +23,7 @@ struct NotchEvent: Identifiable, Equatable {
             case .system: return "cpu"
             case .shelf: return "tray.full.fill"
             case .agent: return "sparkle"
+            case .live: return "waveform.path.ecg"
             case .app: return "bell.fill"
             }
         }
@@ -33,6 +35,7 @@ struct NotchEvent: Identifiable, Equatable {
             case .system: return Color(red: 0.99, green: 0.72, blue: 0.25)
             case .shelf: return Color(red: 0.32, green: 0.80, blue: 0.55)
             case .agent: return Color(red: 0.85, green: 0.47, blue: 0.29)
+            case .live: return Color(red: 0.62, green: 0.48, blue: 0.98)
             case .app: return Color(white: 0.75)
             }
         }
@@ -52,7 +55,7 @@ struct NotchEvent: Identifiable, Equatable {
         var deservesBanner: Bool {
             switch self {
             case .music, .agent: return false
-            case .download, .system, .shelf, .app: return true
+            case .download, .system, .shelf, .live, .app: return true
             }
         }
     }

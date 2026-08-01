@@ -87,6 +87,10 @@ struct NotchGeometry: Equatable {
         CGSize(width: max(notchSize.width + 260, 360), height: peekHeight)
     }
 
+    var livePeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 220, 340), height: peekHeight)
+    }
+
     /// While agents are working: a mark and a name for each one.
     ///
     /// Sized from the count rather than fixed at the worst case. One agent needs
@@ -108,6 +112,7 @@ struct NotchGeometry: Equatable {
         case .peek:
             switch peek {
             case .media: return mediaPeekSize
+            case .live: return livePeekSize
             case .agent(let agents): return agentPeekSize(agents: agents)
             case .banner: return bannerPeekSize
             }
