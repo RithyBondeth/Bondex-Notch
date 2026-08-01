@@ -58,11 +58,18 @@ export const tabs: Tab[] = [
 /* The sample data the panel shows. Fictional, but shaped exactly like what the
    app reports — the numbers are the point, so they use tabular figures. */
 
-export default function PanelViews({ active }: { active: TabId }) {
+export default function PanelViews({
+  active,
+  ref,
+}: {
+  active: TabId;
+  /** The demo measures this box to size the expanded panel to its content. */
+  ref?: React.Ref<HTMLDivElement>;
+}) {
   const view = (id: TabId) => `view${active === id ? ' is-active' : ''}`;
 
   return (
-    <div className="panel__views">
+    <div className="panel__views" ref={ref}>
       <div className={view('home')} data-view="home">
         <div className="card card--media">
           <span className="card__art" aria-hidden="true" />
