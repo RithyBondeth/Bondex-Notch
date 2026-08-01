@@ -2589,21 +2589,6 @@ button.real-empty { cursor:pointer; }
 }
 .payment-card__back { transform: rotateY(180deg); padding-inline: 0; }
 
-.payment-card__highlight {
-  position: absolute;
-  z-index: 2;
-  border: 1px solid rgba(255,255,255,.78);
-  border-radius: 11px;
-  box-shadow: 0 0 0 3px rgba(255,255,255,.07), 0 0 18px rgba(60,193,246,.26);
-  transition: inset .32s var(--spring), width .32s var(--spring), height .32s var(--spring), opacity .2s;
-  pointer-events: none;
-}
-.payment-card__highlight.is-number { inset: 82px 18px auto; height: 43px; }
-.payment-card__highlight.is-holder { left: 18px; bottom: 16px; width: 66%; height: 51px; }
-.payment-card__highlight.is-expire { right: 18px; bottom: 16px; width: 24%; height: 51px; }
-.payment-card__highlight.is-hidden,
-.payment-card__highlight.is-cvv { opacity: 0; width: 0; height: 0; }
-
 .payment-card__header,
 .payment-card__footer,
 .payment-card__number,
@@ -2624,17 +2609,49 @@ button.real-empty { cursor:pointer; }
 .payment-card__number {
   display: flex;
   align-items: center;
-  margin-top: clamp(30px, 5vw, 50px);
+  margin: clamp(27px, 4.4vw, 43px) -10px 0;
+  padding: 9px 10px;
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 11px;
   color: #fff;
   font-family: var(--mono);
   font-size: clamp(15px, 2vw, 20px);
+  line-height: 1;
   letter-spacing: .09em;
   white-space: nowrap;
+  transition: border-color .26s var(--ease), box-shadow .26s var(--ease), background .26s var(--ease);
 }
-.payment-card__number > span { opacity: .4; transform: translateY(0); transition: opacity .2s, transform .28s var(--spring); }
+.payment-card__front.is-focus-number .payment-card__number {
+  border-color: rgba(255,255,255,.78);
+  background: rgba(255,255,255,.025);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.06), 0 0 18px rgba(60,193,246,.24);
+}
+.payment-card__number > span {
+  width: 5.4%;
+  height: 20px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  opacity: .4;
+  transform: translateY(0);
+  transition: opacity .2s, transform .28s var(--spring);
+}
 .payment-card__number > span.has-value { opacity: 1; transform: translateY(-2px); }
-.payment-card__number > span:nth-child(4n) { margin-right: .58em; }
+.payment-card__number > span:nth-child(4n) { margin-right: 4.45%; }
 .payment-card__number > span:last-child { margin-right: 0; }
+.payment-card__number > span i {
+  width: 3px;
+  height: 3px;
+  display: block;
+  border-radius: 50%;
+  background: rgba(255,255,255,.42);
+}
+.payment-card__number > span.is-masked i {
+  width: 7px;
+  height: 7px;
+  background: rgba(255,255,255,.9);
+}
 
 .payment-card__footer {
   position: absolute;
@@ -2647,7 +2664,19 @@ button.real-empty { cursor:pointer; }
   gap: 16px;
 }
 .payment-card__footer > span { min-width: 0; display: flex; flex-direction: column; }
+.payment-card__footer > span {
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  transition: border-color .26s var(--ease), box-shadow .26s var(--ease), background .26s var(--ease);
+}
 .payment-card__footer > span:first-child { max-width: 70%; }
+.payment-card__front.is-focus-holder .payment-card__footer > span:first-child,
+.payment-card__front.is-focus-expire .payment-card__footer > span:last-child {
+  border-color: rgba(255,255,255,.7);
+  background: rgba(255,255,255,.025);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.05), 0 0 16px rgba(60,193,246,.2);
+}
 .payment-card__footer small,
 .payment-card__signature span {
   color: rgba(255,255,255,.48);

@@ -121,10 +121,11 @@ export function CreditCardForm({
     const digits = number.slice(0, 16).split('');
     return Array.from({ length: 16 }, (_, index) => {
       const hasValue = index < digits.length;
-      const shouldMask = maskMiddle && index >= 4 && index <= 11;
+      const isMasked = hasValue && maskMiddle && index >= 4 && index <= 11;
       return {
-        value: hasValue ? (shouldMask ? '•' : digits[index]) : '·',
+        value: hasValue && !isMasked ? digits[index] : '',
         hasValue,
+        isMasked,
       };
     });
   }, [number, maskMiddle]);
@@ -144,8 +145,12 @@ export function CreditCardForm({
     <section className={`credit-card-form ${className}`.trim()}>
       <div className="payment-card-scene" aria-label="Live payment card preview">
         <div className={`payment-card${focusField === 'cvv' ? ' is-flipped' : ''}`}>
-          <section className="payment-card__face payment-card__front" style={cardStyle}>
-            <span className={`payment-card__highlight is-${focusField ?? 'hidden'}`} />
+          <section
+            className={`payment-card__face payment-card__front${
+              focusField && focusField !== 'cvv' ? ` is-focus-${focusField}` : ''
+            }`}
+            style={cardStyle}
+          >
             <div className="payment-card__header">
               <span className="payment-card__brand">Bondex Pro</span>
               <span className="payment-card__network" aria-label="Card payment">
@@ -156,8 +161,14 @@ export function CreditCardForm({
 
             <div className="payment-card__number" aria-label="Card number preview">
               {displayedSlots.map((slot, index) => (
-                <span className={slot.hasValue ? 'has-value' : undefined} key={index}>
-                  {slot.value}
+                <span
+                  className={`${slot.hasValue ? 'has-value' : 'is-empty'}${
+                    slot.isMasked ? ' is-masked' : ''
+                  }`}
+                  aria-hidden="true"
+                  key={index}
+                >
+                  {slot.value || <i />}
                 </span>
               ))}
             </div>
