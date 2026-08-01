@@ -494,16 +494,6 @@ code {
 .menubar__group--right { gap: 11px; }
 .menubar__group b { font-weight: 600; color: #fff; }
 
-/* A leaf, not an Apple. The shape reads as a menu affordance without
-   borrowing anyone's mark. */
-.menubar__leaf {
-  width: 11px; height: 11px;
-  background: rgba(255, 255, 255, .88);
-  border-radius: 50% 8% 50% 8%;
-  transform: rotate(-8deg);
-  flex: none;
-}
-
 .menubar__clock {
   font-family: var(--mono);
   font-size: 10px;

@@ -13,8 +13,11 @@ const MENUS = ['File', 'Edit', 'View', 'Go', 'Window', 'Help'];
 export function Menubar() {
   return (
     <div className="menubar" aria-hidden="true">
+      {/* No mark in the leading slot. Apple's guidelines do not permit the
+          Apple logo in third-party marketing, and a lookalike standing in for
+          it reads worse than nothing — the bold app name and the menu titles
+          already say "macOS menu bar" on their own. */}
       <div className="menubar__group">
-        <span className="menubar__leaf" />
         <b>Finder</b>
         {MENUS.map((m) => (
           <span key={m}>{m}</span>
