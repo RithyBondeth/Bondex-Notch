@@ -1,5 +1,32 @@
 import SwiftUI
 
+/// An event's icon: the agent's own mark when the event is about an agent,
+/// otherwise the symbol for its kind.
+///
+/// Shared by the feed and the peek's banner so the two never disagree — an
+/// agent that was showing its mark in the peek keeps it in the row that reports
+/// it finished, rather than turning into a generic sparkle on the way.
+struct EventIcon: View {
+    let event: NotchEvent
+    var size: CGFloat
+
+    var body: some View {
+        if let agent = event.agent {
+            // Marks are wider than they are tall; height is what has to match
+            // the surrounding symbols, so the width follows from the aspect.
+            PixelMark(kind: agent)
+                .frame(
+                    width: size * AgentMarks.aspect(for: agent),
+                    height: size
+                )
+        } else {
+            Image(systemName: event.kind.systemImage)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(event.tint)
+        }
+    }
+}
+
 /// The activity feed.
 ///
 /// Named "Activity" rather than "Notifications" on purpose: it lists what
@@ -56,9 +83,7 @@ struct ActivityWidget: View {
 
     private func row(_ event: NotchEvent) -> some View {
         HStack(spacing: 9) {
-            Image(systemName: event.kind.systemImage)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(event.kind.tint)
+            EventIcon(event: event, size: 11)
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 1) {

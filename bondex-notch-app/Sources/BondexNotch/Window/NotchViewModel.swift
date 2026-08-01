@@ -36,6 +36,33 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// How many coding agents are working, which the peek reports with a mark and
+    /// a name each. Kept separate from `hasLiveActivity` because it also decides
+    /// how *wide* the peek has to be: playback needs room for artwork and an
+    /// equaliser, and each agent brings its own pair.
+    @Published var workingAgentCount = 0 {
+        didSet {
+            // Only the empty/non-empty transition changes whether the peek is up
+            // at all; going from one agent to two just resizes it, which the
+            // published change already animates.
+            guard (workingAgentCount > 0) != (oldValue > 0) else { return }
+            refreshIdleState()
+        }
+    }
+
+    var hasAgentActivity: Bool { workingAgentCount > 0 }
+
+    /// What the peek is carrying, which is what decides its width.
+    ///
+    /// A banner outranks an agent for the same reason an agent outranks
+    /// playback: it is the most transient of the three, and the only one with a
+    /// deadline.
+    var peekContent: PeekContent {
+        if banner != nil { return .banner }
+        if hasAgentActivity { return .agent(agents: workingAgentCount) }
+        return .media
+    }
+
     init(settings: SettingsStore, events: EventCenter, screen: NSScreen) {
         self.settings = settings
         self.events = events
@@ -61,17 +88,59 @@ final class NotchViewModel: ObservableObject {
         geometry = measured
     }
 
+    /// Height the expanded panel needs for what it is currently showing, measured
+    /// from the content itself. Nil until the first measurement arrives.
+    @Published private(set) var measuredExpandedHeight: CGFloat?
+
+    /// Never let the panel collapse to a sliver if a measurement arrives wrong.
+    private let minimumExpandedHeight: CGFloat = 120
+
+    /// What the panel is currently drawing.
+    ///
+    /// The expanded height is measured rather than fixed, so the panel is exactly
+    /// as tall as its content: the Home tab is shorter with nothing playing than
+    /// with a media row, and the Music tab does not have to reserve room for the
+    /// tallest tab. A single fixed height cannot be right for both — it is either
+    /// too short for one (clipping it) or too tall for the other (dead space).
+    var contentSize: CGSize {
+        guard state.isExpanded else {
+            return geometry.contentSize(for: state, peek: peekContent)
+        }
+        let maximum = NotchGeometry.expandedContentSize
+        let measured = measuredExpandedHeight ?? maximum.height
+        return CGSize(
+            width: min(max(settings.preferences.panelWidth, 440), maximum.width),
+            height: min(max(measured, minimumExpandedHeight), maximum.height)
+        )
+    }
+
     /// The peek is narrower while it is only reporting playback than it is while
-    /// carrying a banner, so hit testing has to follow the banner too — otherwise
-    /// the panel keeps swallowing clicks in a margin it is no longer drawing.
-    var hitRect: CGRect { geometry.hitRect(for: state, hasBanner: banner != nil) }
+    /// carrying a banner, and the expanded panel is only as tall as its content —
+    /// so hit testing follows what is drawn, or the panel keeps swallowing clicks
+    /// in a margin it is no longer filling.
+    var hitRect: CGRect { geometry.hitRect(ofSize: contentSize) }
+
+    /// Reported by the view once SwiftUI has laid the expanded content out.
+    func setMeasuredExpandedHeight(_ height: CGFloat) {
+        guard height > 0 else { return }
+        guard let current = measuredExpandedHeight else {
+            // First measurement: adopt it outright. Animating from nothing would
+            // fight the spring that is already opening the panel.
+            measuredExpandedHeight = height
+            return
+        }
+        guard abs(current - height) > 0.5 else { return }
+        withAnimation(Motion.content(settings.motion)) {
+            measuredExpandedHeight = height
+        }
+    }
 
     // MARK: Pointer
 
     func pointerMoved(to location: CGPoint) {
         // While expanded, the whole panel keeps it open; while closed, only the
         // notch strip does.
-        let liveRect = geometry.hoverRect(for: state, hasBanner: banner != nil)
+        let liveRect = geometry.hoverRect(ofSize: contentSize, isExpanded: state.isExpanded)
         let triggerRect = geometry.hoverRect(for: .collapsed)
 
         if state.isExpanded {
@@ -151,6 +220,11 @@ final class NotchViewModel: ObservableObject {
     /// What the panel falls back to when nothing is hovering it: a peek when
     /// something is live, otherwise fully closed.
     private var idleState: NotchState {
+        // An agent working is not gated behind the *media* peek preference —
+        // someone who turned off "peek while playing" was asking not to see
+        // album art over the menu bar, which says nothing about whether they
+        // want to know their agent is still running.
+        if hasAgentActivity, settings.preferences.agentActivityEnabled { return .peek }
         guard hasLiveActivity, settings.preferences.peekWhilePlaying else { return .collapsed }
         return .peek
     }

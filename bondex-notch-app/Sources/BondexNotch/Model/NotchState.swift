@@ -12,8 +12,22 @@ enum NotchState: Equatable {
     var isExpanded: Bool { self == .expanded }
 }
 
+/// What a peek is currently reporting, which is what decides how wide it is.
+///
+/// Three cases rather than a `hasBanner` flag, because the three need genuinely
+/// different room: artwork and an equaliser are small and fixed, a banner needs
+/// a readable line or two of text, and an agent strip grows with every agent
+/// that starts working.
+enum PeekContent: Equatable {
+    case media
+    /// - Parameter agents: how many agents are working, each of which brings its
+    ///   own mark and its own name.
+    case agent(agents: Int)
+    case banner
+}
+
 /// Which widget the expanded panel is showing.
-enum NotchTab: String, CaseIterable, Identifiable {
+enum NotchTab: String, CaseIterable, Codable, Identifiable {
     case home
     case music
     case files
@@ -47,6 +61,20 @@ enum NotchTab: String, CaseIterable, Identifiable {
         case .files: return .fileActivity
         case .shelf: return .shelf
         default: return nil
+        }
+    }
+
+    /// Fixed height for this tab's widget area, or nil to size to its content.
+    ///
+    /// The list tabs scroll inside a stable area: a panel that grew and shrank as
+    /// items arrived and aged out would be far more distracting than one that
+    /// stays put. Home and Music are measured instead, so the panel is exactly as
+    /// tall as what they are showing — which is why Home shrinks when nothing is
+    /// playing, and why Music does not have to reserve room for the tallest tab.
+    var widgetHeight: CGFloat? {
+        switch self {
+        case .home, .music: return nil
+        case .files, .activity, .shelf: return 148
         }
     }
 }

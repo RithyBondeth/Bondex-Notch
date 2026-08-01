@@ -75,8 +75,133 @@ re-derived on `didChangeScreenParametersNotification`.
 | State | Size | When |
 |---|---|---|
 | `collapsed` | exactly the notch | nothing live; invisible on notched Macs |
-| `peek` | notch + strips either side | media playing, or a transient banner |
-| `expanded` | 560 × 210 | pointer on the notch, or clicked to pin |
+| `peek` | notch + 120 while playing, + 90 per extra agent, + 260 for a banner | media playing, an agent working, or a transient banner |
+| `expanded` | user-controlled 440–680 wide, height **measured from the content** | pointer on the notch, or clicked to pin |
+
+Only the widths are fixed. The expanded panel's height comes from what it is
+actually showing: `ExpandedView` reports its laid-out height through
+`ExpandedHeightKey`, and `NotchViewModel.contentSize` clamps that between a floor
+and `expandedContentSize.height` — a *ceiling*, not the panel's size.
+
+This is worth keeping. A single fixed height cannot be right for every tab, and
+getting it wrong is not obvious: the panel mask simply cuts the bottom off
+whatever overflowed, which reads as inconsistent padding rather than as clipping.
+Both directions were shipped and reported before this was measured instead —
+Home clipped its gauges once a media row appeared, and Music sat in dead space
+whenever the height was raised enough to fix Home. Tabs that scroll opt out with
+`NotchTab.widgetHeight`, because a panel that resized as feed items arrived and
+aged out would be worse than one that stays put.
+
+### Agent activity
+
+While a coding agent is working, the peek shows its mark on one side of the notch
+and its name on the other. What it is doing, and how long it has been at it, are
+one hover away: expanding the panel puts an agent card at the top of Home with a
+row per agent — status and a running clock.
+
+That split is deliberate. All three used to be crammed into the strip beside the
+notch, where the status — the only part carrying new information — was the first
+thing to be truncated. What belongs over the menu bar all day is the smallest
+true statement, *who is working*; what they are working on is a question, and a
+question deserves a deliberate look rather than a permanent slab of text. It also
+takes the peek's last `TimelineView` with it, so the strip no longer re-renders
+once a second for the entire length of a run.
+
+Several agents at once is an ordinary case, not a corner one — a Claude Code
+session and a Codex session on the same machine signal independently. Each gets
+its own mark and its own name, tinted to match so the pairing needs no
+explaining, and the peek widens as agents join. The card lists three and then
+counts, because the panel is measured from its content and an unbounded list
+would push Home past its height ceiling and be silently cut off at the bottom.
+
+### Customization
+
+Appearance settings apply live and persist as part of the version-tolerant
+preferences blob. Users can choose a preset or custom accent, pure-black,
+gradient, or accent-tinted panel treatment, panel width, opacity, bottom-corner
+and top-flare geometry, rim and shadow strength, and animation speed. Widget
+settings also control which tabs exist and their left-to-right order. The AppKit
+window always reserves the maximum footprint, so changing the width or shape
+does not resize the window or interrupt the panel animation.
+
+**The agent has to say so, and that is not a shortcut.** The obvious design is to
+find the agent's process and watch its CPU, and it does not work. Measured
+against three live Claude Code processes and a Codex process on a machine where
+an agent was mid-task, CPU over a two-second window was **0.000–0.001 cores**,
+and `proc_listchildpids` reported no children. An agent that is "working" is
+almost always *blocked* — on a streaming API response, or on a tool running
+elsewhere. That signal is not weak, it is absent, and an indicator built on it
+would have looked like a feature while essentially never lighting up.
+
+So the agent declares itself, through one hook:
+
+```bash
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-busy claude "Editing Foo.swift"
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-idle claude
+```
+
+Settings › Widgets shows both lines with the real binary path filled in, and a
+Copy button. Wire `--agent-busy` to whatever fires per tool call and
+`--agent-idle` to whatever fires at the end of a turn.
+
+Any agent name works, not just the ones Bondex ships artwork for — an unknown
+agent shows up under the generic mark with the name it gave. A closed list would
+mean every new agent needed a release before it could light the notch at all.
+What *is* rejected is a name that could not safely be a file name, because that
+is exactly what it becomes: `--agent-busy ../../../etc/passwd` must not write
+outside the signal directory. A malformed name exits non-zero with a message
+rather than being ignored — a hook fires dozens of times a turn, which is where a
+silent misreading does the most damage.
+
+Where those two lines go differs per agent, and Settings names the file for the
+three that were checked against their installed builds. All three borrow Claude
+Code's `{matcher, hooks:[{type, command}]}` shape; Gemini renames the events:
+
+| Agent | File | Busy / idle events |
+|---|---|---|
+| Claude Code | `~/.claude/settings.json` | `PreToolUse` / `Stop` |
+| Codex | `~/.codex/hooks/hooks.json` | `PreToolUse` / `Stop` |
+| Gemini CLI | `~/.gemini/settings.json` | `BeforeTool` / `AfterAgent` |
+
+Claude Code's CLI and desktop app read the same file, so wiring it once covers
+both.
+
+Those write and remove `~/.bondex-notch/agents/<agent>`, which the app watches
+with a dispatch source — no polling, and nothing running at all when no agent is
+working. The file's modification date is a heartbeat and its first line is the
+status to show. A 90-second staleness backstop covers an agent killed mid-run
+without its idle hook firing; it is deliberately long, because it must sit
+through a single slow tool call without blinking out.
+
+The orb is Core Animation, not SwiftUI, for the reason in *Keeping it cheap* —
+it is on screen for the entire length of a run.
+
+The marks inside it are geometry, not image assets, which is why this project
+still ships no image files. A mark drawn as a path scales without a set of
+`@2x`/`@3x` exports and is tinted by *fill* rather than by compositing — which
+matters on a near-black panel, where anything with a baked-in background shows as
+a pale rectangle around the glyph. Claude's is a grid of strings because it *is*
+a grid; the rest are curves, and the ones that are drawn as lines are stroked
+into outlines at build time so every renderer has one thing to draw and one place
+to set a colour.
+
+They are simplified rather than traced. The glyph is about 13pt across, so detail
+below roughly half a point is not resolvable and costs path complexity for
+nothing; what has to survive is the silhouette, because that is what makes a mark
+recognisable at a glance. Claude's grid is the one place this bites in the other
+direction — at that size a cell is under a point and the eyes are a single cell,
+so cells are drawn at exactly one cell with no overlap: dilating each one to hide
+seams instead closes the gaps that are the eyes.
+
+Geometry has no compile-time proof that it looks like anything, so
+`--render-previews` writes an `agent-marks` sheet of every mark. That is the only
+way to check the artwork — and no ordinary session has five agents running.
+
+Process discovery is still here, but only to answer "is this agent installed",
+which is what lets Settings show setup instructions for the agents you use and
+stay quiet about the rest. `proc_pidpath` resolves every process the user owns
+(measured at 617 of 617). Matching is case-sensitive on purpose: Claude Code's
+binary is `claude`, the Claude desktop app's is `Claude`.
 
 ## What macOS does and does not allow
 
@@ -175,6 +300,18 @@ rasterised, and `ScrollView` renders empty — `NotchRootView` and
 
 ## Known gaps
 
+- **Codex's hooks have never been seen to fire.** The event names above come from
+  its own `HookEventName` enum and `codex features list` reports `hooks` as
+  stable and enabled, but neither `~/.codex/hooks.json` nor
+  `~/.codex/hooks/hooks.json` produced a single call across two real `codex exec`
+  turns. Strings in the binary (`bypass_hook_trust`, `hook.scope`, `hook.source`)
+  suggest hooks may need a trust grant that only an interactive session prompts
+  for. Gemini's are written from its own settings schema but are likewise
+  unproven — `gemini -p` hangs with no output in a non-TTY. Claude Code's are
+  verified firing. Everything on the Bondex side is agent-agnostic, so this is a
+  question of where each agent reads its hooks from, not of the indicator.
+- The opencode mark is a placeholder — a block cursor standing in until the real
+  artwork is to hand.
 - Downloads without a sidecar file report bytes received and live rate, not a
   percentage — no public API exposes a transfer's expected total size.
 - The shelf holds file *references*. Moving or deleting a file elsewhere leaves

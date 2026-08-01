@@ -109,6 +109,7 @@ private struct WidgetSettings: View {
         Form {
             Section("Free") {
                 Toggle("Music", isOn: binding(\.musicWidgetEnabled))
+                Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
                 Toggle("System", isOn: binding(\.systemWidgetEnabled))
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
             }
@@ -124,6 +125,44 @@ private struct WidgetSettings: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Section("Tab order") {
+                ForEach(settings.orderedTabs) { tab in
+                    HStack {
+                        Label(tab.title, systemImage: tab.systemImage)
+                        Spacer()
+                        Button {
+                            move(tab, by: -1)
+                        } label: {
+                            Image(systemName: "chevron.up")
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(settings.orderedTabs.first == tab)
+                        .help("Move " + tab.title + " left")
+
+                        Button {
+                            move(tab, by: 1)
+                        } label: {
+                            Image(systemName: "chevron.down")
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(settings.orderedTabs.last == tab)
+                        .help("Move " + tab.title + " right")
+                    }
+                }
+            }
+
+            Section {
+                AgentSetupHelp(environment: environment)
+            } header: {
+                Text("Agent Activity")
+            } footer: {
+                Text("""
+                Shows a mark beside the notch while Claude Code or Codex is \
+                working, with what it is doing and how long it has been at it.
+                """)
+                .font(.caption)
             }
 
             Section {
@@ -175,6 +214,15 @@ private struct WidgetSettings: View {
             set: { settings.preferences[keyPath: keyPath] = $0 }
         )
     }
+
+    private func move(_ tab: NotchTab, by offset: Int) {
+        var order = settings.orderedTabs
+        guard let source = order.firstIndex(of: tab) else { return }
+        let destination = source + offset
+        guard order.indices.contains(destination) else { return }
+        order.swapAt(source, destination)
+        settings.preferences.widgetOrder = order
+    }
 }
 
 // MARK: - Appearance
@@ -191,7 +239,9 @@ private struct AppearanceSettings: View {
                 )) {
                     ForEach(Theme.Accent.allCases) { accent in
                         HStack {
-                            Circle().fill(accent.color).frame(width: 10, height: 10)
+                            Circle()
+                                .fill(accent == .custom ? settings.effectiveAccentColor : accent.color)
+                                .frame(width: 10, height: 10)
                             Text(accent.displayName)
                             if accent.requiresPro && settings.tier != .pro {
                                 Text("Pro").font(.caption2).foregroundStyle(.secondary)
@@ -208,6 +258,62 @@ private struct AppearanceSettings: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+
+                ColorPicker("Custom color", selection: customAccent, supportsOpacity: false)
+                    .disabled(settings.tier != .pro)
+            }
+
+
+            Section("Panel") {
+                Picker("Background", selection: binding(\.panelStyle)) {
+                    ForEach(Theme.PanelStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+
+                valueSlider(
+                    "Width",
+                    value: binding(\.panelWidth),
+                    range: 440...680,
+                    step: 10,
+                    valueLabel: "\(Int(settings.preferences.panelWidth)) pt"
+                )
+                valueSlider(
+                    "Opacity",
+                    value: binding(\.panelOpacity),
+                    range: 0.65...1,
+                    step: 0.05,
+                    valueLabel: "\(Int(settings.preferences.panelOpacity * 100))%"
+                )
+                valueSlider(
+                    "Bottom corners",
+                    value: binding(\.bottomCornerRadius),
+                    range: 10...38,
+                    step: 1,
+                    valueLabel: "\(Int(settings.preferences.bottomCornerRadius)) pt"
+                )
+                valueSlider(
+                    "Top flare",
+                    value: binding(\.flareRadius),
+                    range: 5...20,
+                    step: 1,
+                    valueLabel: "\(Int(settings.preferences.flareRadius)) pt"
+                )
+                valueSlider(
+                    "Rim",
+                    value: binding(\.rimStrength),
+                    range: 0...1,
+                    step: 0.1,
+                    valueLabel: "\(Int(settings.preferences.rimStrength * 100))%"
+                )
+                valueSlider(
+                    "Shadow",
+                    value: binding(\.shadowStrength),
+                    range: 0...1,
+                    step: 0.1,
+                    valueLabel: "\(Int(settings.preferences.shadowStrength * 100))%"
+                )
             }
 
             Section("Motion") {
@@ -221,8 +327,45 @@ private struct AppearanceSettings: View {
                 }
                 .pickerStyle(.segmented)
             }
+
+            Section {
+                Button("Reset appearance") { settings.resetAppearance() }
+            }
         }
         .formStyle(.grouped)
+    }
+
+    private var customAccent: Binding<Color> {
+        Binding(
+            get: { Color(hexRGB: settings.preferences.customAccentHex) ?? .white },
+            set: {
+                if let hex = $0.hexRGB { settings.preferences.customAccentHex = hex }
+                settings.preferences.accent = .custom
+            }
+        )
+    }
+
+    private func binding<T>(_ keyPath: WritableKeyPath<Preferences, T>) -> Binding<T> {
+        Binding(
+            get: { settings.preferences[keyPath: keyPath] },
+            set: { settings.preferences[keyPath: keyPath] = $0 }
+        )
+    }
+
+    private func valueSlider(
+        _ title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        valueLabel: String
+    ) -> some View {
+        HStack {
+            Text(title)
+            Slider(value: value, in: range, step: step)
+            Text(valueLabel)
+                .font(.caption.monospacedDigit())
+                .frame(width: 54, alignment: .trailing)
+        }
     }
 }
 

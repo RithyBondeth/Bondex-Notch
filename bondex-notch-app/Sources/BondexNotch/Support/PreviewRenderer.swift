@@ -50,7 +50,33 @@ enum PreviewRenderer {
         battery=\(snapshot.batteryLevel.map { "\(Int($0 * 100))%" } ?? "none")
         """)
 
+        // Seed playback before rendering anything: the media row and the music
+        // player are part of what these shots exist to review, and on a machine
+        // with nothing playing they would all render as the empty state.
+        let playing = NowPlaying(
+            source: .music,
+            title: "Weightless",
+            artist: "Marconi Union",
+            album: "Ambient Transmissions",
+            isPlaying: true,
+            duration: 489,
+            position: 128,
+            artwork: nil
+        )
+
         var failures = 0
+
+        // Home with nothing playing, before anything is seeded. The panel is sized
+        // from its content, so this must come out visibly shorter than the same tab
+        // with a media row — that difference is the whole point, and a fixed height
+        // got one of the two wrong however it was tuned.
+        environment.nowPlaying.seedForPreview(nil)
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-home-idle", into: directory) { failures += 1 }
+
+        environment.nowPlaying.seedForPreview(playing)
+
         for tab in NotchTab.allCases {
             environment.notch.tab = tab
             environment.notch.expand()
@@ -65,16 +91,6 @@ enum PreviewRenderer {
         // The peek is the state most sessions actually see, and it has two very
         // different shapes: a narrow strip while something is playing, and a wider
         // one while a banner is up. Both are worth reviewing.
-        environment.nowPlaying.seedForPreview(NowPlaying(
-            source: .music,
-            title: "Weightless",
-            artist: "Marconi Union",
-            album: "Ambient Transmissions",
-            isPlaying: true,
-            duration: 489,
-            position: 128,
-            artwork: nil
-        ))
         environment.notch.hasLiveActivity = true
         environment.notch.collapse()
 
@@ -91,6 +107,78 @@ enum PreviewRenderer {
             kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
         ))
         if !render(environment, named: "peek-banner", into: directory) { failures += 1 }
+
+        // The agent indicator, which on a machine with nothing running would
+        // otherwise never appear in a preview — and it is the state the peek
+        // spends its time in for anyone who uses a coding agent.
+        // Expanding clears the banner still up from the shot above, which would
+        // otherwise outrank the agent in the peek and render the same image twice.
+        environment.notch.expand()
+        environment.notch.workingAgentCount = 1
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Editing PeekView.swift"
+            )
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agent", into: directory) { failures += 1 }
+
+        // Two agents at once, which is the case the strip has to grow for. Worth
+        // a shot of its own: it is the one agent layout that cannot be checked by
+        // running a single agent and looking at the notch.
+        environment.notch.expand()
+        environment.notch.workingAgentCount = 2
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Editing PeekView.swift"
+            ),
+            AgentActivity(
+                kind: .codex,
+                startedAt: Date().addingTimeInterval(-52),
+                status: "Running tests"
+            )
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agents-two", into: directory) { failures += 1 }
+
+        // The expanded detail those marks open into, with both agents listed.
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-agents", into: directory) { failures += 1 }
+
+        // Every mark Bondex ships, which is the only way to check the artwork:
+        // the drawn marks are geometry, so a mistake in one is invisible until
+        // it is rasterised, and no ordinary session has five agents running.
+        // Also the overflow case — the card counts past three rather than
+        // growing until Home clips.
+        environment.agents.seedForPreview(AgentKind.known.enumerated().map { index, kind in
+            AgentActivity(
+                kind: kind,
+                startedAt: Date().addingTimeInterval(-Double(index) * 30 - 20),
+                status: "Working on something"
+            )
+        })
+        if !render(environment, named: "agent-marks", into: directory) { failures += 1 }
+
+        // One deliberately opinionated setup exercises every appearance value
+        // together: wide tinted panel, custom colour, softer chrome, and the
+        // largest supported curves. Defaults alone cannot catch clipping at the
+        // ends of the customization ranges.
+        environment.settings.preferences.accent = .custom
+        environment.settings.preferences.customAccentHex = "FF4F9A"
+        environment.settings.preferences.panelStyle = .tinted
+        environment.settings.preferences.panelWidth = 680
+        environment.settings.preferences.panelOpacity = 0.9
+        environment.settings.preferences.bottomCornerRadius = 38
+        environment.settings.preferences.flareRadius = 20
+        environment.settings.preferences.rimStrength = 0.5
+        environment.settings.preferences.shadowStrength = 0.35
+        environment.notch.tab = .home
+        if !render(environment, named: "expanded-customized", into: directory) { failures += 1 }
 
         return failures == 0 ? 0 : 1
     }
@@ -166,6 +254,20 @@ enum PreviewRenderer {
         ))
         environment.events.post(NotchEvent(
             kind: .system, title: "Low Battery", subtitle: "14% remaining"
+        ))
+        // Carries an agent, so the row draws that agent's mark rather than the
+        // generic symbol for its kind.
+        environment.events.post(NotchEvent(
+            kind: .agent,
+            title: "Claude finished",
+            subtitle: "Worked for 4:00",
+            agent: .claude
+        ))
+        environment.events.post(NotchEvent(
+            kind: .agent,
+            title: "Codex finished",
+            subtitle: "Worked for 1:12",
+            agent: .codex
         ))
     }
 }

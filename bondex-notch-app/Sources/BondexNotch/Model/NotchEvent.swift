@@ -12,6 +12,7 @@ struct NotchEvent: Identifiable, Equatable {
         case download
         case system
         case shelf
+        case agent
         case app
 
         var systemImage: String {
@@ -20,6 +21,7 @@ struct NotchEvent: Identifiable, Equatable {
             case .download: return "arrow.down.circle.fill"
             case .system: return "cpu"
             case .shelf: return "tray.full.fill"
+            case .agent: return "sparkle"
             case .app: return "bell.fill"
             }
         }
@@ -30,6 +32,7 @@ struct NotchEvent: Identifiable, Equatable {
             case .download: return Color(red: 0.29, green: 0.62, blue: 0.98)
             case .system: return Color(red: 0.99, green: 0.72, blue: 0.25)
             case .shelf: return Color(red: 0.32, green: 0.80, blue: 0.55)
+            case .agent: return Color(red: 0.85, green: 0.47, blue: 0.29)
             case .app: return Color(white: 0.75)
             }
         }
@@ -42,9 +45,13 @@ struct NotchEvent: Identifiable, Equatable {
         /// artwork and the equaliser, for as long as it lasts. Bannering it too
         /// would flash the track title over the menu bar for a few seconds on
         /// every change — putting back exactly the text the peek leaves out.
+        /// Agent runs are the second exception, for the same reason as
+        /// playback: the peek reported the work live, for as long as it lasted.
+        /// A banner afterwards would be telling you about something you just
+        /// spent ten minutes watching.
         var deservesBanner: Bool {
             switch self {
-            case .music: return false
+            case .music, .agent: return false
             case .download, .system, .shelf, .app: return true
             }
         }
@@ -55,13 +62,30 @@ struct NotchEvent: Identifiable, Equatable {
     let title: String
     let subtitle: String?
     let date: Date
+    /// Which agent this is about, for `.agent` events.
+    ///
+    /// `Kind` alone is too coarse to draw with: it can say "an agent finished"
+    /// but not *which*, so the row fell back to a generic symbol while the peek
+    /// two seconds earlier had been showing the agent's actual mark. Carrying
+    /// the agent lets the feed draw the same mark, and tint the row to match.
+    let agent: AgentKind?
 
-    init(kind: Kind, title: String, subtitle: String? = nil, date: Date = Date()) {
+    init(
+        kind: Kind,
+        title: String,
+        subtitle: String? = nil,
+        date: Date = Date(),
+        agent: AgentKind? = nil
+    ) {
         self.kind = kind
         self.title = title
         self.subtitle = subtitle
         self.date = date
+        self.agent = agent
     }
+
+    /// The colour to draw this event in — the agent's own, when there is one.
+    var tint: Color { agent?.tint ?? kind.tint }
 
     static func == (lhs: NotchEvent, rhs: NotchEvent) -> Bool { lhs.id == rhs.id }
 }

@@ -12,7 +12,7 @@ struct FileActivityWidget: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
 
     var body: some View {
         if service.accessDenied {

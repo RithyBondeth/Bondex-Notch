@@ -194,6 +194,70 @@ final class MediaAppTests: XCTestCase {
     }
 }
 
+@MainActor
+final class ExpandedSizingTests: XCTestCase {
+
+    private let geometry = NotchGeometry(
+        notchSize: CGSize(width: 179, height: 32),
+        hasHardwareNotch: true,
+        screenFrame: CGRect(x: 0, y: 0, width: 1470, height: 956)
+    )
+
+    func testContentSizedTabsAreMeasuredRatherThanFixed() {
+        // Home and Music report no fixed height, which is what lets the panel
+        // shrink when Home has nothing playing.
+        XCTAssertNil(NotchTab.home.widgetHeight)
+        XCTAssertNil(NotchTab.music.widgetHeight)
+    }
+
+    func testListTabsKeepAStableArea() {
+        // A panel that resized as feed items arrived and aged out would be worse
+        // than one that stays put.
+        for tab in [NotchTab.files, .activity, .shelf] {
+            XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) would resize as its list changed")
+        }
+    }
+
+    func testAMeasuredPanelIsHitTestedWhereItIsDrawn() {
+        // The rect has to follow the measured height, or the panel keeps claiming
+        // clicks in the empty space below whatever it actually drew.
+        let short = geometry.hitRect(ofSize: CGSize(width: 560, height: 150))
+        let tall = geometry.hitRect(ofSize: CGSize(width: 560, height: 224))
+
+        XCTAssertLessThan(short.height, tall.height)
+        XCTAssertEqual(short.maxY, tall.maxY, accuracy: 0.5, "Both hang from the top")
+        XCTAssertEqual(short.midX, tall.midX, accuracy: 0.5)
+        XCTAssertGreaterThan(short.minY, tall.minY, "The shorter panel stops higher up")
+    }
+
+    func testMeasuredRectsAgreeWithTheStateBasedOnes() {
+        for state in [NotchState.collapsed, .peek, .expanded] {
+            let size = geometry.contentSize(for: state)
+            XCTAssertEqual(geometry.hitRect(ofSize: size), geometry.hitRect(for: state))
+            XCTAssertEqual(geometry.screenRect(ofSize: size), geometry.screenRect(for: state))
+        }
+    }
+
+    func testTheCeilingClearsTheTallestTab() {
+        // A ceiling tuned to exactly fit is one that clips the moment a widget
+        // grows a row, or on a Mac whose notch is taller. Chrome is the notch
+        // inset plus the tab strip, divider and the panel's own padding.
+        let chrome = geometry.notchSize.height + 80
+        let tallest = NotchTab.allCases.compactMap(\.widgetHeight).max() ?? 0
+
+        XCTAssertLessThan(
+            chrome + tallest,
+            NotchGeometry.expandedContentSize.height,
+            "The tallest tab would be clamped, which shows up as a clipped bottom edge"
+        )
+    }
+
+    func testTheWholePanelStillFitsItsWindow() {
+        let bounds = CGRect(origin: .zero, size: geometry.windowSize)
+        XCTAssertTrue(bounds.contains(geometry.hitRect(ofSize: NotchGeometry.expandedContentSize)))
+    }
+}
+
 final class BannerPolicyTests: XCTestCase {
 
     func testPlaybackNeverBanners() {
@@ -224,15 +288,15 @@ final class PeekWidthTests: XCTestCase {
     func testPlaybackPeekIsNarrowerThanABanner() {
         // Playing shows artwork and the equaliser only, so the strips can sit
         // close to the notch; a banner has to carry a line of text.
-        let playing = geometry.contentSize(for: .peek, hasBanner: false)
-        let banner = geometry.contentSize(for: .peek, hasBanner: true)
+        let playing = geometry.contentSize(for: .peek, peek: .media)
+        let banner = geometry.contentSize(for: .peek, peek: .banner)
 
         XCTAssertLessThan(playing.width, banner.width)
         XCTAssertEqual(playing.height, banner.height, "Only the width should differ")
     }
 
     func testPlaybackPeekStillClearsTheNotchOnBothSides() {
-        let playing = geometry.contentSize(for: .peek, hasBanner: false)
+        let playing = geometry.contentSize(for: .peek, peek: .media)
         let perSide = (playing.width - geometry.notchSize.width) / 2
 
         XCTAssertGreaterThan(perSide, 40, "No room for artwork beside the notch")
@@ -242,8 +306,8 @@ final class PeekWidthTests: XCTestCase {
         let collapsed = geometry.contentSize(for: .collapsed)
         let expanded = geometry.contentSize(for: .expanded)
 
-        for hasBanner in [false, true] {
-            let peek = geometry.contentSize(for: .peek, hasBanner: hasBanner)
+        for content in [PeekContent.media, .agent(agents: 1), .agent(agents: 3), .banner] {
+            let peek = geometry.contentSize(for: .peek, peek: content)
             XCTAssertLessThan(collapsed.width, peek.width)
             XCTAssertLessThan(peek.width, expanded.width)
         }
@@ -251,8 +315,8 @@ final class PeekWidthTests: XCTestCase {
 
     func testHitTestingFollowsTheNarrowerPeek() {
         // The panel must not keep claiming clicks in a margin it stopped drawing.
-        let playing = geometry.hitRect(for: .peek, hasBanner: false)
-        let banner = geometry.hitRect(for: .peek, hasBanner: true)
+        let playing = geometry.hitRect(for: .peek, peek: .media)
+        let banner = geometry.hitRect(for: .peek, peek: .banner)
 
         XCTAssertLessThan(playing.width, banner.width)
         XCTAssertTrue(banner.contains(playing))
@@ -286,6 +350,9 @@ final class PreferencesDecodingTests: XCTestCase {
         // And the fields it had never heard of get their defaults.
         XCTAssertEqual(decoded.hoverDelay, Preferences().hoverDelay, accuracy: 0.0001)
         XCTAssertEqual(decoded.browserMediaEnabled, Preferences().browserMediaEnabled)
+        XCTAssertEqual(decoded.panelWidth, Preferences().panelWidth, accuracy: 0.0001)
+        XCTAssertEqual(decoded.panelStyle, Preferences().panelStyle)
+        XCTAssertEqual(decoded.widgetOrder, NotchTab.allCases)
     }
 
     func testUnknownFieldsFromANewerBuildAreIgnored() {
@@ -306,10 +373,31 @@ final class PreferencesDecodingTests: XCTestCase {
         original.accent = .forest
         original.hoverDelay = 0.42
         original.browserMediaEnabled = false
+        original.accent = .custom
+        original.customAccentHex = "12ABEF"
+        original.panelStyle = .tinted
+        original.panelWidth = 640
+        original.panelOpacity = 0.8
+        original.bottomCornerRadius = 32
+        original.flareRadius = 17
+        original.rimStrength = 0.4
+        original.shadowStrength = 0.2
+        original.widgetOrder = [.home, .activity, .music, .shelf, .files]
         original.licenseKey = "BNDX-BEEF-1234-0000"
 
         let data = try JSONEncoder().encode(original)
         XCTAssertEqual(SettingsStore.decode(data), original)
+    }
+
+    func testWidgetOrderRepairsDuplicatesAndMissingTabs() {
+        let suite = "com.bondex.notch.tests.order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let store = SettingsStore(defaults: defaults)
+        store.preferences.widgetOrder = [.shelf, .home, .shelf]
+
+        XCTAssertEqual(store.orderedTabs, [.shelf, .home, .music, .files, .activity])
     }
 }
 

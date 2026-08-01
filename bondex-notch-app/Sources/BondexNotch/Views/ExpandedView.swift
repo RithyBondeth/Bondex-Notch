@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// Carries the expanded content's laid-out height up to the panel.
+struct ExpandedHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 /// The full panel: a tab strip along the top and one widget below it.
 struct ExpandedView: View {
 
@@ -13,7 +21,7 @@ struct ExpandedView: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
 
     /// Keeps the tab strip clear of the hardware notch, which sits over the top
     /// centre of the panel.
@@ -28,15 +36,25 @@ struct ExpandedView: View {
                 .fill(Theme.hairline)
                 .frame(height: 1)
             widget
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                // nil height means "as tall as the content" — that is what makes
+                // the panel itself size to what it is showing.
+                .frame(height: notch.tab.widgetHeight)
                 // Swapping tabs is a content change, so it gets the content
                 // curve rather than the panel's.
                 .animation(Motion.content(settings.motion), value: notch.tab)
         }
         .padding(.top, topInset)
         .padding(.horizontal, Theme.contentPadding)
-        .padding(.bottom, 12)
+        .padding(.bottom, Theme.contentPadding)
         .foregroundStyle(Theme.primaryText)
+        // Report the height this content actually needs, so the panel can be
+        // drawn at exactly that size rather than at a one-size-fits-all maximum.
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: ExpandedHeightKey.self, value: proxy.size.height)
+            }
+        )
     }
 
     // MARK: Header

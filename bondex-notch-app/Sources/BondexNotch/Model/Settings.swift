@@ -8,6 +8,14 @@ import SwiftUI
 /// single publisher to react to any preference change.
 struct Preferences: Codable, Equatable {
     var accent: Theme.Accent = .graphite
+    var customAccentHex = "6EA8FF"
+    var panelStyle: Theme.PanelStyle = .gradient
+    var panelWidth: Double = 560
+    var panelOpacity: Double = 1
+    var bottomCornerRadius: Double = Double(Theme.bottomRadius)
+    var flareRadius: Double = Double(Theme.flareRadius)
+    var rimStrength: Double = 1
+    var shadowStrength: Double = 1
     var motionSpeed: Motion.Speed = .standard
 
     var musicWidgetEnabled = true
@@ -15,6 +23,11 @@ struct Preferences: Codable, Equatable {
     var fileActivityEnabled = true
     var activityFeedEnabled = true
     var shelfEnabled = true
+    /// Show a mark beside the notch while Claude Code or Codex is working.
+    var agentActivityEnabled = true
+    /// Order of the tabs in the expanded panel. Unknown or missing tabs are
+    /// repaired by `SettingsStore` so upgrades never strand a new widget.
+    var widgetOrder: [NotchTab] = NotchTab.allCases
 
     /// Expand when the pointer rests on the notch, versus requiring a click.
     var expandOnHover = true
@@ -109,6 +122,32 @@ final class SettingsStore: ObservableObject {
         let accent = preferences.accent
         if accent.requiresPro && tier != .pro { return .graphite }
         return accent
+    }
+
+    var effectiveAccentColor: Color {
+        let accent = effectiveAccent
+        guard accent == .custom else { return accent.color }
+        return Color(hexRGB: preferences.customAccentHex) ?? Theme.Accent.graphite.color
+    }
+
+    var orderedTabs: [NotchTab] {
+        var seen = Set<NotchTab>()
+        let stored = preferences.widgetOrder.filter { seen.insert($0).inserted }
+        return stored + NotchTab.allCases.filter { seen.insert($0).inserted }
+    }
+
+    func resetAppearance() {
+        let defaults = Preferences()
+        preferences.accent = defaults.accent
+        preferences.customAccentHex = defaults.customAccentHex
+        preferences.panelStyle = defaults.panelStyle
+        preferences.panelWidth = defaults.panelWidth
+        preferences.panelOpacity = defaults.panelOpacity
+        preferences.bottomCornerRadius = defaults.bottomCornerRadius
+        preferences.flareRadius = defaults.flareRadius
+        preferences.rimStrength = defaults.rimStrength
+        preferences.shadowStrength = defaults.shadowStrength
+        preferences.motionSpeed = defaults.motionSpeed
     }
 
     var motion: Motion.Speed { preferences.motionSpeed }

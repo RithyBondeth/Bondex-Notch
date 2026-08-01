@@ -524,7 +524,12 @@ struct EmptyStateView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Width only. Claiming infinite *height* would make every tab that shows
+        // an empty state measure as tall as the panel could possibly be, which is
+        // exactly the dead space the measured height exists to remove. Tabs with a
+        // fixed widget area centre this themselves.
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
     }
 }
 
@@ -545,6 +550,7 @@ struct LockedFeatureView: View {
                 .font(.system(size: 10.5))
                 .foregroundStyle(Theme.tertiaryText)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
     }
 }
