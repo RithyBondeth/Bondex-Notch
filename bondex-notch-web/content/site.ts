@@ -97,7 +97,7 @@ export const features: Feature[] = [
     title: 'Genuinely light',
     body:
       'Swift and SwiftUI throughout, no Electron and no web view. Widgets you ' +
-      'switch off stop sampling entirely, so they cost nothing.',
+      'switch off stop their background service instead of continuing unseen.',
   },
 ];
 
@@ -177,7 +177,7 @@ export const plans: Plan[] = [
       'Hover, peek and expand behaviour',
       'Graphite theme',
     ],
-    cta: { label: 'Download', href: '#download', style: 'ghost' },
+    cta: { label: 'Get early access', href: '#contact', style: 'ghost' },
   },
   {
     name: 'Pro',
@@ -192,7 +192,7 @@ export const plans: Plan[] = [
       'All accent themes and deep appearance controls',
       'Lifetime license, no account',
     ],
-    cta: { label: 'Get Pro', href: '#download', style: 'solid' },
+    cta: { label: 'Ask about Pro', href: '#contact', style: 'solid' },
   },
   {
     name: 'AI add-on',

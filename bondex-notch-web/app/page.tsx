@@ -1,8 +1,9 @@
-import DownloadCta from '@/components/DownloadCta';
+import ContactCta from '@/components/ContactCta';
 import Faq from '@/components/Faq';
 import FeatureShowcase from '@/components/FeatureShowcase';
 import Features from '@/components/Features';
 import Hero from '@/components/Hero';
+import Performance from '@/components/Performance';
 import Pricing from '@/components/Pricing';
 import States from '@/components/States';
 
@@ -14,11 +15,12 @@ export default function Home() {
     <main id="main">
       <Hero />
       <FeatureShowcase />
+      <Performance />
       <Features />
       <States />
       <Pricing />
       <Faq />
-      <DownloadCta />
+      <ContactCta />
     </main>
   );
 }

@@ -161,7 +161,7 @@ code {
 .section { padding: clamp(60px, 8vw, 108px) 0; }
 .section--cta { text-align: center; padding-block: clamp(90px, 12vw, 160px); }
 
-/* The hero and the download call to action are the only copy set directly on
+/* The hero and the contact call to action are the only copy set directly on
    the field. Where the pale Mauve ribbon crosses them, white text on its own
    is not enough — so each pools a little shade under itself. */
 .hero,
@@ -1903,6 +1903,110 @@ button.real-empty { cursor:pointer; }
 .setting-notch { width:124px; height:44px; border-radius:0 0 13px 13px; background:#05060a; }
 .setting-preview small { position:absolute; bottom:8px; left:10px; font-family:var(--mono); font-size:7px; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.58); }
 
+/* ── Performance and efficiency ───────────────────────── */
+
+.efficiency { padding-top: clamp(74px, 9vw, 122px); }
+
+.efficiency__panel {
+  display: grid;
+  grid-template-columns: .84fr 1.16fr;
+  align-items: center;
+  gap: clamp(34px, 6vw, 80px);
+  padding: clamp(32px, 5vw, 64px);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(circle at 5% 100%, rgba(111,227,176,.13), transparent 40%),
+    rgba(6,8,17,.78);
+  box-shadow: 0 48px 100px -52px rgba(2,6,30,.9), inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+.efficiency__copy { max-width: 440px; }
+.efficiency__copy .lede { font-size: 15.5px; }
+
+.efficiency__status {
+  margin-top: 26px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(111,227,176,.20);
+  border-radius: 13px;
+  background: rgba(111,227,176,.065);
+}
+.efficiency__status > span {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(111,227,176,.10);
+}
+.efficiency__status > span::before {
+  content: "";
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: conic-gradient(var(--ok) 0 78%, rgba(255,255,255,.12) 78%);
+  -webkit-mask: radial-gradient(circle, transparent 48%, #000 50%);
+  mask: radial-gradient(circle, transparent 48%, #000 50%);
+}
+.efficiency__status > span i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(111,227,176,.10);
+}
+.efficiency__status div { min-width: 0; display: flex; flex-direction: column; }
+.efficiency__status b { color: var(--ink); font-size: 12px; font-weight: 600; }
+.efficiency__status small { color: var(--ink-3); font-family: var(--mono); font-size: 8.5px; }
+
+.efficiency__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 10px;
+}
+.efficiency__fact {
+  min-height: 172px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 16px;
+  background: rgba(255,255,255,.045);
+  transition: transform .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
+}
+.efficiency__fact:hover {
+  transform: translateY(-3px);
+  border-color: rgba(111,227,176,.28);
+  background: rgba(111,227,176,.06);
+}
+.efficiency__fact strong {
+  color: var(--ok);
+  font-family: var(--display);
+  font-size: clamp(29px, 3.5vw, 42px);
+  font-weight: 700;
+  letter-spacing: -.045em;
+  line-height: 1;
+}
+.efficiency__fact span {
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.efficiency__fact p {
+  margin-top: auto;
+  padding-top: 14px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
 /* ── Feature grid ──────────────────────────────────────── */
 
 .grid {
@@ -2247,6 +2351,14 @@ button.real-empty { cursor:pointer; }
   flex-wrap: wrap;
 }
 .footer__legal { font-size: 13.5px; color: var(--ink-3); }
+.footer__contact {
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 12px;
+  transition: color .18s var(--ease), background .18s var(--ease);
+}
+.footer__contact:hover { color: var(--ink); background: rgba(255,255,255,.07); }
 
 /* ── Progressive motion system ───────────────────────────
    JavaScript only adds data attributes and live CSS variables. Without it,
@@ -2417,6 +2529,8 @@ html[data-motion-ready="true"] .state.is-visible .mini {
   .story__copy { max-width: 640px; }
   .story:nth-child(even) .story__copy,
   .story:nth-child(even) > :last-child { order: initial; }
+  .efficiency__panel { grid-template-columns: 1fr; }
+  .efficiency__copy { max-width: 650px; }
   .product-shot, .settings-shot { width: min(100%, 660px); justify-self: center; }
   .real-controls { flex-wrap: wrap; }
   .real-controls > span:first-child { display: none; }
@@ -2440,6 +2554,9 @@ html[data-motion-ready="true"] .state.is-visible .mini {
   .trust-item { border-right: 1px solid rgba(255,255,255,.1) !important; border-bottom: 1px solid rgba(255,255,255,.1); }
   .trust-item:nth-child(even) { border-right: 0 !important; }
   .trust-item:last-child { grid-column: 1 / -1; border: 0 !important; }
+  .efficiency__panel { padding: 28px 20px; }
+  .efficiency__facts { grid-template-columns: 1fr; }
+  .efficiency__fact { min-height: 145px; }
   .story { padding: 28px 20px; gap: 28px; }
   .story__copy h3 { font-size: 29px; }
   .product-shot { min-height: 330px; padding-inline: 12px; }

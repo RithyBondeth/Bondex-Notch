@@ -9,6 +9,7 @@ export default function Footer() {
         <p className="footer__legal">
           Built with Swift and SwiftUI. Not affiliated with Apple Inc.
         </p>
+        <a className="footer__contact" href="#contact">Contact</a>
       </div>
     </footer>
   );

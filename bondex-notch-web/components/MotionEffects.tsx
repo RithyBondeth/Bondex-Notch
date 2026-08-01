@@ -7,6 +7,7 @@ type Cleanup = () => void;
 const revealGroups = [
   '.hero .label, .hero__lede, .hero .actions, .hero .meta, .hero__signals, .stage',
   '.showcase__head > *, .trust-item',
+  '.efficiency__copy > *, .efficiency__fact',
   '.slab__head > *, .feature',
   '#how .head > *, .state, .callout',
   '.plan',

@@ -57,12 +57,14 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     ),
   },
   {
-    q: 'How much memory does it actually use?',
+    q: 'How light is it on CPU and memory?',
     a: (
       <>
-        It&apos;s a small Swift agent with no web view and no background helpers.
-        Sampling is throttled and widgets you disable stop sampling entirely.
-        Check it yourself in Activity Monitor — that&apos;s the honest answer.
+        It&apos;s a native Swift app with no Electron runtime, web view, or
+        background helper process. System metrics are sampled every two seconds
+        on a background utility task, and widgets you disable stop their service
+        entirely. Exact usage varies by Mac and enabled widgets, so Activity
+        Monitor is the honest place to verify it on your setup.
       </>
     ),
   },

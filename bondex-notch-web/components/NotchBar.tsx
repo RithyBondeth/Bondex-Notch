@@ -39,8 +39,8 @@ export default function NotchBar() {
             </a>
           ))}
         </nav>
-        <a className="btn btn--small" href="#download">
-          Download
+        <a className="btn btn--small" href="#contact">
+          Contact
         </a>
       </div>
     </header>
