@@ -92,6 +92,10 @@ struct ExpandedView: View {
                 HomeWidget(environment: environment)
             case .music:
                 MusicWidget(environment: environment)
+            case .system:
+                SystemWidget(environment: environment)
+            case .live:
+                LiveActivityWidget(environment: environment)
             case .files:
                 FileActivityWidget(environment: environment)
             case .activity:

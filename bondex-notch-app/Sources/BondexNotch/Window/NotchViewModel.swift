@@ -52,13 +52,20 @@ final class NotchViewModel: ObservableObject {
 
     var hasAgentActivity: Bool { workingAgentCount > 0 }
 
+    @Published var customLiveActivityCount = 0 {
+        didSet {
+            guard (customLiveActivityCount > 0) != (oldValue > 0) else { return }
+            refreshIdleState()
+        }
+    }
+
     /// What the peek is carrying, which is what decides its width.
     ///
-    /// A banner outranks an agent for the same reason an agent outranks
-    /// playback: it is the most transient of the three, and the only one with a
-    /// deadline.
+    /// A banner outranks live progress, which outranks agents and playback: the
+    /// more time-sensitive signal gets the limited space before its deadline.
     var peekContent: PeekContent {
         if banner != nil { return .banner }
+        if customLiveActivityCount > 0 { return .live }
         if hasAgentActivity { return .agent(agents: workingAgentCount) }
         return .media
     }
@@ -225,6 +232,8 @@ final class NotchViewModel: ObservableObject {
         // album art over the menu bar, which says nothing about whether they
         // want to know their agent is still running.
         if hasAgentActivity, settings.preferences.agentActivityEnabled { return .peek }
+        if customLiveActivityCount > 0,
+           settings.preferences.customLiveActivitiesEnabled { return .peek }
         guard hasLiveActivity, settings.preferences.peekWhilePlaying else { return .collapsed }
         return .peek
     }

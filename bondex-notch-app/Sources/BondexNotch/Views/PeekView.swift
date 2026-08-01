@@ -9,6 +9,7 @@ struct PeekView: View {
     @ObservedObject private var settings: SettingsStore
     @ObservedObject private var nowPlaying: NowPlayingService
     @ObservedObject private var agents: AgentActivityService
+    @ObservedObject private var liveActivities: LiveActivityService
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -16,6 +17,7 @@ struct PeekView: View {
         self.settings = environment.settings
         self.nowPlaying = environment.nowPlaying
         self.agents = environment.agents
+        self.liveActivities = environment.liveActivities
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -29,6 +31,7 @@ struct PeekView: View {
     /// know the end of. Playback is one hover away in the panel; the agent, once
     /// it stops, is gone.
     private var workingAgents: [AgentActivity] { agents.active }
+    private var currentLive: LiveActivity? { liveActivities.active.first }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -67,6 +70,20 @@ struct PeekView: View {
                     Circle().fill(banner.tint.opacity(0.16))
                 )
                 .transition(.scale.combined(with: .opacity))
+        } else if let activity = currentLive {
+            ZStack {
+                Circle().fill(accent.opacity(0.14))
+                if let progress = activity.progress {
+                    ProgressRing(value: progress, tint: accent, lineWidth: 2.2)
+                        .padding(3)
+                } else {
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(accent)
+                }
+            }
+            .frame(width: 22, height: 22)
+            .transition(.scale.combined(with: .opacity))
         } else if !workingAgents.isEmpty {
             // One mark per working agent, in the same order as the names
             // opposite, so the pairing is positional and needs no explaining.
@@ -101,6 +118,25 @@ struct PeekView: View {
                 }
             }
             .frame(maxWidth: 150, alignment: .trailing)
+            .transition(.opacity)
+        } else if let activity = currentLive {
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(activity.title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                    .lineLimit(1)
+                if let subtitle = activity.subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(Theme.secondaryText)
+                        .lineLimit(1)
+                } else if let progress = activity.progress {
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 9.5, weight: .medium).monospacedDigit())
+                        .foregroundStyle(accent)
+                }
+            }
+            .frame(maxWidth: 145, alignment: .trailing)
             .transition(.opacity)
         } else if !workingAgents.isEmpty {
             agentNames

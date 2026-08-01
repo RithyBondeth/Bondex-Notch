@@ -77,13 +77,26 @@ enum PreviewRenderer {
 
         environment.nowPlaying.seedForPreview(playing)
 
+        let liveSample = LiveActivity(
+            id: "release-build",
+            title: "Building release",
+            subtitle: "Running tests",
+            progress: 0.72,
+            startedAt: Date().addingTimeInterval(-84),
+            updatedAt: Date(),
+            state: .active,
+            completionMessage: nil
+        )
+
         for tab in NotchTab.allCases {
+            if tab == .live { environment.liveActivities.seedForPreview([liveSample]) }
             environment.notch.tab = tab
             environment.notch.expand()
             if !render(environment, named: "expanded-\(tab.rawValue)", into: directory) {
                 failures += 1
             }
         }
+        environment.liveActivities.seedForPreview([])
 
         environment.notch.collapse()
         if !render(environment, named: "collapsed", into: directory) { failures += 1 }
@@ -102,6 +115,11 @@ enum PreviewRenderer {
             kind: .music, title: "Weightless", subtitle: "Marconi Union"
         ))
         if !render(environment, named: "peek-playing", into: directory) { failures += 1 }
+
+        environment.liveActivities.seedForPreview([liveSample])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-live", into: directory) { failures += 1 }
+        environment.liveActivities.seedForPreview([])
 
         environment.events.post(NotchEvent(
             kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"

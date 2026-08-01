@@ -1,20 +1,22 @@
 import SwiftUI
 
-/// The default tab: a one-line media row over the system gauges. This is what
-/// most sessions will only ever see, so it has to answer "what is happening
-/// right now" without a click.
+/// The default tab: live agents and media, plus an optional compact copy of the
+/// dedicated System tab. Users who want a quieter Home can keep every metric in
+/// System; users who prefer a dashboard can opt the summary back in.
 struct HomeWidget: View {
 
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var nowPlaying: NowPlayingService
     @ObservedObject private var settings: SettingsStore
     @ObservedObject private var agents: AgentActivityService
+    @ObservedObject private var liveActivities: LiveActivityService
 
     init(environment: AppEnvironment) {
         self.environment = environment
         self.nowPlaying = environment.nowPlaying
         self.settings = environment.settings
         self.agents = environment.agents
+        self.liveActivities = environment.liveActivities
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -31,18 +33,25 @@ struct HomeWidget: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            if settings.preferences.customLiveActivitiesEnabled,
+               !liveActivities.active.isEmpty {
+                LiveActivityCard(environment: environment)
+            }
             if showsAgents {
                 AgentActivityCard(environment: environment)
             }
             if settings.preferences.musicWidgetEnabled {
                 mediaRow
             }
-            if settings.preferences.systemWidgetEnabled {
+            if settings.preferences.systemWidgetEnabled
+                && settings.preferences.showSystemSummaryOnHome {
                 SystemWidget(environment: environment, compact: true)
             }
             if !showsAgents
+                && liveActivities.active.isEmpty
                 && !settings.preferences.musicWidgetEnabled
-                && !settings.preferences.systemWidgetEnabled {
+                && !(settings.preferences.systemWidgetEnabled
+                     && settings.preferences.showSystemSummaryOnHome) {
                 EmptyStateView(
                     systemImage: "square.grid.2x2",
                     title: "No widgets enabled",

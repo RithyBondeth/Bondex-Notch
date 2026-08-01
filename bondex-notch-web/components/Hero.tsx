@@ -4,10 +4,10 @@ export default function Hero() {
   return (
     <section className="hero">
       <div className="wrap">
-        <p className="label label--light">Native macOS · Apple silicon &amp; Intel</p>
+        <p className="label label--light">A calmer control center for macOS</p>
 
-        {/* The headline opens on Archivo's width axis. Pure CSS animation, so
-            it needs no JS and reduced motion lands it on the end state. */}
+        {/* The headline opens with a pure CSS animation, so it needs no JS and
+            reduced motion lands it on the end state. */}
         <h1 className="hero__title">
           Your Mac&apos;s notch,
           <br />
@@ -15,15 +15,14 @@ export default function Hero() {
         </h1>
 
         <p className="hero__lede">
-          Bondex Notch turns the dead space around your camera into a live view
-          of what your Mac is doing — the track that&apos;s playing, the file
-          that&apos;s downloading, the battery that&apos;s draining. It appears
-          when you need it and disappears when you don&apos;t.
+          Music, downloads, system health, coding agents and live tasks — all in
+          the one place your eyes already pass. Bondex appears when it matters
+          and melts back into your Mac when it doesn&apos;t.
         </p>
 
         <div className="actions">
-          <a className="btn" href="#download">
-            Download for macOS
+          <a className="btn" href="#contact">
+            Request early access
           </a>
           <a className="btn btn--ghost" href="#how">
             See how it works
@@ -31,8 +30,15 @@ export default function Hero() {
         </div>
 
         <p className="meta">
-          macOS 14+ · Free tier · No account · Nothing leaves your Mac
+          macOS 14+ · Free to start · No account · Everything stays on your Mac
         </p>
+
+        <div className="hero__signals" aria-label="Highlights">
+          <span><i className="pulse-dot" /> Agent activity</span>
+          <span>♫ Music &amp; browser audio</span>
+          <span>↓ Live downloads</span>
+          <span>⌁ CPU, memory &amp; network</span>
+        </div>
 
         <NotchDemo />
       </div>

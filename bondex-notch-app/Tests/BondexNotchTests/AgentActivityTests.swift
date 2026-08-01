@@ -77,6 +77,13 @@ final class AgentSignalCommandTests: XCTestCase {
         XCTAssertEqual(kind, .claude)
     }
 
+    func testHookModeIsParsed() {
+        XCTAssertEqual(
+            AgentSignalCommand.parse(["BondexNotch", "--agent-hook", "codex"]),
+            .command(.hook(.codex))
+        )
+    }
+
     /// An agent Bondex ships no artwork for still gets to report itself, rather
     /// than needing a release before it can light the notch at all.
     func testAnAgentWithNoBuiltInSupportIsStillAccepted() {
@@ -121,6 +128,73 @@ final class AgentSignalCommandTests: XCTestCase {
     }
 }
 
+final class AgentHookInputTests: XCTestCase {
+    func testCodexBashPayloadShowsTheCommand() throws {
+        let data = try payload(
+            event: "PreToolUse",
+            tool: "Bash",
+            input: ["command": "swift test\nsecond command"]
+        )
+        XCTAssertEqual(
+            AgentHookInput.action(from: data),
+            .busy(status: "Running swift test")
+        )
+    }
+
+    func testApplyPatchNamesTheFileBeingEdited() throws {
+        let data = try payload(
+            event: "PreToolUse",
+            tool: "apply_patch",
+            input: ["command": "*** Begin Patch\n*** Update File: /tmp/PeekView.swift\n"]
+        )
+        XCTAssertEqual(
+            AgentHookInput.action(from: data),
+            .busy(status: "Editing PeekView.swift")
+        )
+    }
+
+    func testMCPToolGetsAReadableFallback() throws {
+        let data = try payload(
+            event: "PreToolUse",
+            tool: "mcp__Claude_Browser__computer",
+            input: [:]
+        )
+        XCTAssertEqual(
+            AgentHookInput.action(from: data),
+            .busy(status: "Using computer")
+        )
+    }
+
+    func testStopClearsTheAgent() throws {
+        XCTAssertEqual(
+            AgentHookInput.action(from: try payload(event: "Stop")),
+            .idle
+        )
+    }
+
+    func testMalformedAndUnrelatedEventsAreIgnored() throws {
+        XCTAssertEqual(AgentHookInput.action(from: Data("nope".utf8)), .ignore)
+        XCTAssertEqual(
+            AgentHookInput.action(from: try payload(event: "SessionStart")),
+            .ignore
+        )
+    }
+
+    private func payload(
+        event: String,
+        tool: String? = nil,
+        input: [String: Any] = [:]
+    ) throws -> Data {
+        var object: [String: Any] = ["hook_event_name": event]
+        if let tool {
+            object["tool_name"] = tool
+            object["tool_input"] = input
+        }
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+}
+
+@MainActor
 final class AgentActivityModelTests: XCTestCase {
 
     func testElapsedNeverRunsBackwards() {

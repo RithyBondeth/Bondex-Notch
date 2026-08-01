@@ -114,16 +114,6 @@ explaining, and the peek widens as agents join. The card lists three and then
 counts, because the panel is measured from its content and an unbounded list
 would push Home past its height ceiling and be silently cut off at the bottom.
 
-### Customization
-
-Appearance settings apply live and persist as part of the version-tolerant
-preferences blob. Users can choose a preset or custom accent, pure-black,
-gradient, or accent-tinted panel treatment, panel width, opacity, bottom-corner
-and top-flare geometry, rim and shadow strength, and animation speed. Widget
-settings also control which tabs exist and their left-to-right order. The AppKit
-window always reserves the maximum footprint, so changing the width or shape
-does not resize the window or interrupt the panel animation.
-
 **The agent has to say so, and that is not a shortcut.** The obvious design is to
 find the agent's process and watch its CPU, and it does not work. Measured
 against three live Claude Code processes and a Codex process on a machine where
@@ -140,9 +130,22 @@ So the agent declares itself, through one hook:
 "/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-idle claude
 ```
 
-Settings › Widgets shows both lines with the real binary path filled in, and a
-Copy button. Wire `--agent-busy` to whatever fires per tool call and
-`--agent-idle` to whatever fires at the end of a turn.
+Codex can use its structured hook payload directly, with the same command on
+`PreToolUse`, `Stop`, and `SessionEnd`:
+
+```bash
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-hook codex
+```
+
+Bondex reads the JSON from stdin itself, so this needs no `jq`. Shell commands
+become statuses such as `Running swift test`, patches name the file being edited,
+and MCP or local tools get a readable tool name. Existing Codex hooks that pass
+the literal status `Working` are enriched the same way, preserving their hook
+trust approval.
+
+Settings › Widgets shows the appropriate command with the real binary path
+filled in, and a Copy button. Explicit integrations wire `--agent-busy` per tool
+call and `--agent-idle` at the end of a turn; Codex uses `--agent-hook` for both.
 
 Any agent name works, not just the ones Bondex ships artwork for — an unknown
 agent shows up under the generic mark with the name it gave. A closed list would
@@ -160,7 +163,7 @@ Code's `{matcher, hooks:[{type, command}]}` shape; Gemini renames the events:
 | Agent | File | Busy / idle events |
 |---|---|---|
 | Claude Code | `~/.claude/settings.json` | `PreToolUse` / `Stop` |
-| Codex | `~/.codex/hooks/hooks.json` | `PreToolUse` / `Stop` |
+| Codex | `~/.codex/hooks.json` | `PreToolUse` / `Stop` |
 | Gemini CLI | `~/.gemini/settings.json` | `BeforeTool` / `AfterAgent` |
 
 Claude Code's CLI and desktop app read the same file, so wiring it once covers
@@ -202,6 +205,40 @@ which is what lets Settings show setup instructions for the agents you use and
 stay quiet about the rest. `proc_pidpath` resolves every process the user owns
 (measured at 617 of 617). Matching is case-sensitive on purpose: Claude Code's
 binary is `claude`, the Claude desktop app's is `Claude`.
+
+### Customization
+
+Appearance settings apply live and persist as part of the version-tolerant
+preferences blob. Users can choose a preset or custom accent, pure-black,
+gradient, or accent-tinted panel treatment, panel width, opacity, bottom-corner
+and top-flare geometry, rim and shadow strength, and animation speed. Widget
+settings also control which tabs exist and their left-to-right order. CPU,
+memory, battery, and network throughput live together in a dedicated System tab;
+an optional compact summary can also be shown on Home. The AppKit window always
+reserves the maximum footprint, so changing the width or shape does not resize
+the window or interrupt the panel animation.
+
+### Custom live activities
+
+Any script, Shortcut, build tool, or terminal session can publish progress into
+Bondex without an SDK:
+
+```bash
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" \
+  --live-start build --title "Building release" --progress 0.2
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" \
+  --live-update build --subtitle "Running tests" --progress 0.75
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" \
+  --live-finish build --message "Build succeeded"
+```
+
+Progress is a number from `0` to `1`. IDs use letters, digits, `-`, and `_` and
+identify the activity across updates. Active items appear in the persistent
+peek, at the top of Home, and in the reorderable Live tab. Finishing one turns
+it into a normal activity-feed event and removes its signal. Signals are small
+JSON files in `~/.bondex-notch/live`; the app watches the directory with a
+dispatch source, so there is no polling when nothing changes. An abandoned
+activity expires after 24 hours.
 
 ## What macOS does and does not allow
 
@@ -300,16 +337,11 @@ rasterised, and `ScrollView` renders empty — `NotchRootView` and
 
 ## Known gaps
 
-- **Codex's hooks have never been seen to fire.** The event names above come from
-  its own `HookEventName` enum and `codex features list` reports `hooks` as
-  stable and enabled, but neither `~/.codex/hooks.json` nor
-  `~/.codex/hooks/hooks.json` produced a single call across two real `codex exec`
-  turns. Strings in the binary (`bypass_hook_trust`, `hook.scope`, `hook.source`)
-  suggest hooks may need a trust grant that only an interactive session prompts
-  for. Gemini's are written from its own settings schema but are likewise
-  unproven — `gemini -p` hangs with no output in a non-TTY. Claude Code's are
-  verified firing. Everything on the Bondex side is agent-agnostic, so this is a
-  question of where each agent reads its hooks from, not of the indicator.
+- **Gemini's hooks are not yet verified.** They are written from its own settings
+  schema, but `gemini -p` hangs with no output in a non-TTY. Claude Code and Codex
+  hooks are verified firing. Everything on the Bondex side remains
+  agent-agnostic, so this is a question of where each agent reads its hooks from,
+  not of the indicator.
 - The opencode mark is a placeholder — a block cursor standing in until the real
   artwork is to hand.
 - Downloads without a sidecar file report bytes received and live rate, not a

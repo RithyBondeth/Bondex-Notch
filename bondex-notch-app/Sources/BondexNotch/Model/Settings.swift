@@ -20,11 +20,14 @@ struct Preferences: Codable, Equatable {
 
     var musicWidgetEnabled = true
     var systemWidgetEnabled = true
+    /// Keep a compact copy of the System tab's gauges on Home.
+    var showSystemSummaryOnHome = false
     var fileActivityEnabled = true
     var activityFeedEnabled = true
     var shelfEnabled = true
     /// Show a mark beside the notch while Claude Code or Codex is working.
     var agentActivityEnabled = true
+    var customLiveActivitiesEnabled = true
     /// Order of the tabs in the expanded panel. Unknown or missing tabs are
     /// repaired by `SettingsStore` so upgrades never strand a new widget.
     var widgetOrder: [NotchTab] = NotchTab.allCases
@@ -132,8 +135,24 @@ final class SettingsStore: ObservableObject {
 
     var orderedTabs: [NotchTab] {
         var seen = Set<NotchTab>()
-        let stored = preferences.widgetOrder.filter { seen.insert($0).inserted }
-        return stored + NotchTab.allCases.filter { seen.insert($0).inserted }
+        var result = preferences.widgetOrder.filter { seen.insert($0).inserted }
+
+        // Insert tabs introduced by a newer release beside their canonical
+        // neighbour instead of dumping them at the end of a user's saved order.
+        // This puts the new System tab after Music while preserving every move
+        // the user already made among their existing tabs.
+        for tab in NotchTab.allCases where !seen.contains(tab) {
+            let canonical = NotchTab.allCases
+            let tabIndex = canonical.firstIndex(of: tab)!
+            let predecessor = canonical[..<tabIndex].reversed().first { result.contains($0) }
+            if let predecessor, let index = result.firstIndex(of: predecessor) {
+                result.insert(tab, at: index + 1)
+            } else {
+                result.insert(tab, at: 0)
+            }
+            seen.insert(tab)
+        }
+        return result
     }
 
     func resetAppearance() {

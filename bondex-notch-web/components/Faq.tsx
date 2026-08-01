@@ -10,12 +10,37 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     open: true,
     a: (
       <>
-        Apple Music and Spotify. macOS has no public system-wide &quot;now
+        Apple Music, Spotify, Safari, and supported Chromium browsers. macOS has no public system-wide &quot;now
         playing&quot; API — <code>MPNowPlayingInfoCenter</code> only reports the
         calling process, and the private framework that used to work was locked
         down in macOS 15.4. Bondex uses each app&apos;s scripting interface
-        instead, which is the supported route. You&apos;ll be asked for
-        Automation permission the first time.
+        instead, which is the supported route. Browser tabs can show players such
+        as YouTube, YouTube Music, SoundCloud and Twitch after JavaScript from
+        Apple Events is enabled once. You&apos;ll be asked for Automation permission
+        the first time.
+      </>
+    ),
+  },
+  {
+    q: 'How does agent activity work?',
+    a: (
+      <>
+        A small hook tells Bondex when an agent starts a tool, what it is doing,
+        and when the turn ends. Codex and Claude Code have direct setup flows;
+        Gemini, Ollama, and any other CLI agent can use the same open busy/idle
+        signal. Everything stays on your Mac and is watched without background
+        polling.
+      </>
+    ),
+  },
+  {
+    q: 'What are custom live activities?',
+    a: (
+      <>
+        Progress updates that you send from a script, Shortcut, build tool or
+        terminal — no SDK needed. A live activity can have a title, status and
+        progress value; it stays visible in the peek and becomes an activity-feed
+        event when it finishes.
       </>
     ),
   },
@@ -32,12 +57,14 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     ),
   },
   {
-    q: 'How much memory does it actually use?',
+    q: 'How light is it on CPU and memory?',
     a: (
       <>
-        It&apos;s a small Swift agent with no web view and no background helpers.
-        Sampling is throttled and widgets you disable stop sampling entirely.
-        Check it yourself in Activity Monitor — that&apos;s the honest answer.
+        It&apos;s a native Swift app with no Electron runtime, web view, or
+        background helper process. System metrics are sampled every two seconds
+        on a background utility task, and widgets you disable stop their service
+        entirely. Exact usage varies by Mac and enabled widgets, so Activity
+        Monitor is the honest place to verify it on your setup.
       </>
     ),
   },

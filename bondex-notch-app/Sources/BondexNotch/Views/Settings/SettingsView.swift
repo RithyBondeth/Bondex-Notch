@@ -111,6 +111,9 @@ private struct WidgetSettings: View {
                 Toggle("Music", isOn: binding(\.musicWidgetEnabled))
                 Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
                 Toggle("System", isOn: binding(\.systemWidgetEnabled))
+                Toggle("Show system summary on Home", isOn: binding(\.showSystemSummaryOnHome))
+                    .disabled(!settings.preferences.systemWidgetEnabled)
+                Toggle("Custom live activities", isOn: binding(\.customLiveActivitiesEnabled))
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
             }
 
@@ -151,6 +154,18 @@ private struct WidgetSettings: View {
                         .help("Move " + tab.title + " right")
                     }
                 }
+            }
+
+            Section {
+                Text(liveCommands)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                Button("Copy example commands") { copyLiveCommands() }
+            } header: {
+                Text("Custom Live Activities")
+            } footer: {
+                Text("Use these from scripts, Shortcuts, build tools, or any terminal.")
+                    .font(.caption)
             }
 
             Section {
@@ -222,6 +237,20 @@ private struct WidgetSettings: View {
         guard order.indices.contains(destination) else { return }
         order.swapAt(source, destination)
         settings.preferences.widgetOrder = order
+    }
+
+    private var liveCommands: String {
+        let binary = Bundle.main.executableURL?.path ?? "BondexNotch"
+        return """
+        "\(binary)" --live-start build --title "Building release" --progress 0.2
+        "\(binary)" --live-update build --subtitle "Running tests" --progress 0.75
+        "\(binary)" --live-finish build --message "Build succeeded"
+        """
+    }
+
+    private func copyLiveCommands() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(liveCommands, forType: .string)
     }
 }
 
