@@ -12,6 +12,20 @@ enum NotchState: Equatable {
     var isExpanded: Bool { self == .expanded }
 }
 
+/// What a peek is currently reporting, which is what decides how wide it is.
+///
+/// Three cases rather than a `hasBanner` flag, because the three need genuinely
+/// different room: artwork and an equaliser are small and fixed, a banner needs
+/// a readable line or two of text, and an agent strip grows with every agent
+/// that starts working.
+enum PeekContent: Equatable {
+    case media
+    /// - Parameter agents: how many agents are working, each of which brings its
+    ///   own mark and its own name.
+    case agent(agents: Int)
+    case banner
+}
+
 /// Which widget the expanded panel is showing.
 enum NotchTab: String, CaseIterable, Identifiable {
     case home

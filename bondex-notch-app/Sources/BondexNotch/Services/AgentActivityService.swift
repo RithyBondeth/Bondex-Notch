@@ -4,76 +4,125 @@ import SwiftUI
 
 // MARK: - Model
 
-/// A coding agent Bondex knows how to recognise.
-enum AgentKind: String, CaseIterable, Identifiable, Sendable {
-    case claude
-    case codex
+/// A coding agent, identified by the name its hook signals with.
+///
+/// Deliberately *open* rather than a fixed enum. Bondex ships marks, tints and
+/// setup instructions for the agents it knows, but an agent it has never heard
+/// of still gets to report itself — it simply shows up under the generic mark
+/// with whatever name the hook passed. A closed list would mean every new agent
+/// needed a release before it could light the notch at all.
+///
+/// The name becomes a *path component* (the signal file is named for it), so it
+/// is sanitised at construction rather than trusted: `--agent-busy ../../../foo`
+/// must not be able to write outside the signal directory.
+struct AgentKind: Hashable, Identifiable, Sendable {
 
-    var id: String { rawValue }
+    /// Lowercased, filesystem-safe. Also the signal file's name.
+    let id: String
+
+    /// Rejects anything that is not a plain name, rather than sanitising it into
+    /// one. Silently stripping characters would map two different agents onto the
+    /// same signal file, and quietly turn a typo into a different agent.
+    init?(name: String) {
+        let lowered = name.lowercased()
+        let isPlain = !lowered.isEmpty
+            && lowered.count <= 32
+            && lowered.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
+        guard isPlain else { return nil }
+        id = lowered
+    }
+
+    /// For the built-in list, whose names are known good.
+    private init(known id: String) { self.id = id }
+
+    static let claude = AgentKind(known: "claude")
+    static let codex = AgentKind(known: "codex")
+    static let gemini = AgentKind(known: "gemini")
+    static let opencode = AgentKind(known: "opencode")
+    static let ollama = AgentKind(known: "ollama")
+
+    /// The agents Bondex ships artwork and setup instructions for. Anything else
+    /// still works; it just arrives without either.
+    static let known: [AgentKind] = [.claude, .codex, .gemini, .opencode, .ollama]
+
+    var isKnown: Bool { Self.known.contains(self) }
 
     var displayName: String {
-        switch self {
-        case .claude: return "Claude"
-        case .codex: return "Codex"
+        switch id {
+        case Self.claude.id: return "Claude"
+        case Self.codex.id: return "Codex"
+        case Self.gemini.id: return "Gemini"
+        // Lowercase is the project's own styling, not a typo.
+        case Self.opencode.id: return "opencode"
+        case Self.ollama.id: return "Ollama"
+        default: return id.prefix(1).uppercased() + id.dropFirst()
         }
     }
 
-    /// The agent's own mark, as pixel art: one string per row, `X` for a filled
-    /// cell. Nil for agents drawn from an SF Symbol instead.
+    /// Claude's mark, as pixel art: one string per row, `X` for a filled cell.
     ///
-    /// Drawn from a grid rather than shipped as an image asset for two reasons.
-    /// It scales to any size without a set of `@2x`/`@3x` exports, and it is
-    /// tinted by fill rather than by compositing — which matters because the mark
-    /// sits on a near-black panel where a baked-in background would show.
+    /// The other marks are curves and are built in `AgentMarks`; this one is a
+    /// grid because it *is* a grid — squared-off blocks that a path description
+    /// would only make harder to read. Nil for every other agent.
     ///
-    /// Used nominatively: this identifies Claude Code itself, which is the one
-    /// thing a product's mark is always allowed to do.
+    /// Used nominatively: these identify the products themselves, which is the
+    /// one thing a product's mark is always allowed to do.
     var pixelMark: [String]? {
-        switch self {
-        case .claude:
-            return [
-                "..XXXXXXXXXXXX..",
-                "..XXXXXXXXXXXX..",
-                "..XX.XXXXXX.XX..",
-                "..XX.XXXXXX.XX..",
-                "XXXXXXXXXXXXXXXX",
-                "XXXXXXXXXXXXXXXX",
-                "..XXXXXXXXXXXX..",
-                "..XXXXXXXXXXXX..",
-                "...X.X....X.X...",
-                "...X.X....X.X..."
-            ]
-        case .codex:
-            return nil
-        }
-    }
-
-    /// Fallback for agents with no pixel mark.
-    var systemImage: String {
-        switch self {
-        case .claude: return "sparkle"
-        case .codex: return "curlybraces"
-        }
+        guard self == .claude else { return nil }
+        return [
+            "..XXXXXXXXXXXX..",
+            "..XXXXXXXXXXXX..",
+            "..XX.XXXXXX.XX..",
+            "..XX.XXXXXX.XX..",
+            "XXXXXXXXXXXXXXXX",
+            "XXXXXXXXXXXXXXXX",
+            "..XXXXXXXXXXXX..",
+            "..XXXXXXXXXXXX..",
+            "...X.X....X.X...",
+            "...X.X....X.X..."
+        ]
     }
 
     var tint: Color {
-        switch self {
-        // Claude Code's own terracotta, so the mark reads as itself rather than
-        // as a recoloured copy of itself.
-        case .claude: return Color(red: 0.851, green: 0.467, blue: 0.341)
-        case .codex: return Color(red: 0.45, green: 0.80, blue: 0.75)
+        switch id {
+        // Each product's own colour, so the mark reads as itself rather than as
+        // a recoloured copy of itself.
+        case Self.claude.id: return Color(red: 0.851, green: 0.467, blue: 0.341)
+        case Self.codex.id: return Color(red: 0.42, green: 0.45, blue: 0.98)
+        case Self.gemini.id: return Color(red: 0.36, green: 0.55, blue: 0.98)
+        case Self.opencode.id: return Color(red: 0.94, green: 0.94, blue: 0.96)
+        case Self.ollama.id: return Color(red: 0.86, green: 0.86, blue: 0.88)
+        // Unknown agents borrow the generic mark, so they borrow its colour too.
+        default: return Color(red: 0.86, green: 0.86, blue: 0.88)
         }
     }
 
-    /// Executable name, as it appears on disk.
+    /// Executable name, as it appears on disk, for the "is this installed"
+    /// check that decides whether Settings offers setup instructions.
     ///
     /// Case matters: Claude Code's binary is `claude`, while the Claude desktop
     /// app's is `Claude`. Matching case-insensitively would report the desktop
     /// app as a coding agent.
-    var executableName: String {
-        switch self {
-        case .claude: return "claude"
-        case .codex: return "codex"
+    var executableName: String { id }
+
+    /// Where this agent's hooks are configured, and under which event names.
+    ///
+    /// Shown in Settings beside the two commands, because knowing *what* to run
+    /// is only half of it — every agent puts its hooks somewhere different, and
+    /// under a different name for the same two moments. These were read off the
+    /// installed builds rather than from memory: Codex and Gemini both borrow
+    /// Claude Code's `{matcher, hooks:[{type, command}]}` shape, but Gemini
+    /// renames the events themselves.
+    var hookConfigHint: String? {
+        switch id {
+        case Self.claude.id:
+            return "~/.claude/settings.json → hooks.PreToolUse / hooks.Stop"
+        case Self.codex.id:
+            return "~/.codex/hooks.json → hooks.PreToolUse / hooks.Stop"
+        case Self.gemini.id:
+            return "~/.gemini/settings.json → hooks.BeforeTool / hooks.AfterAgent"
+        default:
+            return nil
         }
     }
 }
@@ -86,7 +135,7 @@ struct AgentActivity: Identifiable, Equatable {
     /// Optional one-line description the agent supplied, e.g. a tool name.
     var status: String?
 
-    var id: String { kind.rawValue }
+    var id: String { kind.id }
 
     func elapsed(at date: Date = Date()) -> TimeInterval {
         max(date.timeIntervalSince(startedAt), 0)
@@ -225,13 +274,10 @@ final class AgentActivityService: ObservableObject {
         let now = Date()
         var fresh: [AgentActivity] = []
 
-        for kind in AgentKind.allCases {
+        for kind in Self.signalledAgents() {
             guard let signal = Self.readSignal(for: kind),
                   now.timeIntervalSince(signal.date) < Self.staleAfter
-            else {
-                finish(kind)
-                continue
-            }
+            else { continue }
 
             // The *file's* date is a heartbeat that moves on every tool call, so
             // the run's start is remembered here instead — otherwise the elapsed
@@ -241,9 +287,30 @@ final class AgentActivityService: ObservableObject {
             fresh.append(AgentActivity(kind: kind, startedAt: started, status: signal.status))
         }
 
+        // Anything that was running and is no longer reporting has finished.
+        // Keyed off what we were tracking rather than off a fixed list, because
+        // the set of agents is only known from the directory.
+        let stillWorking = Set(fresh.map(\.kind))
+        for kind in Array(startedAt.keys) where !stillWorking.contains(kind) {
+            finish(kind)
+        }
+
+        // Most recently started first, so the agent you just set going is the one
+        // nearest the notch.
         fresh.sort { $0.startedAt > $1.startedAt }
         if fresh != active { active = fresh }
         scheduleExpiry()
+    }
+
+    /// Every agent with a signal file present.
+    ///
+    /// Read from the directory rather than from `AgentKind.known`, which is what
+    /// lets an agent Bondex has never heard of report itself. Names that are not
+    /// plain (a stray dotfile, anything with a path separator in it) are dropped
+    /// by `AgentKind.init(name:)` rather than trusted.
+    nonisolated static func signalledAgents(fileManager: FileManager = .default) -> [AgentKind] {
+        let names = (try? fileManager.contentsOfDirectory(atPath: signalDirectory.path)) ?? []
+        return names.compactMap(AgentKind.init(name:))
     }
 
     /// A signal that stops being refreshed has to expire on its own: the file has
@@ -280,7 +347,7 @@ final class AgentActivityService: ObservableObject {
         for kind: AgentKind,
         fileManager: FileManager = .default
     ) -> (date: Date, status: String?)? {
-        let url = signalDirectory.appendingPathComponent(kind.rawValue)
+        let url = signalDirectory.appendingPathComponent(kind.id)
         guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
               let date = values.contentModificationDate
         else { return nil }
@@ -299,7 +366,7 @@ final class AgentActivityService: ObservableObject {
         try FileManager.default.createDirectory(
             at: signalDirectory, withIntermediateDirectories: true
         )
-        let url = signalDirectory.appendingPathComponent(kind.rawValue)
+        let url = signalDirectory.appendingPathComponent(kind.id)
         try (status ?? "").write(to: url, atomically: true, encoding: .utf8)
         // An atomic write replaces the file, so its modification date is now —
         // which is exactly the heartbeat the watcher reads.
@@ -307,7 +374,7 @@ final class AgentActivityService: ObservableObject {
 
     /// Marks an agent idle. Called by `--agent-idle`, from a `Stop` hook.
     nonisolated static func markIdle(_ kind: AgentKind) throws {
-        let url = signalDirectory.appendingPathComponent(kind.rawValue)
+        let url = signalDirectory.appendingPathComponent(kind.id)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try FileManager.default.removeItem(at: url)
     }
@@ -329,7 +396,7 @@ final class AgentActivityService: ObservableObject {
         for pid in runningPIDs() {
             if let kind = agentKind(of: pid) {
                 found.insert(kind)
-                if found.count == AgentKind.allCases.count { break }
+                if found.count == AgentKind.known.count { break }
             }
         }
         return found
@@ -361,6 +428,6 @@ final class AgentActivityService: ObservableObject {
     /// an agent having to be running.
     nonisolated static func agentKind(forExecutablePath path: String) -> AgentKind? {
         let name = (path as NSString).lastPathComponent
-        return AgentKind.allCases.first { $0.executableName == name }
+        return AgentKind.known.first { $0.executableName == name }
     }
 }

@@ -49,36 +49,26 @@ struct AgentOrb: View {
 
 /// The agent's mark as a plain SwiftUI shape.
 ///
-/// The same grid the layer draws, for the two places that cannot use a
-/// `CAShapeLayer`: the offscreen preview renderer, and Settings. Falls back to
-/// the SF Symbol for agents with no pixel mark.
+/// The same geometry the layer draws, for the two places that cannot use a
+/// `CAShapeLayer`: the offscreen preview renderer, and Settings.
 struct PixelMark: View {
     let kind: AgentKind
 
     var body: some View {
-        if let mark = kind.pixelMark {
-            PixelMarkShape(mark: mark)
-                .fill(kind.tint)
-                // Sized from the grid, so a caller only has to set the width.
-                .aspectRatio(16 / CGFloat(mark.count), contentMode: .fit)
-        } else {
-            Image(systemName: kind.systemImage)
-                .resizable()
-                .scaledToFit()
-                .fontWeight(.semibold)
-                .foregroundStyle(kind.tint)
-        }
+        AgentMarkShape(kind: kind)
+            .fill(kind.tint, style: FillStyle(eoFill: true))
+            // Sized from the mark itself, so a caller only has to set the width.
+            .aspectRatio(AgentMarks.aspect(for: kind), contentMode: .fit)
     }
 }
 
-private struct PixelMarkShape: Shape {
-    let mark: [String]
+private struct AgentMarkShape: Shape {
+    let kind: AgentKind
 
     func path(in rect: CGRect) -> Path {
-        Path(AgentOrbView.path(for: mark, in: CGRect(origin: .zero, size: rect.size)))
-            // `Shape` draws in a flipped space, so the grid — which is written
-            // top row first and drawn bottom-up for the layer — has to be turned
-            // back over here.
+        Path(AgentMarks.path(for: kind, in: CGRect(origin: .zero, size: rect.size)))
+            // `Shape` draws in a flipped space, so a mark built for layer
+            // geometry — origin at the bottom — has to be turned back over here.
             .applying(CGAffineTransform(scaleX: 1, y: -1).translatedBy(x: 0, y: -rect.height))
     }
 }
@@ -164,9 +154,11 @@ final class AgentOrbView: NSView {
             shape.position = CGPoint(x: box.midX, y: box.midY)
         }
 
-        // Pixel art is 16 cells wide and 10 tall; a square box would stretch it.
-        let glyphWidth = box.width * (kind.pixelMark == nil ? 0.46 : 0.62)
-        let glyphHeight = kind.pixelMark.map { glyphWidth * CGFloat($0.count) / 16 } ?? glyphWidth
+        // Claude's grid is 16 cells wide and 10 tall; the drawn marks are square.
+        // A square box for either would stretch one of them.
+        let aspect = AgentMarks.aspect(for: kind)
+        let glyphWidth = box.width * (aspect > 1 ? 0.62 : 0.52)
+        let glyphHeight = glyphWidth / aspect
         glyph.bounds = CGRect(x: 0, y: 0, width: glyphWidth, height: glyphHeight)
         glyph.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         glyph.position = CGPoint(x: box.midX, y: box.midY)
@@ -198,35 +190,19 @@ final class AgentOrbView: NSView {
         CATransaction.commit()
     }
 
+    /// Every mark is a path now, including the ones that are drawn as lines —
+    /// `AgentMarks` strokes those into outlines — so there is one way to draw a
+    /// glyph and one place to set its colour. The bitmap-and-`sourceAtop` dance
+    /// that tinting an SF Symbol needed is gone with it.
     private func applyGlyph() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
 
-        if let mark = kind.pixelMark {
-            glyph.contents = nil
-            glyph.fillColor = NSColor(kind.tint).cgColor
-            glyph.path = Self.path(for: mark, in: glyph.bounds)
-            return
-        }
-
-        glyph.path = nil
-        glyph.fillColor = nil
-        let configuration = NSImage.SymbolConfiguration(
-            pointSize: glyph.bounds.width, weight: .semibold
-        )
-        guard let image = NSImage(systemSymbolName: kind.systemImage, accessibilityDescription: nil)?
-            .withSymbolConfiguration(configuration) else { return }
-
-        // Tinted by drawing into a bitmap: a layer's `contents` is an image, and
-        // there is no stroke or fill colour to set on it.
-        let tinted = NSImage(size: image.size, flipped: false) { rect in
-            NSColor(self.kind.tint).set()
-            image.draw(in: rect)
-            rect.fill(using: .sourceAtop)
-            return true
-        }
-        glyph.contents = tinted.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        glyph.contents = nil
+        glyph.fillRule = AgentMarks.fillRule == .evenOdd ? .evenOdd : .nonZero
+        glyph.fillColor = NSColor(kind.tint).cgColor
+        glyph.path = AgentMarks.path(for: kind, in: glyph.bounds)
     }
 
     /// One rounded rect per filled cell, unioned into a single path.

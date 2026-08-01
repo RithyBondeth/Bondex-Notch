@@ -47,7 +47,7 @@ final class AgentSignalCommandTests: XCTestCase {
         let command = AgentSignalCommand.parse(
             ["BondexNotch", "--agent-busy", "claude", "Editing", "PeekView.swift"]
         )
-        guard case .busy(let kind, let status) = command else {
+        guard case .command(.busy(let kind, let status)) = command else {
             return XCTFail("expected a busy command, got \(String(describing: command))")
         }
         XCTAssertEqual(kind, .claude)
@@ -57,7 +57,7 @@ final class AgentSignalCommandTests: XCTestCase {
     }
 
     func testBusyWithoutAStatusCarriesNone() {
-        guard case .busy(let kind, let status) = AgentSignalCommand.parse(
+        guard case .command(.busy(let kind, let status)) = AgentSignalCommand.parse(
             ["BondexNotch", "--agent-busy", "codex"]
         ) else {
             return XCTFail("expected a busy command")
@@ -67,7 +67,7 @@ final class AgentSignalCommandTests: XCTestCase {
     }
 
     func testIdleIsParsed() {
-        guard case .idle(let kind) = AgentSignalCommand.parse(
+        guard case .command(.idle(let kind)) = AgentSignalCommand.parse(
             ["BondexNotch", "--agent-idle", "Claude"]
         ) else {
             return XCTFail("expected an idle command")
@@ -77,11 +77,47 @@ final class AgentSignalCommandTests: XCTestCase {
         XCTAssertEqual(kind, .claude)
     }
 
-    func testUnknownAgentsAndOtherFlagsAreNotCommands() {
-        XCTAssertNil(AgentSignalCommand.parse(["BondexNotch"]))
-        XCTAssertNil(AgentSignalCommand.parse(["BondexNotch", "--agent-busy"]))
-        XCTAssertNil(AgentSignalCommand.parse(["BondexNotch", "--agent-busy", "copilot"]))
-        XCTAssertNil(AgentSignalCommand.parse(["BondexNotch", "--render-previews", "/tmp"]))
+    /// An agent Bondex ships no artwork for still gets to report itself, rather
+    /// than needing a release before it can light the notch at all.
+    func testAnAgentWithNoBuiltInSupportIsStillAccepted() {
+        guard case .command(.busy(let kind, _)) = AgentSignalCommand.parse(
+            ["BondexNotch", "--agent-busy", "aider", "Refactoring"]
+        ) else {
+            return XCTFail("expected a busy command")
+        }
+        XCTAssertEqual(kind.id, "aider")
+        XCTAssertFalse(kind.isKnown)
+        XCTAssertEqual(kind.displayName, "Aider", "an unknown name still has to read as a name")
+    }
+
+    func testFlagsThatAreNotAgentSignalsLeaveTheAppToStartNormally() {
+        XCTAssertEqual(AgentSignalCommand.parse(["BondexNotch"]), .none)
+        XCTAssertEqual(AgentSignalCommand.parse(["BondexNotch", "--render-previews", "/tmp"]), .none)
+    }
+
+    /// The bug this replaced: `parse` returned nil for a malformed agent flag
+    /// exactly as it did for "no agent flag here", so `main` fell through and
+    /// launched the *app*. A hook fires dozens of times a turn, so that was a
+    /// duplicate panel per tool call, none of which ever exited.
+    func testAMalformedAgentFlagIsAnErrorRatherThanASilentAppLaunch() {
+        for arguments in [
+            ["BondexNotch", "--agent-busy"],                     // no name at all
+            ["BondexNotch", "--agent-idle"],
+            ["BondexNotch", "--agent-busy", "cla ude"],          // not a plain name
+            ["BondexNotch", "--agent-busy", "clau/de"]
+        ] {
+            guard case .invalid = AgentSignalCommand.parse(arguments) else {
+                return XCTFail("expected \(arguments) to be rejected outright")
+            }
+        }
+    }
+
+    /// The name becomes a path component, so this is a containment check, not a
+    /// tidiness one.
+    func testAnAgentNameCannotEscapeTheSignalDirectory() {
+        for name in ["../../../etc/passwd", "..", "/absolute", "a/b", ""] {
+            XCTAssertNil(AgentKind(name: name), "\(name) must not become a signal file")
+        }
     }
 }
 
@@ -119,48 +155,53 @@ final class AgentActivityModelTests: XCTestCase {
 /// the watcher actually share.
 final class AgentSignalFileTests: XCTestCase {
 
+    /// A made-up name, for the reason spelled out in `ConcurrentAgentTests`:
+    /// this writes to the live signal directory, so using `.codex` here would
+    /// delete a real Codex run's signal on tearDown.
+    private let agent = AgentKind(name: "bondex-test-signal")!
+
     override func tearDown() {
-        try? AgentActivityService.markIdle(.codex)
+        try? AgentActivityService.markIdle(agent)
         super.tearDown()
     }
 
     func testBusyThenIdleRoundTrips() throws {
-        try AgentActivityService.markBusy(.codex, status: "Running tests")
+        try AgentActivityService.markBusy(agent, status: "Running tests")
 
-        let signal = try XCTUnwrap(AgentActivityService.readSignal(for: .codex))
+        let signal = try XCTUnwrap(AgentActivityService.readSignal(for: agent))
         XCTAssertEqual(signal.status, "Running tests")
         XCTAssertLessThan(abs(signal.date.timeIntervalSinceNow), 5)
 
-        try AgentActivityService.markIdle(.codex)
-        XCTAssertNil(AgentActivityService.readSignal(for: .codex))
+        try AgentActivityService.markIdle(agent)
+        XCTAssertNil(AgentActivityService.readSignal(for: agent))
     }
 
     /// A second `--agent-busy` is the heartbeat, and it has to move the file's
     /// date or the staleness backstop would expire a working agent.
     func testASecondBusyRefreshesTheHeartbeat() throws {
-        try AgentActivityService.markBusy(.codex, status: nil)
-        let first = try XCTUnwrap(AgentActivityService.readSignal(for: .codex)).date
+        try AgentActivityService.markBusy(agent, status: nil)
+        let first = try XCTUnwrap(AgentActivityService.readSignal(for: agent)).date
 
         Thread.sleep(forTimeInterval: 1.1)
-        try AgentActivityService.markBusy(.codex, status: nil)
-        let second = try XCTUnwrap(AgentActivityService.readSignal(for: .codex)).date
+        try AgentActivityService.markBusy(agent, status: nil)
+        let second = try XCTUnwrap(AgentActivityService.readSignal(for: agent)).date
 
         XCTAssertGreaterThan(second, first)
     }
 
     func testAStatusIsClampedToOneShortLine() throws {
         try AgentActivityService.markBusy(
-            .codex,
+            agent,
             status: String(repeating: "x", count: 400) + "\nsecond line"
         )
-        let status = try XCTUnwrap(AgentActivityService.readSignal(for: .codex)).status
+        let status = try XCTUnwrap(AgentActivityService.readSignal(for: agent)).status
         // The peek is one strip beside the notch; anything longer is not a status
         // but a paragraph, and the second line would never be seen anyway.
         XCTAssertEqual(status?.count, 60)
     }
 
     func testIdleOnAnAgentThatWasNeverBusyIsNotAnError() {
-        XCTAssertNoThrow(try AgentActivityService.markIdle(.codex))
+        XCTAssertNoThrow(try AgentActivityService.markIdle(agent))
     }
 }
 
@@ -213,5 +254,101 @@ final class PixelMarkTests: XCTestCase {
         XCTAssertTrue(
             AgentOrbView.path(for: ["XX"], in: .zero).isEmpty
         )
+    }
+}
+
+/// The drawn marks. A mark that silently produces nothing looks exactly like an
+/// agent that is not running, which is the failure this is here to catch.
+final class AgentMarkTests: XCTestCase {
+
+    private let box = CGRect(x: 0, y: 0, width: 32, height: 32)
+
+    func testEveryKnownAgentDrawsSomething() {
+        for kind in AgentKind.known {
+            XCTAssertFalse(
+                AgentMarks.path(for: kind, in: box).isEmpty,
+                "\(kind.id) draws an empty mark, which renders as no agent at all"
+            )
+        }
+    }
+
+    /// Unknown agents fall back to the generic mark rather than to nothing.
+    func testAnUnknownAgentStillDrawsAMark() throws {
+        let kind = try XCTUnwrap(AgentKind(name: "aider"))
+        XCTAssertFalse(AgentMarks.path(for: kind, in: box).isEmpty)
+    }
+
+    /// Each mark has to stay inside the box it is given: the orb positions the
+    /// glyph layer by its bounds, so a path that overflows is drawn clipped or
+    /// off-centre rather than scaled to fit.
+    func testMarksStayInsideTheirBox() {
+        for kind in AgentKind.known {
+            let bounds = AgentMarks.path(for: kind, in: box).boundingBox
+            XCTAssertTrue(
+                box.insetBy(dx: -0.5, dy: -0.5).contains(bounds),
+                "\(kind.id) overflows its box: \(bounds)"
+            )
+        }
+    }
+
+    func testAZeroSizedBoxIsNotACrash() {
+        for kind in AgentKind.known {
+            XCTAssertTrue(AgentMarks.path(for: kind, in: .zero).isEmpty, kind.id)
+        }
+    }
+
+    /// Claude's mark is the wide one; everything drawn is square. Getting this
+    /// wrong stretches a mark instead of failing visibly.
+    func testAspectsMatchTheArtwork() {
+        XCTAssertEqual(AgentMarks.aspect(for: .claude), 1.6, accuracy: 0.001)
+        for kind in [AgentKind.codex, .gemini, .opencode, .ollama] {
+            XCTAssertEqual(AgentMarks.aspect(for: kind), 1, accuracy: 0.001, kind.id)
+        }
+    }
+}
+
+/// Two agents at once is a real state, not a corner case: a Claude Code session
+/// and a Codex session on the same machine both signal independently.
+final class ConcurrentAgentTests: XCTestCase {
+
+    // Throwaway names, never `.claude` or `.codex`.
+    //
+    // These write to the *live* signal directory — that is the point, it is the
+    // real channel the CLI and the watcher share — so a test that used a real
+    // agent's name would delete that agent's signal on tearDown and blank the
+    // notch of whoever happened to be running one. Which is exactly what
+    // happened: a suite run mid-session wiped the Claude signal out from under
+    // the app. Made-up names also exercise the open-agent path for free.
+    private let first = AgentKind(name: "bondex-test-a")!
+    private let second = AgentKind(name: "bondex-test-b")!
+
+    override func tearDown() {
+        try? AgentActivityService.markIdle(first)
+        try? AgentActivityService.markIdle(second)
+        super.tearDown()
+    }
+
+    func testEachAgentGetsItsOwnSignalFile() throws {
+        try AgentActivityService.markBusy(first, status: "Editing")
+        try AgentActivityService.markBusy(second, status: "Running tests")
+
+        XCTAssertEqual(AgentActivityService.readSignal(for: first)?.status, "Editing")
+        XCTAssertEqual(AgentActivityService.readSignal(for: second)?.status, "Running tests")
+
+        // One going idle must not take the other down with it.
+        try AgentActivityService.markIdle(first)
+        XCTAssertNil(AgentActivityService.readSignal(for: first))
+        XCTAssertEqual(AgentActivityService.readSignal(for: second)?.status, "Running tests")
+    }
+
+    /// The service discovers agents by listing the directory rather than by
+    /// walking a fixed list, which is what lets an unknown agent appear at all.
+    func testSignalledAgentsAreDiscoveredFromTheDirectory() throws {
+        try AgentActivityService.markBusy(first, status: nil)
+        try AgentActivityService.markBusy(second, status: nil)
+
+        let found = Set(AgentActivityService.signalledAgents())
+        XCTAssertTrue(found.contains(first), "an agent with no built-in support must still be found")
+        XCTAssertTrue(found.contains(second))
     }
 }

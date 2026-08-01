@@ -288,15 +288,15 @@ final class PeekWidthTests: XCTestCase {
     func testPlaybackPeekIsNarrowerThanABanner() {
         // Playing shows artwork and the equaliser only, so the strips can sit
         // close to the notch; a banner has to carry a line of text.
-        let playing = geometry.contentSize(for: .peek, hasBanner: false)
-        let banner = geometry.contentSize(for: .peek, hasBanner: true)
+        let playing = geometry.contentSize(for: .peek, peek: .media)
+        let banner = geometry.contentSize(for: .peek, peek: .banner)
 
         XCTAssertLessThan(playing.width, banner.width)
         XCTAssertEqual(playing.height, banner.height, "Only the width should differ")
     }
 
     func testPlaybackPeekStillClearsTheNotchOnBothSides() {
-        let playing = geometry.contentSize(for: .peek, hasBanner: false)
+        let playing = geometry.contentSize(for: .peek, peek: .media)
         let perSide = (playing.width - geometry.notchSize.width) / 2
 
         XCTAssertGreaterThan(perSide, 40, "No room for artwork beside the notch")
@@ -306,8 +306,8 @@ final class PeekWidthTests: XCTestCase {
         let collapsed = geometry.contentSize(for: .collapsed)
         let expanded = geometry.contentSize(for: .expanded)
 
-        for hasBanner in [false, true] {
-            let peek = geometry.contentSize(for: .peek, hasBanner: hasBanner)
+        for content in [PeekContent.media, .agent(agents: 1), .agent(agents: 3), .banner] {
+            let peek = geometry.contentSize(for: .peek, peek: content)
             XCTAssertLessThan(collapsed.width, peek.width)
             XCTAssertLessThan(peek.width, expanded.width)
         }
@@ -315,8 +315,8 @@ final class PeekWidthTests: XCTestCase {
 
     func testHitTestingFollowsTheNarrowerPeek() {
         // The panel must not keep claiming clicks in a margin it stopped drawing.
-        let playing = geometry.hitRect(for: .peek, hasBanner: false)
-        let banner = geometry.hitRect(for: .peek, hasBanner: true)
+        let playing = geometry.hitRect(for: .peek, peek: .media)
+        let banner = geometry.hitRect(for: .peek, peek: .banner)
 
         XCTAssertLessThan(playing.width, banner.width)
         XCTAssertTrue(banner.contains(playing))

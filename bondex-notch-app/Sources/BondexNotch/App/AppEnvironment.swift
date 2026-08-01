@@ -50,11 +50,11 @@ final class AppEnvironment: ObservableObject {
             .store(in: &cancellables)
 
         agents.$active
-            .map { !$0.isEmpty }
+            .map(\.count)
             .removeDuplicates()
-            .sink { [weak self] isWorking in
-                self?.isAgentWorking = isWorking
-                self?.notch.hasAgentActivity = isWorking
+            .sink { [weak self] count in
+                self?.isAgentWorking = count > 0
+                self?.notch.workingAgentCount = count
                 self?.refreshLiveActivity()
             }
             .store(in: &cancellables)

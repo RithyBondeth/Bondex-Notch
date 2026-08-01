@@ -36,20 +36,32 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
-    /// Set while a coding agent is working, which the peek reports with a name,
-    /// a status and a clock. Kept separate from `hasLiveActivity` because it also
-    /// decides how *wide* the peek has to be: playback needs room for artwork and
-    /// an equaliser, text needs a great deal more.
-    @Published var hasAgentActivity = false {
+    /// How many coding agents are working, which the peek reports with a mark and
+    /// a name each. Kept separate from `hasLiveActivity` because it also decides
+    /// how *wide* the peek has to be: playback needs room for artwork and an
+    /// equaliser, and each agent brings its own pair.
+    @Published var workingAgentCount = 0 {
         didSet {
-            guard hasAgentActivity != oldValue else { return }
+            // Only the empty/non-empty transition changes whether the peek is up
+            // at all; going from one agent to two just resizes it, which the
+            // published change already animates.
+            guard (workingAgentCount > 0) != (oldValue > 0) else { return }
             refreshIdleState()
         }
     }
 
-    /// Whether the peek is currently carrying text rather than just artwork.
-    /// Both a banner and an agent do; playback on its own does not.
-    var peekCarriesText: Bool { banner != nil || hasAgentActivity }
+    var hasAgentActivity: Bool { workingAgentCount > 0 }
+
+    /// What the peek is carrying, which is what decides its width.
+    ///
+    /// A banner outranks an agent for the same reason an agent outranks
+    /// playback: it is the most transient of the three, and the only one with a
+    /// deadline.
+    var peekContent: PeekContent {
+        if banner != nil { return .banner }
+        if hasAgentActivity { return .agent(agents: workingAgentCount) }
+        return .media
+    }
 
     init(settings: SettingsStore, events: EventCenter, screen: NSScreen) {
         self.settings = settings
@@ -92,7 +104,7 @@ final class NotchViewModel: ObservableObject {
     /// too short for one (clipping it) or too tall for the other (dead space).
     var contentSize: CGSize {
         guard state.isExpanded else {
-            return geometry.contentSize(for: state, hasBanner: peekCarriesText)
+            return geometry.contentSize(for: state, peek: peekContent)
         }
         let maximum = NotchGeometry.expandedContentSize
         let measured = measuredExpandedHeight ?? maximum.height

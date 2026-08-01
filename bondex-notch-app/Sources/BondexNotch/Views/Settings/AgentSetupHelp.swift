@@ -32,7 +32,7 @@ struct AgentSetupHelp: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
-            ForEach(AgentKind.allCases) { kind in
+            ForEach(AgentKind.known) { kind in
                 agentRow(kind)
             }
         }
@@ -41,8 +41,8 @@ struct AgentSetupHelp: View {
     private func agentRow(_ kind: AgentKind) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Image(systemName: kind.systemImage)
-                    .foregroundStyle(kind.tint)
+                PixelMark(kind: kind)
+                    .frame(width: 13, height: 13)
                 Text(kind.displayName)
                     .font(.callout.weight(.semibold))
 
@@ -70,6 +70,15 @@ struct AgentSetupHelp: View {
                 .padding(6)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+
+            // Where the two lines go. Every agent puts its hooks somewhere
+            // different, and names the same two moments differently, so the
+            // commands on their own leave the harder half unanswered.
+            if let hint = kind.hookConfigHint {
+                Text(hint)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 
@@ -80,8 +89,8 @@ struct AgentSetupHelp: View {
     private func commands(for kind: AgentKind) -> String {
         let binary = Bundle.main.executableURL?.path ?? "/Applications/Bondex Notch.app/Contents/MacOS/BondexNotch"
         return """
-        "\(binary)" --agent-busy \(kind.rawValue) "optional status"
-        "\(binary)" --agent-idle \(kind.rawValue)
+        "\(binary)" --agent-busy \(kind.id) "optional status"
+        "\(binary)" --agent-idle \(kind.id)
         """
     }
 

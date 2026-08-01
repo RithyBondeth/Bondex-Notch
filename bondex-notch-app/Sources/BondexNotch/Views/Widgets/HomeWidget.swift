@@ -8,24 +8,40 @@ struct HomeWidget: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var nowPlaying: NowPlayingService
     @ObservedObject private var settings: SettingsStore
+    @ObservedObject private var agents: AgentActivityService
 
     init(environment: AppEnvironment) {
         self.environment = environment
         self.nowPlaying = environment.nowPlaying
         self.settings = environment.settings
+        self.agents = environment.agents
     }
 
     private var accent: Color { settings.effectiveAccent.color }
 
+    /// Agents get the top of the tab whenever any are working.
+    ///
+    /// Above the media row on purpose: an agent run is the transient thing on
+    /// this tab. Music will still be playing in ten minutes and is reported by
+    /// the peek's artwork anyway, while a run you opened the panel to check on
+    /// might be over by the time you look again.
+    private var showsAgents: Bool {
+        settings.preferences.agentActivityEnabled && !agents.active.isEmpty
+    }
+
     var body: some View {
         VStack(spacing: 10) {
+            if showsAgents {
+                AgentActivityCard(environment: environment)
+            }
             if settings.preferences.musicWidgetEnabled {
                 mediaRow
             }
             if settings.preferences.systemWidgetEnabled {
                 SystemWidget(environment: environment, compact: true)
             }
-            if !settings.preferences.musicWidgetEnabled
+            if !showsAgents
+                && !settings.preferences.musicWidgetEnabled
                 && !settings.preferences.systemWidgetEnabled {
                 EmptyStateView(
                     systemImage: "square.grid.2x2",

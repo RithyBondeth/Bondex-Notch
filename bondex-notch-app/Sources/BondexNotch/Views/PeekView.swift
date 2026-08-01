@@ -21,14 +21,14 @@ struct PeekView: View {
     private var accent: Color { settings.effectiveAccent.color }
     private var notchWidth: CGFloat { notch.geometry.notchSize.width }
 
-    /// The agent the peek is reporting, if any.
+    /// The agents the peek is reporting.
     ///
-    /// An agent working outranks playback here. Both can be true at once, and
-    /// the peek has room for exactly one thing — but music is ambient and lasts
-    /// for hours, while an agent working is the transient state you actually
-    /// want to know the end of. Playback is one hover away in the panel; the
-    /// agent, once it stops, is gone.
-    private var agent: AgentActivity? { agents.active.first }
+    /// Agents working outrank playback here. Both can be true at once, and the
+    /// peek has room for one kind of thing — but music is ambient and lasts for
+    /// hours, while an agent working is the transient state you actually want to
+    /// know the end of. Playback is one hover away in the panel; the agent, once
+    /// it stops, is gone.
+    private var workingAgents: [AgentActivity] { agents.active }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -69,9 +69,15 @@ struct PeekView: View {
                     Circle().fill(banner.kind.tint.opacity(0.16))
                 )
                 .transition(.scale.combined(with: .opacity))
-        } else if let agent {
-            AgentOrb(kind: agent.kind, size: 21)
-                .transition(.scale.combined(with: .opacity))
+        } else if !workingAgents.isEmpty {
+            // One mark per working agent, in the same order as the names
+            // opposite, so the pairing is positional and needs no explaining.
+            HStack(spacing: 4) {
+                ForEach(workingAgents) { agent in
+                    AgentOrb(kind: agent.kind, size: 21)
+                }
+            }
+            .transition(.scale.combined(with: .opacity))
         } else if let track = nowPlaying.nowPlaying {
             ArtworkView(image: track.artwork, cornerRadius: 5, tint: accent)
                 .frame(width: 21, height: 21)
@@ -98,8 +104,8 @@ struct PeekView: View {
             }
             .frame(maxWidth: 150, alignment: .trailing)
             .transition(.opacity)
-        } else if let agent {
-            agentLabel(agent)
+        } else if !workingAgents.isEmpty {
+            agentNames
                 .transition(.opacity)
         } else if let track = nowPlaying.nowPlaying {
             // Artwork and equaliser only. The title lives one hover away in the
@@ -110,45 +116,38 @@ struct PeekView: View {
         }
     }
 
-    /// The agent's name and how long it has been at it.
+    /// Just the names of the agents that are working.
     ///
-    /// The clock is the whole point of the trailing strip: "Claude is working"
-    /// is something you already knew, and "for 6:20" is the thing that tells you
-    /// whether to go and look. It ticks once a second — not the 15Hz the
-    /// expanded player uses — because this sits over the menu bar for the entire
-    /// length of a run, and a seconds clock gains nothing from finer steps.
-    private func agentLabel(_ agent: AgentActivity) -> some View {
-        TimelineView(.periodic(from: .now, by: 1)) { timeline in
-            HStack(spacing: 5) {
-                // The name and the clock are short, and both are useless
-                // abbreviated — so they are fixed and the status absorbs
-                // whatever width is left. Left flexible, SwiftUI splits the
-                // strip evenly between the three and truncates the only one
-                // that had anything to say.
+    /// The status and the elapsed clock used to be here too, and they have moved
+    /// into the expanded panel — which is one hover away, and is where there is
+    /// actually room for them. Three competing pieces of text in a strip beside
+    /// the notch meant the status, the only part carrying new information, was
+    /// the one that got truncated. What belongs over the menu bar all day is the
+    /// smallest true statement: *who* is working. What they are working on is a
+    /// question, and questions deserve a deliberate look rather than a permanent
+    /// slab of text.
+    ///
+    /// Dropping the clock also takes the peek's last `TimelineView` with it, so
+    /// the strip no longer re-renders once a second for the entire length of a
+    /// run — which, for a panel that sits over the menu bar for tens of minutes,
+    /// is the same argument that put the orb on Core Animation.
+    private var agentNames: some View {
+        HStack(spacing: 5) {
+            ForEach(Array(workingAgents.enumerated()), id: \.element.id) { index, agent in
+                if index > 0 {
+                    Text("·")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.tertiaryText)
+                }
+                // Tinted to match its own mark opposite. With one agent this is
+                // decoration; with two it is what tells you which name belongs
+                // to which mark without counting positions.
                 Text(agent.kind.displayName)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .fixedSize()
-
-                // What it is doing, when the agent bothered to say. This is the
-                // part no heuristic could ever have recovered, and it is the
-                // reason the signal file carries a payload at all.
-                if let status = agent.status {
-                    Text(status)
-                        .font(.system(size: 10))
-                        .foregroundStyle(Theme.secondaryText)
-                        // Middle, not tail: "Editing PeekView.swift" cut at the
-                        // tail becomes "Editing…", which drops the only word
-                        // that was worth showing.
-                        .truncationMode(.middle)
-                }
-
-                Text(agent.elapsed(at: timeline.date).clockString)
-                    .font(.system(size: 10, weight: .medium).monospacedDigit())
                     .foregroundStyle(agent.kind.tint)
                     .fixedSize()
             }
-            .lineLimit(1)
         }
+        .lineLimit(1)
     }
 }

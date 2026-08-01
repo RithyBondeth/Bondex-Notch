@@ -114,7 +114,7 @@ enum PreviewRenderer {
         // Expanding clears the banner still up from the shot above, which would
         // otherwise outrank the agent in the peek and render the same image twice.
         environment.notch.expand()
-        environment.notch.hasAgentActivity = true
+        environment.notch.workingAgentCount = 1
         environment.agents.seedForPreview([
             AgentActivity(
                 kind: .claude,
@@ -124,6 +124,45 @@ enum PreviewRenderer {
         ])
         environment.notch.collapse()
         if !render(environment, named: "peek-agent", into: directory) { failures += 1 }
+
+        // Two agents at once, which is the case the strip has to grow for. Worth
+        // a shot of its own: it is the one agent layout that cannot be checked by
+        // running a single agent and looking at the notch.
+        environment.notch.expand()
+        environment.notch.workingAgentCount = 2
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Editing PeekView.swift"
+            ),
+            AgentActivity(
+                kind: .codex,
+                startedAt: Date().addingTimeInterval(-52),
+                status: "Running tests"
+            )
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agents-two", into: directory) { failures += 1 }
+
+        // The expanded detail those marks open into, with both agents listed.
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-agents", into: directory) { failures += 1 }
+
+        // Every mark Bondex ships, which is the only way to check the artwork:
+        // the drawn marks are geometry, so a mistake in one is invisible until
+        // it is rasterised, and no ordinary session has five agents running.
+        // Also the overflow case — the card counts past three rather than
+        // growing until Home clips.
+        environment.agents.seedForPreview(AgentKind.known.enumerated().map { index, kind in
+            AgentActivity(
+                kind: kind,
+                startedAt: Date().addingTimeInterval(-Double(index) * 30 - 20),
+                status: "Working on something"
+            )
+        })
+        if !render(environment, named: "agent-marks", into: directory) { failures += 1 }
 
         return failures == 0 ? 0 : 1
     }

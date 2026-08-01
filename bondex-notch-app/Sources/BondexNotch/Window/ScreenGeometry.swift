@@ -59,7 +59,12 @@ struct NotchGeometry: Equatable {
     /// moment a widget grows a row, on a Mac with a taller notch, or at a larger
     /// text size. Extra headroom here costs nothing — the window is transparent
     /// and the panel simply never grows into it.
-    static let expandedContentSize = CGSize(width: 560, height: 320)
+    /// Raised from 320 when the agent card arrived: Home can now carry three
+    /// agent rows *and* a media row *and* the gauges, which is about 360pt, and a
+    /// ceiling below that clipped the gauges off the bottom rather than failing
+    /// visibly. Headroom here is free — the window is transparent and the panel
+    /// only ever grows into what it measures.
+    static let expandedContentSize = CGSize(width: 560, height: 420)
 
     /// Extra room around the content for the drop shadow and the hover margin.
     static let windowInset = CGSize(width: 90, height: 60)
@@ -79,12 +84,30 @@ struct NotchGeometry: Equatable {
         CGSize(width: max(notchSize.width + 260, 360), height: peekHeight)
     }
 
-    /// - Parameter hasBanner: whether the peek is currently carrying a banner,
-    ///   which is the only thing in it that needs room for text.
-    func contentSize(for state: NotchState, hasBanner: Bool = false) -> CGSize {
+    /// While agents are working: a mark and a name for each one.
+    ///
+    /// Sized from the count rather than fixed at the worst case. One agent needs
+    /// about as much room as playback does; three would be stranded at the far
+    /// edges of a strip wide enough for three if it never shrank back. The width
+    /// changing as a second agent starts is not a glitch — it is the panel
+    /// growing to hold something that genuinely arrived, and the spring animates
+    /// it like any other state change.
+    func agentPeekSize(agents: Int) -> CGSize {
+        let extra = CGFloat(max(agents - 1, 0)) * 90
+        return CGSize(width: max(notchSize.width + 120 + extra, 240), height: peekHeight)
+    }
+
+    /// - Parameter peek: what the peek is carrying, which is the only thing that
+    ///   changes its width.
+    func contentSize(for state: NotchState, peek: PeekContent = .media) -> CGSize {
         switch state {
         case .collapsed: return notchSize
-        case .peek: return hasBanner ? bannerPeekSize : mediaPeekSize
+        case .peek:
+            switch peek {
+            case .media: return mediaPeekSize
+            case .agent(let agents): return agentPeekSize(agents: agents)
+            case .banner: return bannerPeekSize
+            }
         case .expanded: return Self.expandedContentSize
         }
     }
@@ -110,21 +133,21 @@ struct NotchGeometry: Equatable {
 
     /// Interactive area for a given state, in window coordinates (bottom-left
     /// origin), used for hit testing.
-    func hitRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
-        hitRect(ofSize: contentSize(for: state, hasBanner: hasBanner))
+    func hitRect(for state: NotchState, peek: PeekContent = .media) -> CGRect {
+        hitRect(ofSize: contentSize(for: state, peek: peek))
     }
 
     /// Same rect in screen coordinates, for the global pointer test.
-    func screenRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
-        screenRect(ofSize: contentSize(for: state, hasBanner: hasBanner))
+    func screenRect(for state: NotchState, peek: PeekContent = .media) -> CGRect {
+        screenRect(ofSize: contentSize(for: state, peek: peek))
     }
 
     /// The zone the pointer has to be in to keep a given state alive. Padded
     /// outward so arriving from below the menu bar registers, and so small
     /// pointer jitter at the edge does not flicker the panel shut.
-    func hoverRect(for state: NotchState, hasBanner: Bool = false) -> CGRect {
+    func hoverRect(for state: NotchState, peek: PeekContent = .media) -> CGRect {
         hoverRect(
-            ofSize: contentSize(for: state, hasBanner: hasBanner),
+            ofSize: contentSize(for: state, peek: peek),
             isExpanded: state.isExpanded
         )
     }
