@@ -82,12 +82,14 @@ struct AgentSetupHelp: View {
         }
     }
 
-    /// The two calls a hook makes. Deliberately shown as plain commands rather
-    /// than as a finished config block: the shape of hook configuration differs
-    /// between agents and changes between versions, while these two lines are
-    /// the part that is actually ours and will not.
+    /// The calls a hook makes. Codex supplies documented JSON on stdin, so one
+    /// command can choose busy/idle and turn tool input into a useful status.
+    /// Other agents keep the portable explicit busy/idle pair.
     private func commands(for kind: AgentKind) -> String {
         let binary = Bundle.main.executableURL?.path ?? "/Applications/Bondex Notch.app/Contents/MacOS/BondexNotch"
+        if kind.id == AgentKind.codex.id {
+            return "\"\(binary)\" --agent-hook codex"
+        }
         return """
         "\(binary)" --agent-busy \(kind.id) "optional status"
         "\(binary)" --agent-idle \(kind.id)
