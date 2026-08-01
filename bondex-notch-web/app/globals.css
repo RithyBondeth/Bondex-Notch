@@ -2428,11 +2428,8 @@ button.real-empty { cursor:pointer; }
   place-items: center;
   border-radius: 9px;
   background: rgba(255,255,255,.08);
-  color: #fff;
-  font-family: var(--mono);
-  font-size: 8px;
-  font-weight: 700;
 }
+.footer__contact-mark img { width: 17px; height: 17px; filter: invert(1); }
 .footer__contact-card[data-service="instagram"] .footer__contact-mark { background: linear-gradient(145deg,#7b4bea,#ef4776 58%,#f2a33c); }
 .footer__contact-card[data-service="telegram"] .footer__contact-mark { background: linear-gradient(145deg,#55c5f2,#2488c8); }
 .footer__contact-card[data-service="whatsapp"] .footer__contact-mark { background: linear-gradient(145deg,#58df7b,#189d4c); }

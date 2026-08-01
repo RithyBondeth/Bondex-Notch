@@ -1,29 +1,31 @@
+import Image from 'next/image';
+
 export default function Footer() {
   const contacts = [
     {
       service: 'instagram',
-      mark: 'IG',
+      icon: '/social-icons/instagram.svg',
       label: 'Instagram',
       value: '@r.bondeth',
       href: 'https://www.instagram.com/r.bondeth/',
     },
     {
       service: 'telegram',
-      mark: 'TG',
+      icon: '/social-icons/telegram.svg',
       label: 'Telegram',
       value: '@hemrithybondeth',
       href: 'https://t.me/hemrithybondeth',
     },
     {
       service: 'whatsapp',
-      mark: 'WA',
+      icon: '/social-icons/whatsapp.svg',
       label: 'WhatsApp',
       value: '+855 85 872 582',
       href: 'https://wa.me/85585872582',
     },
     {
       service: 'email',
-      mark: '@',
+      icon: '/social-icons/gmail.svg',
       label: 'Email',
       value: 'rithybondeth999@gmail.com',
       href: 'mailto:rithybondeth999@gmail.com?subject=Question%20about%20Bondex%20Notch',
@@ -60,7 +62,7 @@ export default function Footer() {
             <span>Choose what works for you</span>
           </div>
           <div className="footer__contact-grid">
-            {contacts.map(({ service, mark, label, value, href }) => (
+            {contacts.map(({ service, icon, label, value, href }) => (
               <a
                 href={href}
                 className="footer__contact-card"
@@ -69,7 +71,9 @@ export default function Footer() {
                 rel={service === 'email' ? undefined : 'noreferrer'}
                 key={service}
               >
-                <span className="footer__contact-mark" aria-hidden="true">{mark}</span>
+                <span className="footer__contact-mark" aria-hidden="true">
+                  <Image src={icon} alt="" width={18} height={18} />
+                </span>
                 <span>
                   <b>{label}</b>
                   <small>{value}</small>
