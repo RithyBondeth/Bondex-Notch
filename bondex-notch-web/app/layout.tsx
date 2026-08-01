@@ -32,10 +32,11 @@ const jetBrainsMono = JetBrains_Mono({
 const title = "Bondex Notch — Your Mac's notch, finally useful";
 const description =
   'A native macOS utility that turns the notch into a live view of your ' +
-  'music, downloads, system status and files. Built in Swift. No Electron, ' +
-  'no web view.';
+  'music, coding agents, live tasks, downloads, system status and files. ' +
+  'Built in Swift. No Electron, no web view.';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://bondex-notch.bondeth-plus1.chatgpt.site'),
   title,
   description,
   openGraph: {
@@ -43,7 +44,14 @@ export const metadata: Metadata = {
     title,
     description:
       'A native macOS utility that turns the notch into a live view of your ' +
-      'music, downloads, system status and files.',
+      'music, agents, live tasks, downloads, system status and files.',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Bondex Notch on a Mac display' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/og.png'],
   },
 };
 

@@ -71,17 +71,21 @@ export default function PanelViews({
   return (
     <div className="panel__views" ref={ref}>
       <div className={view('home')} data-view="home">
-        <div className="card card--media">
-          <span className="card__art" aria-hidden="true" />
+        <div className="agent-card">
+          <span className="agent-card__mark" aria-hidden="true">✦</span>
           <span className="card__text">
-            <b>Weightless</b>
-            <em>Marconi Union</em>
+            <b>Codex is working</b>
+            <em>Refining the landing page</em>
           </span>
-          <span className="card__controls" aria-hidden="true">
-            <i className="ctl">◀◀</i>
-            <i className="ctl ctl--main">❚❚</i>
-            <i className="ctl">▶▶</i>
+          <span className="agent-card__time">03:42</span>
+        </div>
+        <div className="live-card">
+          <span className="live-card__icon" aria-hidden="true">↗</span>
+          <span className="card__text">
+            <b>Building release</b>
+            <em>Running tests · 72%</em>
           </span>
+          <span className="mini-progress" aria-hidden="true"><i /></span>
         </div>
         <div className="tiles">
           <div className="tile">

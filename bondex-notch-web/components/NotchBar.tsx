@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 
 const links = [
+  { href: '#showcase', label: 'Tour' },
   { href: '#features', label: 'Features' },
-  { href: '#how', label: 'States' },
   { href: '#pricing', label: 'Pricing' },
   { href: '#faq', label: 'FAQ' },
 ];

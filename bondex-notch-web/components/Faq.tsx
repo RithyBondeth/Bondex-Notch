@@ -10,12 +10,36 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     open: true,
     a: (
       <>
-        Apple Music and Spotify. macOS has no public system-wide &quot;now
+        Apple Music, Spotify, Safari, and supported Chromium browsers. macOS has no public system-wide &quot;now
         playing&quot; API — <code>MPNowPlayingInfoCenter</code> only reports the
         calling process, and the private framework that used to work was locked
         down in macOS 15.4. Bondex uses each app&apos;s scripting interface
-        instead, which is the supported route. You&apos;ll be asked for
-        Automation permission the first time.
+        instead, which is the supported route. Browser tabs can show players such
+        as YouTube, YouTube Music, SoundCloud and Twitch after JavaScript from
+        Apple Events is enabled once. You&apos;ll be asked for Automation permission
+        the first time.
+      </>
+    ),
+  },
+  {
+    q: 'How does agent activity work?',
+    a: (
+      <>
+        A small hook tells Bondex when an agent starts a tool, what it is doing,
+        and when the turn ends. Codex and Claude Code are supported directly, and
+        any CLI agent can use the same busy/idle commands. The signals stay on
+        your Mac and are watched without background polling.
+      </>
+    ),
+  },
+  {
+    q: 'What are custom live activities?',
+    a: (
+      <>
+        Progress updates that you send from a script, Shortcut, build tool or
+        terminal — no SDK needed. A live activity can have a title, status and
+        progress value; it stays visible in the peek and becomes an activity-feed
+        event when it finishes.
       </>
     ),
   },

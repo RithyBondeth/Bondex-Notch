@@ -1,5 +1,6 @@
 import DownloadCta from '@/components/DownloadCta';
 import Faq from '@/components/Faq';
+import FeatureShowcase from '@/components/FeatureShowcase';
 import Features from '@/components/Features';
 import Hero from '@/components/Hero';
 import Pricing from '@/components/Pricing';
@@ -12,6 +13,7 @@ export default function Home() {
   return (
     <main id="main">
       <Hero />
+      <FeatureShowcase />
       <Features />
       <States />
       <Pricing />

@@ -4,10 +4,14 @@
 
 export type FeatureIcon =
   | 'music'
+  | 'browser'
+  | 'agent'
+  | 'live'
   | 'files'
   | 'system'
   | 'bell'
   | 'tray'
+  | 'tune'
   | 'bolt';
 
 export interface Feature {
@@ -26,6 +30,27 @@ export const features: Feature[] = [
       "Track, artist, album art and a scrubbing progress bar for Music and " +
       "Spotify — with transport controls that don't steal focus from what " +
       "you're typing.",
+  },
+  {
+    icon: 'browser',
+    title: 'Browser audio',
+    body:
+      'See what is playing in Safari and Chromium tabs, including YouTube, ' +
+      'YouTube Music, SoundCloud and Twitch — with controls when the site exposes them.',
+  },
+  {
+    icon: 'agent',
+    title: 'Agent activity',
+    body:
+      'Know when Codex, Claude Code or another CLI agent is working, what it is ' +
+      'doing, and how long it has been running — without returning to the terminal.',
+  },
+  {
+    icon: 'live',
+    title: 'Custom live activities',
+    body:
+      'Send progress from a script, Shortcut, build tool or terminal. Active ' +
+      'jobs stay in the peek and finish directly into your activity feed.',
   },
   {
     icon: 'files',
@@ -57,6 +82,14 @@ export const features: Feature[] = [
       'Drag files onto the notch to park them, then drag them back out ' +
       'anywhere. Nothing is copied — the shelf holds references to your real ' +
       'files.',
+    tier: 'Pro',
+  },
+  {
+    icon: 'tune',
+    title: 'Make it yours',
+    body:
+      'Tune width, opacity, corners, top flares, rim, shadow and animation speed. ' +
+      'Choose a preset or custom accent and reorder every tab.',
     tier: 'Pro',
   },
   {
@@ -96,8 +129,8 @@ export const panelStates: PanelState[] = [
     id: 'peek',
     title: 'Peek',
     body:
-      'When something is live — a track playing, a download finishing — a thin ' +
-      'strip grows either side of the notch. Never over it.',
+      'When something is live — a track playing, an agent working, or a build ' +
+      'running — a thin strip grows beside the notch. Never over it.',
     width: 128,
     height: 16,
     radius: 6,
@@ -136,7 +169,9 @@ export const plans: Plan[] = [
     price: '$0',
     note: 'Everything you need to live in the notch.',
     items: [
-      'Music widget with playback controls',
+      'Music and supported browser playback',
+      'Agent activity for Codex, Claude and custom agents',
+      'Custom live activities from scripts and Shortcuts',
       'System widget — CPU, memory, battery, network',
       'Activity feed',
       'Hover, peek and expand behaviour',
@@ -154,7 +189,7 @@ export const plans: Plan[] = [
     items: [
       'File activity widget',
       'Drop shelf',
-      'All accent themes',
+      'All accent themes and deep appearance controls',
       'Lifetime license, no account',
     ],
     cta: { label: 'Get Pro', href: '#download', style: 'solid' },
