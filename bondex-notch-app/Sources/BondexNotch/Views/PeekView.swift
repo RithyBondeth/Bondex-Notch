@@ -18,7 +18,7 @@ struct PeekView: View {
         self.agents = environment.agents
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
     private var notchWidth: CGFloat { notch.geometry.notchSize.width }
 
     /// The agents the peek is reporting.

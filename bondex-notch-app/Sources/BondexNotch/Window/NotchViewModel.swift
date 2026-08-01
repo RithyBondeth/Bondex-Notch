@@ -109,7 +109,7 @@ final class NotchViewModel: ObservableObject {
         let maximum = NotchGeometry.expandedContentSize
         let measured = measuredExpandedHeight ?? maximum.height
         return CGSize(
-            width: maximum.width,
+            width: min(max(settings.preferences.panelWidth, 440), maximum.width),
             height: min(max(measured, minimumExpandedHeight), maximum.height)
         )
     }

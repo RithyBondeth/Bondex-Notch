@@ -30,7 +30,7 @@ struct NotchRootView: View {
         self.isRenderingOffscreen = isRenderingOffscreen
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
     private var geometry: NotchGeometry { notch.geometry }
     private var state: NotchState { notch.state }
 
@@ -47,7 +47,7 @@ struct NotchRootView: View {
         switch state {
         case .collapsed: return Theme.collapsedBottomRadius
         case .peek: return Theme.peekBottomRadius
-        case .expanded: return Theme.bottomRadius
+        case .expanded: return CGFloat(min(max(settings.preferences.bottomCornerRadius, 10), 38))
         }
     }
 
@@ -84,25 +84,39 @@ struct NotchRootView: View {
         // snap rather than interpolate, and the gradient is subtle enough that a
         // 38pt peek strip just reads as having a defined bottom edge.
         shape
-            .fill(Theme.panelFill)
+            .fill(Theme.panelFill(
+                style: settings.preferences.panelStyle,
+                accent: accent,
+                opacity: settings.preferences.panelOpacity
+            ))
             .overlay(shape.stroke(strokeStyle, lineWidth: notch.isDropTargeted ? 1.6 : 1))
             .frame(width: silhouetteWidth, height: contentSize.height)
-            .shadow(color: .black.opacity(state.isExpanded ? 0.5 : 0), radius: 20, y: 9)
+            .shadow(
+                color: .black.opacity(
+                    state.isExpanded ? 0.5 * min(max(settings.preferences.shadowStrength, 0), 1) : 0
+                ),
+                radius: 20,
+                y: 9
+            )
             .opacity(silhouetteOpacity)
     }
 
     private var shape: NotchShape {
-        NotchShape(flareRadius: Theme.flareRadius, bottomRadius: bottomRadius)
+        NotchShape(flareRadius: flareRadius, bottomRadius: bottomRadius)
     }
 
     /// The fillets are drawn outside the body, so the shape is wider than the
     /// content by one flare on each side.
-    private var silhouetteWidth: CGFloat { contentSize.width + Theme.flareRadius * 2 }
+    private var flareRadius: CGFloat {
+        CGFloat(min(max(settings.preferences.flareRadius, 5), 20))
+    }
+
+    private var silhouetteWidth: CGFloat { contentSize.width + flareRadius * 2 }
 
     private var strokeStyle: AnyShapeStyle {
         notch.isDropTargeted
             ? AnyShapeStyle(accent.opacity(0.9))
-            : AnyShapeStyle(Theme.panelRim)
+            : Theme.panelRim(strength: settings.preferences.rimStrength)
     }
 
     // MARK: Content
@@ -154,7 +168,7 @@ struct NotchRootView: View {
             // sizes itself from, so it must not be dictated here. Top-aligned in
             // the canvas so the content does not shift as the height settles.
             ExpandedView(environment: environment)
-                .frame(width: canvasSize.width)
+                .frame(width: contentSize.width)
                 .frame(maxHeight: canvasSize.height, alignment: .top)
                 .onPreferenceChange(ExpandedHeightKey.self) { height in
                     notch.setMeasuredExpandedHeight(height)

@@ -27,7 +27,7 @@ enum PeekContent: Equatable {
 }
 
 /// Which widget the expanded panel is showing.
-enum NotchTab: String, CaseIterable, Identifiable {
+enum NotchTab: String, CaseIterable, Codable, Identifiable {
     case home
     case music
     case files

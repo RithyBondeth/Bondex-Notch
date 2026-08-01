@@ -17,7 +17,7 @@ struct SystemWidget: View {
         self.compact = compact
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
     private var snapshot: SystemSnapshot { service.snapshot }
 
     var body: some View {

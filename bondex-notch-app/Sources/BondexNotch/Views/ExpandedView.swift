@@ -21,7 +21,7 @@ struct ExpandedView: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
 
     /// Keeps the tab strip clear of the hardware notch, which sits over the top
     /// centre of the panel.

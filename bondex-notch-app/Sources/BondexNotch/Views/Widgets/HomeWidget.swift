@@ -17,7 +17,7 @@ struct HomeWidget: View {
         self.agents = environment.agents
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
 
     /// Agents get the top of the tab whenever any are working.
     ///

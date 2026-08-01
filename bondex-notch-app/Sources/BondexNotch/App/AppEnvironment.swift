@@ -122,7 +122,7 @@ final class AppEnvironment: ObservableObject {
 
     /// Tabs the user can actually reach, given their tier and widget toggles.
     var availableTabs: [NotchTab] {
-        NotchTab.allCases.filter { tab in
+        settings.orderedTabs.filter { tab in
             switch tab {
             case .home: return true
             case .music: return settings.preferences.musicWidgetEnabled

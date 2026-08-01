@@ -76,7 +76,7 @@ re-derived on `didChangeScreenParametersNotification`.
 |---|---|---|
 | `collapsed` | exactly the notch | nothing live; invisible on notched Macs |
 | `peek` | notch + 120 while playing, + 90 per extra agent, + 260 for a banner | media playing, an agent working, or a transient banner |
-| `expanded` | 560 wide, height **measured from the content** | pointer on the notch, or clicked to pin |
+| `expanded` | user-controlled 440–680 wide, height **measured from the content** | pointer on the notch, or clicked to pin |
 
 Only the widths are fixed. The expanded panel's height comes from what it is
 actually showing: `ExpandedView` reports its laid-out height through
@@ -113,6 +113,16 @@ its own mark and its own name, tinted to match so the pairing needs no
 explaining, and the peek widens as agents join. The card lists three and then
 counts, because the panel is measured from its content and an unbounded list
 would push Home past its height ceiling and be silently cut off at the bottom.
+
+### Customization
+
+Appearance settings apply live and persist as part of the version-tolerant
+preferences blob. Users can choose a preset or custom accent, pure-black,
+gradient, or accent-tinted panel treatment, panel width, opacity, bottom-corner
+and top-flare geometry, rim and shadow strength, and animation speed. Widget
+settings also control which tabs exist and their left-to-right order. The AppKit
+window always reserves the maximum footprint, so changing the width or shape
+does not resize the window or interrupt the panel animation.
 
 **The agent has to say so, and that is not a shortcut.** The obvious design is to
 find the agent's process and watch its CPU, and it does not work. Measured

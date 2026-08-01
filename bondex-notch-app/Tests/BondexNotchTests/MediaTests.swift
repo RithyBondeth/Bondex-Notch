@@ -350,6 +350,9 @@ final class PreferencesDecodingTests: XCTestCase {
         // And the fields it had never heard of get their defaults.
         XCTAssertEqual(decoded.hoverDelay, Preferences().hoverDelay, accuracy: 0.0001)
         XCTAssertEqual(decoded.browserMediaEnabled, Preferences().browserMediaEnabled)
+        XCTAssertEqual(decoded.panelWidth, Preferences().panelWidth, accuracy: 0.0001)
+        XCTAssertEqual(decoded.panelStyle, Preferences().panelStyle)
+        XCTAssertEqual(decoded.widgetOrder, NotchTab.allCases)
     }
 
     func testUnknownFieldsFromANewerBuildAreIgnored() {
@@ -370,10 +373,31 @@ final class PreferencesDecodingTests: XCTestCase {
         original.accent = .forest
         original.hoverDelay = 0.42
         original.browserMediaEnabled = false
+        original.accent = .custom
+        original.customAccentHex = "12ABEF"
+        original.panelStyle = .tinted
+        original.panelWidth = 640
+        original.panelOpacity = 0.8
+        original.bottomCornerRadius = 32
+        original.flareRadius = 17
+        original.rimStrength = 0.4
+        original.shadowStrength = 0.2
+        original.widgetOrder = [.home, .activity, .music, .shelf, .files]
         original.licenseKey = "BNDX-BEEF-1234-0000"
 
         let data = try JSONEncoder().encode(original)
         XCTAssertEqual(SettingsStore.decode(data), original)
+    }
+
+    func testWidgetOrderRepairsDuplicatesAndMissingTabs() {
+        let suite = "com.bondex.notch.tests.order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let store = SettingsStore(defaults: defaults)
+        store.preferences.widgetOrder = [.shelf, .home, .shelf]
+
+        XCTAssertEqual(store.orderedTabs, [.shelf, .home, .music, .files, .activity])
     }
 }
 

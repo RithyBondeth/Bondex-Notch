@@ -121,7 +121,8 @@ first interaction, and never starts under `prefers-reduced-motion`.
 
 ## Before going live
 
-- `#download` and the GitHub button are `href="#"` placeholders.
+- The download section links to the repository's quick-start instructions until
+  the first signed release is published.
 - Pricing shows $14.99 one-time and $4/month for the AI add-on, mid-range of the
   proposal's $9.99–$19.99 and $3–$5. Confirm before publishing.
 - The "Genuinely light" card deliberately does not quote a memory figure. Add

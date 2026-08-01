@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Visual vocabulary for the notch surface.
@@ -15,6 +16,7 @@ enum Theme {
         case sunset
         case forest
         case violet
+        case custom
 
         var id: String { rawValue }
 
@@ -25,6 +27,7 @@ enum Theme {
             case .sunset: return "Sunset"
             case .forest: return "Forest"
             case .violet: return "Violet"
+            case .custom: return "Custom"
             }
         }
 
@@ -35,11 +38,28 @@ enum Theme {
             case .sunset: return Color(red: 0.99, green: 0.45, blue: 0.34)
             case .forest: return Color(red: 0.32, green: 0.80, blue: 0.55)
             case .violet: return Color(red: 0.68, green: 0.47, blue: 0.98)
+            case .custom: return .white
             }
         }
 
         /// Pro tiers unlock the non-default accents.
         var requiresPro: Bool { self != .graphite }
+    }
+
+    enum PanelStyle: String, CaseIterable, Codable, Identifiable {
+        case black
+        case gradient
+        case tinted
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .black: return "Pure black"
+            case .gradient: return "Soft gradient"
+            case .tinted: return "Accent tint"
+            }
+        }
     }
 
     // MARK: Surfaces
@@ -58,27 +78,47 @@ enum Theme {
     /// gradient stays black at the very top — so the seam with the notch is still
     /// invisible — and lifts a couple of percent by the bottom edge, which is
     /// just enough to give the panel a body.
-    static let panelFill = LinearGradient(
-        stops: [
-            .init(color: .black, location: 0),
-            .init(color: .black, location: 0.34),
-            .init(color: Color(white: 0.055), location: 1)
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-    )
+    static func panelFill(style: PanelStyle, accent: Color, opacity: Double) -> AnyShapeStyle {
+        let opacity = min(max(opacity, 0.65), 1)
+        switch style {
+        case .black:
+            return AnyShapeStyle(Color.black.opacity(opacity))
+        case .gradient:
+            return AnyShapeStyle(LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(opacity), location: 0),
+                    .init(color: .black.opacity(opacity), location: 0.34),
+                    .init(color: Color(white: 0.055).opacity(opacity), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            ))
+        case .tinted:
+            return AnyShapeStyle(LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(opacity), location: 0),
+                    .init(color: accent.opacity(0.12 * opacity), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            ))
+        }
+    }
 
     /// Rim light along the panel's edge. Brightest at the bottom corners, where a
     /// real object would catch the light coming off the display.
-    static let panelRim = LinearGradient(
-        stops: [
-            .init(color: .white.opacity(0.05), location: 0),
-            .init(color: .white.opacity(0.06), location: 0.5),
-            .init(color: .white.opacity(0.14), location: 1)
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-    )
+    static func panelRim(strength: Double) -> AnyShapeStyle {
+        let strength = min(max(strength, 0), 1)
+        return AnyShapeStyle(LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0.05 * strength), location: 0),
+                .init(color: .white.opacity(0.06 * strength), location: 0.5),
+                .init(color: .white.opacity(0.14 * strength), location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        ))
+    }
 
     // MARK: Metrics
 
@@ -94,6 +134,28 @@ enum Theme {
     /// have one.
     static let compactCardPadding: CGFloat = 8
     static let widgetSpacing: CGFloat = 12
+}
+
+extension Color {
+    init?(hexRGB: String) {
+        let value = hexRGB.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard value.count == 6, let rgb = UInt64(value, radix: 16) else { return nil }
+        self.init(
+            red: Double((rgb >> 16) & 0xFF) / 255,
+            green: Double((rgb >> 8) & 0xFF) / 255,
+            blue: Double(rgb & 0xFF) / 255
+        )
+    }
+
+    var hexRGB: String? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        return String(
+            format: "%02X%02X%02X",
+            Int((color.redComponent * 255).rounded()),
+            Int((color.greenComponent * 255).rounded()),
+            Int((color.blueComponent * 255).rounded())
+        )
+    }
 }
 
 extension View {

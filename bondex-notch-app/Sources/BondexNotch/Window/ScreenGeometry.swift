@@ -64,7 +64,10 @@ struct NotchGeometry: Equatable {
     /// ceiling below that clipped the gauges off the bottom rather than failing
     /// visibly. Headroom here is free — the window is transparent and the panel
     /// only ever grows into what it measures.
-    static let expandedContentSize = CGSize(width: 560, height: 420)
+    /// The user can make the panel narrower or wider. The window reserves the
+    /// largest supported footprint once, while `NotchViewModel.contentSize`
+    /// chooses the live width without ever resizing the AppKit window.
+    static let expandedContentSize = CGSize(width: 680, height: 420)
 
     /// Extra room around the content for the drop shadow and the hover margin.
     static let windowInset = CGSize(width: 90, height: 60)

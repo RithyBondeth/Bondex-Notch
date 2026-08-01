@@ -164,6 +164,22 @@ enum PreviewRenderer {
         })
         if !render(environment, named: "agent-marks", into: directory) { failures += 1 }
 
+        // One deliberately opinionated setup exercises every appearance value
+        // together: wide tinted panel, custom colour, softer chrome, and the
+        // largest supported curves. Defaults alone cannot catch clipping at the
+        // ends of the customization ranges.
+        environment.settings.preferences.accent = .custom
+        environment.settings.preferences.customAccentHex = "FF4F9A"
+        environment.settings.preferences.panelStyle = .tinted
+        environment.settings.preferences.panelWidth = 680
+        environment.settings.preferences.panelOpacity = 0.9
+        environment.settings.preferences.bottomCornerRadius = 38
+        environment.settings.preferences.flareRadius = 20
+        environment.settings.preferences.rimStrength = 0.5
+        environment.settings.preferences.shadowStrength = 0.35
+        environment.notch.tab = .home
+        if !render(environment, named: "expanded-customized", into: directory) { failures += 1 }
+
         return failures == 0 ? 0 : 1
     }
 
