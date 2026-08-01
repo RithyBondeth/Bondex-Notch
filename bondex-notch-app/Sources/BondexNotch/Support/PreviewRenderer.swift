@@ -239,5 +239,19 @@ enum PreviewRenderer {
         environment.events.post(NotchEvent(
             kind: .system, title: "Low Battery", subtitle: "14% remaining"
         ))
+        // Carries an agent, so the row draws that agent's mark rather than the
+        // generic symbol for its kind.
+        environment.events.post(NotchEvent(
+            kind: .agent,
+            title: "Claude finished",
+            subtitle: "Worked for 4:00",
+            agent: .claude
+        ))
+        environment.events.post(NotchEvent(
+            kind: .agent,
+            title: "Codex finished",
+            subtitle: "Worked for 1:12",
+            agent: .codex
+        ))
     }
 }

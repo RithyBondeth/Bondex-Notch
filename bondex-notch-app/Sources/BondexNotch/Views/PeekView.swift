@@ -61,12 +61,10 @@ struct PeekView: View {
     @ViewBuilder
     private var leading: some View {
         if let banner = notch.banner {
-            Image(systemName: banner.kind.systemImage)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(banner.kind.tint)
+            EventIcon(event: banner, size: 12)
                 .frame(width: 22, height: 22)
                 .background(
-                    Circle().fill(banner.kind.tint.opacity(0.16))
+                    Circle().fill(banner.tint.opacity(0.16))
                 )
                 .transition(.scale.combined(with: .opacity))
         } else if !workingAgents.isEmpty {

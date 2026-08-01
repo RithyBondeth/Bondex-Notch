@@ -337,7 +337,8 @@ final class AgentActivityService: ObservableObject {
         events.post(NotchEvent(
             kind: .agent,
             title: "\(kind.displayName) finished",
-            subtitle: "Worked for \(elapsed.clockString)"
+            subtitle: "Worked for \(elapsed.clockString)",
+            agent: kind
         ))
     }
 

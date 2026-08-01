@@ -62,13 +62,30 @@ struct NotchEvent: Identifiable, Equatable {
     let title: String
     let subtitle: String?
     let date: Date
+    /// Which agent this is about, for `.agent` events.
+    ///
+    /// `Kind` alone is too coarse to draw with: it can say "an agent finished"
+    /// but not *which*, so the row fell back to a generic symbol while the peek
+    /// two seconds earlier had been showing the agent's actual mark. Carrying
+    /// the agent lets the feed draw the same mark, and tint the row to match.
+    let agent: AgentKind?
 
-    init(kind: Kind, title: String, subtitle: String? = nil, date: Date = Date()) {
+    init(
+        kind: Kind,
+        title: String,
+        subtitle: String? = nil,
+        date: Date = Date(),
+        agent: AgentKind? = nil
+    ) {
         self.kind = kind
         self.title = title
         self.subtitle = subtitle
         self.date = date
+        self.agent = agent
     }
+
+    /// The colour to draw this event in — the agent's own, when there is one.
+    var tint: Color { agent?.tint ?? kind.tint }
 
     static func == (lhs: NotchEvent, rhs: NotchEvent) -> Bool { lhs.id == rhs.id }
 }
