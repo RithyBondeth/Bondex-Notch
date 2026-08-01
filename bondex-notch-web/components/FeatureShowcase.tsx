@@ -6,6 +6,29 @@ const trustItems = [
   ['Shortcuts + scripts', 'Live activities'],
 ];
 
+const claudeCodePixels = [
+  '..XXXXXXXXXXXX..',
+  '..XXXXXXXXXXXX..',
+  '..XX.XXXXXX.XX..',
+  '..XX.XXXXXX.XX..',
+  'XXXXXXXXXXXXXXXX',
+  'XXXXXXXXXXXXXXXX',
+  '..XXXXXXXXXXXX..',
+  '..XXXXXXXXXXXX..',
+  '...X.X....X.X...',
+  '...X.X....X.X...',
+].join('');
+
+function ClaudeCodeMark() {
+  return (
+    <span className="claude-code-mark" aria-hidden="true">
+      {[...claudeCodePixels].map((pixel, index) => (
+        <i className={pixel === 'X' ? 'is-on' : undefined} key={index} />
+      ))}
+    </span>
+  );
+}
+
 export default function FeatureShowcase() {
   return (
     <section id="showcase" className="section showcase">
@@ -59,7 +82,9 @@ export default function FeatureShowcase() {
                     <time>04:18</time>
                   </div>
                   <div className="agent-row">
-                    <span className="agent-orb agent-orb--claude" aria-hidden="true" />
+                    <span className="agent-orb agent-orb--claude" aria-hidden="true">
+                      <ClaudeCodeMark />
+                    </span>
                     <span><b>Claude Code</b><small>Running the test suite</small></span>
                     <time>01:37</time>
                   </div>

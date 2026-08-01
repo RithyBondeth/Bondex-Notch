@@ -1203,13 +1203,31 @@ code {
   -webkit-mask: var(--agent-mark) center / contain no-repeat;
   mask: var(--agent-mark) center / contain no-repeat;
 }
-.agent-orb--codex { --agent-mark: url('/agent-icons/codex.svg'); }
+.agent-orb--codex::before {
+  width: 20px;
+  height: 17px;
+  -webkit-mask: none;
+  mask: none;
+  background:
+    linear-gradient(45deg, transparent 42%, #f6f7ff 43% 57%, transparent 58%) 1px 1px / 9px 9px no-repeat,
+    linear-gradient(-45deg, transparent 42%, #f6f7ff 43% 57%, transparent 58%) 1px 8px / 9px 9px no-repeat,
+    linear-gradient(#f6f7ff, #f6f7ff) 11px 14px / 8px 2px no-repeat;
+}
 .agent-orb--claude {
-  --agent-mark: url('/agent-icons/claude.svg');
-  background: rgba(225,137,102,.20);
+  background: rgba(225,137,102,.13);
   border-color: rgba(225,137,102,.38);
   box-shadow: 0 0 22px rgba(225,137,102,.25);
 }
+.agent-orb--claude::before { display: none; }
+.claude-code-mark {
+  width: 22px;
+  height: 14px;
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+}
+.claude-code-mark i { min-width: 0; min-height: 0; }
+.claude-code-mark i.is-on { background: #ef9875; }
 .agent-orb--gemini {
   --agent-mark: url('/agent-icons/gemini.svg');
   background: rgba(91, 142, 250, .18);
