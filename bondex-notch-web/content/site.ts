@@ -192,7 +192,7 @@ export const plans: Plan[] = [
       'All accent themes and deep appearance controls',
       'Lifetime license, no account',
     ],
-    cta: { label: 'Ask about Pro', href: '#contact', style: 'solid' },
+    cta: { label: 'Buy Pro', href: '/checkout', style: 'solid' },
   },
   {
     name: 'AI add-on',

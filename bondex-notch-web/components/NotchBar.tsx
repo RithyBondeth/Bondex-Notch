@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 
 const links = [
-  { href: '#showcase', label: 'Tour' },
-  { href: '#features', label: 'Features' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '/#showcase', label: 'Tour' },
+  { href: '/#features', label: 'Features' },
+  { href: '/#pricing', label: 'Pricing' },
+  { href: '/#faq', label: 'FAQ' },
 ];
 
 /**
@@ -27,7 +27,7 @@ export default function NotchBar() {
   return (
     <header className={`notchbar${stuck ? ' is-stuck' : ''}`}>
       <div className="notchbar__body">
-        <a className="brand" href="#main" aria-label="Bondex Notch home">
+        <a className="brand" href="/" aria-label="Bondex Notch home">
           <span className="brand__mark" aria-hidden="true" />
           <span className="brand__name">Bondex&nbsp;Notch</span>
         </a>
@@ -39,7 +39,7 @@ export default function NotchBar() {
             </a>
           ))}
         </nav>
-        <a className="btn btn--small" href="#contact">
+        <a className="btn btn--small" href="/#contact">
           Contact
         </a>
       </div>
