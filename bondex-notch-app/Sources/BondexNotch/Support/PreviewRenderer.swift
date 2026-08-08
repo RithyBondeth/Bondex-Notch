@@ -331,6 +331,31 @@ enum PreviewRenderer {
             environment.settings.preferences.licenseKey = key
         }
 
+        environment.deviceBatteries.stop()
+        environment.deviceBatteries.seedForPreview([
+            DeviceBattery(
+                id: "magic-keyboard",
+                name: "Magic Keyboard",
+                level: 0.82,
+                isCharging: false,
+                kind: .keyboard
+            ),
+            DeviceBattery(
+                id: "magic-mouse",
+                name: "Magic Mouse",
+                level: 0.17,
+                isCharging: false,
+                kind: .mouse
+            ),
+            DeviceBattery(
+                id: "headphones",
+                name: "Headphones",
+                level: 0.63,
+                isCharging: true,
+                kind: .headphones
+            )
+        ])
+
         // Something recognisable on the shelf. Falls back to nothing if the
         // machine has no files in these locations.
         let candidates = [

@@ -11,6 +11,7 @@ final class AppEnvironment: ObservableObject {
     let nowPlaying: NowPlayingService
     let metrics: SystemMetricsService
     let systemHUD: SystemHUDService
+    let deviceBatteries: DeviceBatteryService
     let privacyActivity: PrivacyActivityService
     let focusTimer: FocusTimerService
     let meetings: UpcomingMeetingService
@@ -42,6 +43,7 @@ final class AppEnvironment: ObservableObject {
         self.nowPlaying = NowPlayingService(events: events)
         self.metrics = SystemMetricsService(events: events)
         self.systemHUD = SystemHUDService()
+        self.deviceBatteries = DeviceBatteryService()
         self.privacyActivity = PrivacyActivityService()
         self.focusTimer = FocusTimerService(defaults: defaults, events: events)
         self.meetings = UpcomingMeetingService()
@@ -177,6 +179,7 @@ final class AppEnvironment: ObservableObject {
         agents.stop()
         liveActivities.stop()
         systemHUD.stop()
+        deviceBatteries.stop()
         privacyActivity.stop()
         meetings.stop()
         globalHotKey.stop()
@@ -211,6 +214,12 @@ final class AppEnvironment: ObservableObject {
             systemHUD.start()
         } else {
             systemHUD.stop()
+        }
+
+        if preferences.systemWidgetEnabled {
+            deviceBatteries.start()
+        } else {
+            deviceBatteries.stop()
         }
 
         if preferences.privacyIndicatorsEnabled {

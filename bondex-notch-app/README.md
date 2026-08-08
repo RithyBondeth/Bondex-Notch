@@ -223,6 +223,13 @@ an optional compact summary can also be shown on Home. The AppKit window always
 reserves the maximum footprint, so changing the width or shape does not resize
 the window or interrupt the panel animation.
 
+The full System widget includes a compact device-battery panel for the Mac and
+connected accessories that publish battery levels through IORegistry, including
+supported keyboards, mice, trackpads, and headphones. Charging devices use a
+green bolt treatment, low devices use a warm warning colour, and every value has a VoiceOver
+label. Discovery is read-only, requires no Bluetooth pairing or privacy
+permission, and gracefully omits hardware whose driver does not expose a level.
+
 Volume, mute, display brightness, and keyboard-backlight keys produce a compact
 meter beside the notch with the current percentage. Power-source and charging
 transitions use the same surface for battery feedback without adding routine
