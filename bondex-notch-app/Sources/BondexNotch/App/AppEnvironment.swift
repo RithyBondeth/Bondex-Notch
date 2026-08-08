@@ -10,6 +10,7 @@ final class AppEnvironment: ObservableObject {
     let events: EventCenter
     let nowPlaying: NowPlayingService
     let metrics: SystemMetricsService
+    let systemHUD: SystemHUDService
     let files: FileActivityService
     let shelf: ShelfService
     let agents: AgentActivityService
@@ -29,6 +30,7 @@ final class AppEnvironment: ObservableObject {
         self.events = events
         self.nowPlaying = NowPlayingService(events: events)
         self.metrics = SystemMetricsService(events: events)
+        self.systemHUD = SystemHUDService()
         self.files = FileActivityService(events: events)
         self.shelf = ShelfService(events: events)
         self.agents = AgentActivityService(events: events)
@@ -40,6 +42,10 @@ final class AppEnvironment: ObservableObject {
     }
 
     private func wire() {
+        systemHUD.onPresentation = { [weak self] presentation in
+            self?.notch.show(systemHUD: presentation)
+        }
+
         // The peek state exists to report live media, so it follows playback.
         // The peek reports whatever is live: playback, or an agent working.
         nowPlaying.$nowPlaying
@@ -69,6 +75,12 @@ final class AppEnvironment: ObservableObject {
             }
             .store(in: &cancellables)
 
+        metrics.$snapshot
+            .sink { [weak self] snapshot in
+                self?.systemHUD.updateBattery(snapshot)
+            }
+            .store(in: &cancellables)
+
         // Services are started and stopped as widgets are toggled, so a
         // disabled widget costs nothing at runtime.
         settings.$preferences
@@ -90,6 +102,7 @@ final class AppEnvironment: ObservableObject {
         files.stop()
         agents.stop()
         liveActivities.stop()
+        systemHUD.stop()
     }
 
     private var isPlaying = false
@@ -111,10 +124,16 @@ final class AppEnvironment: ObservableObject {
             nowPlaying.stop()
         }
 
-        if preferences.systemWidgetEnabled {
+        if preferences.systemWidgetEnabled || preferences.systemHUDEnabled {
             metrics.start()
         } else {
             metrics.stop()
+        }
+
+        if preferences.systemHUDEnabled {
+            systemHUD.start()
+        } else {
+            systemHUD.stop()
         }
 
         if preferences.agentActivityEnabled {

@@ -14,6 +14,9 @@ final class NotchViewModel: ObservableObject {
     @Published var isDropTargeted = false
     /// Set while a transient banner (track change, download finished) is showing.
     @Published private(set) var banner: NotchEvent?
+    /// Short-lived feedback for hardware keys. This intentionally does not enter
+    /// the activity feed: changing volume is interaction feedback, not history.
+    @Published private(set) var systemHUD: SystemHUDPresentation?
 
     @Published private(set) var geometry: NotchGeometry
 
@@ -22,6 +25,7 @@ final class NotchViewModel: ObservableObject {
     private var closeWorkItem: DispatchWorkItem?
     private var openWorkItem: DispatchWorkItem?
     private var bannerWorkItem: DispatchWorkItem?
+    private var systemHUDWorkItem: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
 
     private let settings: SettingsStore
@@ -61,9 +65,10 @@ final class NotchViewModel: ObservableObject {
 
     /// What the peek is carrying, which is what decides its width.
     ///
-    /// A banner outranks live progress, which outranks agents and playback: the
-    /// more time-sensitive signal gets the limited space before its deadline.
+    /// Direct hardware feedback outranks a banner, which outranks live progress,
+    /// agents and playback: the more immediate signal gets the limited space.
     var peekContent: PeekContent {
+        if systemHUD != nil { return .systemHUD }
         if banner != nil { return .banner }
         if customLiveActivityCount > 0 { return .live }
         if hasAgentActivity { return .agent(agents: workingAgentCount) }
@@ -183,6 +188,7 @@ final class NotchViewModel: ObservableObject {
         withAnimation(Motion.panel(settings.motion)) {
             state = .expanded
             banner = nil
+            systemHUD = nil
         }
     }
 
@@ -227,6 +233,7 @@ final class NotchViewModel: ObservableObject {
     /// What the panel falls back to when nothing is hovering it: a peek when
     /// something is live, otherwise fully closed.
     private var idleState: NotchState {
+        if systemHUD != nil || banner != nil { return .peek }
         // An agent working is not gated behind the *media* peek preference —
         // someone who turned off "peek while playing" was asking not to see
         // album art over the menu bar, which says nothing about whether they
@@ -304,6 +311,28 @@ final class NotchViewModel: ObservableObject {
     }
 
     // MARK: Banners
+
+    func show(systemHUD presentation: SystemHUDPresentation) {
+        guard settings.preferences.systemHUDEnabled, !state.isExpanded else { return }
+
+        systemHUDWorkItem?.cancel()
+        let resizes = state == .collapsed || peekContent != .systemHUD
+        withAnimation(resizes ? Motion.panel(settings.motion) : Motion.content(settings.motion)) {
+            systemHUD = presentation
+            if state == .collapsed { state = .peek }
+        }
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.systemHUDWorkItem = nil
+            withAnimation(Motion.panel(self.settings.motion)) {
+                self.systemHUD = nil
+                if !self.state.isExpanded { self.state = self.idleState }
+            }
+        }
+        systemHUDWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.65, execute: work)
+    }
 
     private func show(banner event: NotchEvent) {
         // Playback reaches the feed but never the banner; see `deservesBanner`.

@@ -91,6 +91,12 @@ struct NotchGeometry: Equatable {
         CGSize(width: max(notchSize.width + 220, 340), height: peekHeight)
     }
 
+    /// Hardware controls need room for an icon, a readable meter and a value,
+    /// but should still feel lighter than a notification banner.
+    var systemHUDPeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 210, 340), height: peekHeight)
+    }
+
     /// While agents are working: a mark and a name for each one.
     ///
     /// Sized from the count rather than fixed at the worst case. One agent needs
@@ -111,6 +117,7 @@ struct NotchGeometry: Equatable {
         case .collapsed: return notchSize
         case .peek:
             switch peek {
+            case .systemHUD: return systemHUDPeekSize
             case .media: return mediaPeekSize
             case .live: return livePeekSize
             case .agent(let agents): return agentPeekSize(agents: agents)

@@ -223,6 +223,13 @@ an optional compact summary can also be shown on Home. The AppKit window always
 reserves the maximum footprint, so changing the width or shape does not resize
 the window or interrupt the panel animation.
 
+Volume, mute, display brightness, and keyboard-backlight keys produce a compact
+meter beside the notch with the current percentage. Power-source and charging
+transitions use the same surface for battery feedback without adding routine
+discharge steps to the activity feed. Hardware feedback temporarily outranks
+playback and notification peeks, dismisses after a short delay, and can be
+disabled independently in Widget settings.
+
 ### Custom live activities
 
 Any script, Shortcut, build tool, or terminal session can publish progress into
