@@ -432,13 +432,15 @@ struct ArtworkView: View {
     var tint: Color
 
     var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                ZStack {
+        GeometryReader { proxy in
+            ZStack {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                } else {
                     LinearGradient(
                         colors: [tint.opacity(0.55), tint.opacity(0.18)],
                         startPoint: .topLeading,
@@ -449,12 +451,17 @@ struct ArtworkView: View {
                         .foregroundStyle(.white.opacity(0.85))
                 }
             }
+            // `ZStack` is a real layout boundary. A transparent `Group` passes
+            // modifiers through to its child, which lets some remotely decoded
+            // wide images paint outside the size proposed by the parent.
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            )
         }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-        )
     }
 }
 

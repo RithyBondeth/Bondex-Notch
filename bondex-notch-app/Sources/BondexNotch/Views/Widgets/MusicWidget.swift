@@ -41,17 +41,23 @@ struct MusicWidget: View {
     }
 
     private func player(_ track: NowPlaying) -> some View {
-        HStack(spacing: 14) {
-            ArtworkView(image: track.artwork, cornerRadius: 10, tint: accent)
-                .frame(width: 78, height: 78)
-
-            VStack(alignment: .leading, spacing: 6) {
-                VStack(alignment: .leading, spacing: 1) {
-                    MarqueeText(
-                        text: track.title.isEmpty ? "Unknown Track" : track.title,
-                        font: .system(size: 13, weight: .semibold)
+        VStack(spacing: 9) {
+            HStack(alignment: .center, spacing: 12) {
+                ArtworkView(image: track.artwork, cornerRadius: 9, tint: accent)
+                    .frame(
+                        width: track.source.isBrowser ? 112 : 64,
+                        height: 64
                     )
-                    HStack(spacing: 5) {
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(track.title.isEmpty ? "Unknown Track" : track.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.primaryText)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(spacing: 6) {
                         Text(subtitle(for: track))
                             .font(.system(size: 11))
                             .foregroundStyle(Theme.secondaryText)
@@ -59,37 +65,45 @@ struct MusicWidget: View {
                         sourceBadge(track)
                     }
                 }
+            }
 
-                progress(track)
+            progress(track)
 
-                HStack(spacing: 2) {
-                    if track.supportsTransport {
-                        NotchButton(systemImage: "backward.fill", size: 11) { service.previous() }
-                        NotchButton(
-                            systemImage: track.isPlaying ? "pause.fill" : "play.fill",
-                            size: 12,
-                            isProminent: true,
-                            tint: accent
-                        ) {
-                            service.playPause()
-                        }
-                        NotchButton(systemImage: "forward.fill", size: 11) { service.next() }
-                    } else {
-                        // Read from the window title: visible, but not drivable.
-                        Text("Playing in \(track.source.displayName)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Theme.tertiaryText)
-                            .lineLimit(1)
+            HStack(spacing: 2) {
+                if track.supportsTransport {
+                    NotchButton(systemImage: "backward.fill", size: 11) {
+                        service.previous()
                     }
+                    .accessibilityLabel("Previous")
 
-                    Spacer()
+                    NotchButton(
+                        systemImage: track.isPlaying ? "pause.fill" : "play.fill",
+                        size: 12,
+                        isProminent: true,
+                        tint: accent
+                    ) {
+                        service.playPause()
+                    }
+                    .accessibilityLabel(track.isPlaying ? "Pause" : "Play")
 
-                    AudioBars(isAnimating: track.isPlaying, tint: accent)
-                        .opacity(0.9)
+                    NotchButton(systemImage: "forward.fill", size: 11) {
+                        service.next()
+                    }
+                    .accessibilityLabel("Next")
+                } else {
+                    Text("Playing in \(track.source.displayName)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.tertiaryText)
+                        .lineLimit(1)
                 }
+
+                Spacer()
+
+                AudioBars(isAnimating: track.isPlaying, tint: accent)
+                    .opacity(0.9)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .notchCard(padding: 10)
     }
 
     private func subtitle(for track: NowPlaying) -> String {

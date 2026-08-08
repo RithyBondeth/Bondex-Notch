@@ -54,14 +54,14 @@ enum PreviewRenderer {
         // player are part of what these shots exist to review, and on a machine
         // with nothing playing they would all render as the empty state.
         let playing = NowPlaying(
-            source: .music,
-            title: "Weightless",
-            artist: "Marconi Union",
-            album: "Ambient Transmissions",
+            source: .dia,
+            title: "BIGEGOAT vs AURORA! GOTF Watch Party Day 5",
+            artist: "Mirko",
+            album: "YouTube",
             isPlaying: true,
-            duration: 489,
-            position: 128,
-            artwork: nil
+            duration: 7_235,
+            position: 2_884,
+            artwork: sampleVideoArtwork()
         )
 
         var failures = 0
@@ -202,6 +202,28 @@ enum PreviewRenderer {
     }
 
     // MARK: Rendering
+
+    /// A wide, high-contrast stand-in that exercises browser artwork cropping
+    /// and makes overflow obvious in generated UI previews.
+    private static func sampleVideoArtwork() -> NSImage {
+        NSImage(size: NSSize(width: 320, height: 180), flipped: false) { rect in
+            NSColor(calibratedRed: 0.82, green: 0.10, blue: 0.18, alpha: 1).setFill()
+            rect.fill()
+
+            NSColor(calibratedWhite: 0.06, alpha: 0.9).setFill()
+            NSRect(x: 0, y: 0, width: rect.width * 0.4, height: rect.height).fill()
+
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 34, weight: .heavy),
+                .foregroundColor: NSColor.white
+            ]
+            NSString(string: "LIVE").draw(
+                at: NSPoint(x: rect.width * 0.08, y: rect.height * 0.36),
+                withAttributes: attributes
+            )
+            return true
+        }
+    }
 
     private static func render(
         _ environment: AppEnvironment,

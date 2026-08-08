@@ -18,6 +18,8 @@ struct MediaApp: Equatable, Hashable, Sendable, Identifiable {
         case webkit
         /// Chrome family: `execute javascript … in tab n of window m`.
         case chromium
+        /// Dia: `execute tab n of window m javascript …`.
+        case dia
     }
 
     let bundleIdentifier: String
@@ -41,7 +43,9 @@ struct MediaApp: Equatable, Hashable, Sendable, Identifiable {
 
     var id: String { bundleIdentifier }
 
-    var isBrowser: Bool { engine == .webkit || engine == .chromium }
+    var isBrowser: Bool {
+        engine == .webkit || engine == .chromium || engine == .dia
+    }
 
     /// True when the only way to read this browser is the window-title marker.
     var readsByWindowTitleOnly: Bool { !canEnableJavaScript && audibleWindowMarker != nil }
@@ -69,6 +73,12 @@ struct MediaApp: Equatable, Hashable, Sendable, Identifiable {
             return """
             \(displayName) › View › Developer ›
             Allow JavaScript from Apple Events.
+            """
+        case .dia:
+            return """
+            Quit Dia, then reopen it from Terminal with:
+            open -a Dia --args --enable-applescript-javascript
+            Dia requires this launch flag for JavaScript from Apple Events.
             """
         case .music, .spotify:
             return ""
@@ -131,6 +141,17 @@ extension MediaApp {
         engine: .chromium
     )
 
+    /// Dia exposes its tabs and a JavaScript command through AppleScript, but
+    /// uses a different command grammar from both Arc and Chrome. It also keeps
+    /// JavaScript execution disabled unless launched with the flag named in
+    /// `javaScriptHint`.
+    static let dia = MediaApp(
+        bundleIdentifier: "company.thebrowser.dia",
+        scriptName: "Dia",
+        displayName: "Dia",
+        engine: .dia
+    )
+
     static let vivaldi = MediaApp(
         bundleIdentifier: "com.vivaldi.Vivaldi",
         scriptName: "Vivaldi",
@@ -169,7 +190,7 @@ extension MediaApp {
     /// Firefox is deliberately absent: it ships no scripting dictionary, so there
     /// is no supported way to read a tab's media state out of it.
     static let browsers: [MediaApp] = [
-        .safari, .chrome, .brave, .edge, .arc, .atlas, .vivaldi, .opera, .chromium
+        .safari, .chrome, .brave, .edge, .arc, .dia, .atlas, .vivaldi, .opera, .chromium
     ]
 
     static let players: [MediaApp] = [.music, .spotify]

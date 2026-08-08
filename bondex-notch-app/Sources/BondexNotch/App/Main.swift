@@ -17,6 +17,9 @@ struct BondexNotch {
                 : FileManager.default.currentDirectoryPath
             exit(PreviewRenderer.run(outputDirectory: directory))
         }
+        if arguments.contains("--diagnose-media") {
+            exit(MediaDiagnostic.run())
+        }
 
         switch LiveActivityCommand.parse(arguments) {
         case .command(let command):

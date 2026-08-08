@@ -140,7 +140,7 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// Returns true when the browser accepted the command.
     func perform(_ transport: Transport, on app: MediaApp) -> Bool {
         guard let reference = pinned, reference.app == app else { return false }
-        let outcome = engine.runJavaScript(wrap(script(for: transport), for: reference))
+        let outcome = execute(script(for: transport), in: reference)
         return outcome.value?.isEmpty == false
     }
 
@@ -344,8 +344,10 @@ final class BrowserMediaReader: @unchecked Sendable {
     // MARK: Probing
 
     private func probe(_ reference: TabRef) -> Reading {
-        let outcome = engine.runJavaScript(wrap(Self.readScript, for: reference))
-        guard let raw = outcome.value, !raw.isEmpty else {
+        let outcome = execute(Self.readScript, in: reference)
+        guard let raw = Self.decodeJavaScriptResult(
+            outcome.value, from: reference.app.engine
+        ), !raw.isEmpty else {
             return Reading(track: nil, failure: outcome.failure)
         }
 
@@ -379,6 +381,21 @@ final class BrowserMediaReader: @unchecked Sendable {
         return Reading(track: track, failure: nil)
     }
 
+    /// Dia JSON-encodes the return value of its `execute … javascript` command,
+    /// unlike Safari and Chromium, whose AppleScript descriptors contain the
+    /// returned text directly. In particular, the field separator arrives as the
+    /// six literal characters `\\u0001`, so parsing the raw descriptor finds one
+    /// field and silently discards an otherwise valid track.
+    static func decodeJavaScriptResult(_ value: String?, from engine: MediaApp.Engine) -> String? {
+        guard let value, engine == .dia, value.first == "\"",
+              let data = value.data(using: .utf8),
+              let decoded = try? JSONSerialization.jsonObject(
+                with: data, options: [.fragmentsAllowed]
+              ) as? String
+        else { return value }
+        return decoded
+    }
+
     /// Pages that do not set `mediaSession` fall back to `document.title`, which
     /// carries the site's own suffix and an unread-count prefix.
     static func strippedTitle(_ title: String) -> String {
@@ -407,6 +424,14 @@ final class BrowserMediaReader: @unchecked Sendable {
 
     // MARK: Scripts
 
+    private func execute(_ javaScript: String, in reference: TabRef) -> ScriptOutcome {
+        let source = wrap(javaScript, for: reference)
+        if reference.app.engine == .dia {
+            return engine.runDiaJavaScript(source)
+        }
+        return engine.runJavaScript(source)
+    }
+
     /// Field separator for the JavaScript payload's return value. Chosen so it
     /// cannot collide with anything in a track title.
     static let separator = "\u{01}"
@@ -424,6 +449,11 @@ final class BrowserMediaReader: @unchecked Sendable {
             tell application "\(reference.app.scriptName)" to do JavaScript \
             \(literal) in tab \(reference.tab) of window \(reference.window)
             """
+        case .dia:
+            return """
+            tell application "\(reference.app.scriptName)" to execute \
+            (tab \(reference.tab) of window \(reference.window)) javascript \(literal)
+            """
         case .music, .spotify:
             return ""
         }
@@ -435,6 +465,31 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// the toggle. Tabs are fetched a list at a time rather than one property at a
     /// time, for the reason spelled out on `audibleWindowScript`.
     private func tabListScript(for app: MediaApp) -> String {
+        if app.engine == .dia {
+            return """
+            tell application "\(app.scriptName)"
+                set sep to (character id 1)
+                set AppleScript's text item delimiters to sep
+                set out to ""
+                set windowCount to count of windows
+                repeat with wi from 1 to windowCount
+                    try
+                        set tabURLs to URL of every tab of window wi
+                        set focusedStates to isFocused of every tab of window wi
+                        set activeIndex to 0
+                        repeat with ti from 1 to count of focusedStates
+                            if item ti of focusedStates is true then set activeIndex to ti
+                        end repeat
+                        set out to out & "U" & sep & wi & sep & ¬
+                            (tabURLs as text) & linefeed
+                        set out to out & "A" & sep & wi & sep & activeIndex & linefeed
+                    end try
+                end repeat
+                return out
+            end tell
+            """
+        }
+
         let activeIndex = app.engine == .chromium
             ? "active tab index of window wi"
             : "index of current tab of window wi"
@@ -473,9 +528,16 @@ final class BrowserMediaReader: @unchecked Sendable {
     static let readScript = """
     (function(){var S=String.fromCharCode(1);\(findElement)if(!b)return '';\
     var m=null;try{m=navigator.mediaSession.metadata}catch(x){}\
+    function A(s){if(!s)return '';try{var u=new URL(s,document.baseURI);\
+    return /^https?:$/.test(u.protocol)?u.href:''}catch(x){return ''}}\
     var a='';if(m&&m.artwork){var w=-1;for(var j=0;j<m.artwork.length;j++){\
     var g=m.artwork[j];var p=parseInt((g.sizes||'').split('x')[0],10);\
-    if(!p||p!==p){p=0}if(p>w){w=p;a=g.src||''}}}\
+    if(!p||p!==p){p=0}var c=A(g.src);if(c&&p>w){w=p;a=c}}}\
+    if(!a){a=A(b.poster)}if(!a){var M=document.getElementsByTagName('meta');\
+    for(var j=0;j<M.length;j++){var k=M[j].getAttribute('property')||\
+    M[j].getAttribute('name')||M[j].getAttribute('itemprop')||'';\
+    if(k==='og:image'||k==='twitter:image'||k==='twitter:image:src'||\
+    k==='thumbnailUrl'){a=A(M[j].content);if(a)break}}}\
     var t=(m&&m.title)||document.title||'';var r=(m&&m.artist)||'';\
     var al=(m&&m.album)||'';\
     return ['OK',t,r,al,b.duration,b.currentTime,b.paused?'n':'y',a,\

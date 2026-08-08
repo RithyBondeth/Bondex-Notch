@@ -271,6 +271,9 @@ Both are handled with the supported alternative rather than a private API:
     active tab if it is on a media host, else the window's sole media-host tab)
     rather than assumed — otherwise a video in one tab is reported as whatever
     the user happens to be looking at in another.
+  - Dia exposes its tabs through AppleScript, but enables page JavaScript only
+    when launched with `--enable-applescript-javascript`. Bondex detects the
+    disabled state and shows the exact relaunch command in the Music tab.
 - **Reading other apps' notifications.** There is no API for this and the
   Notification Center store is SIP-protected. The "Activity" widget is a feed of
   what Bondex observes directly — track changes, completed downloads, power
