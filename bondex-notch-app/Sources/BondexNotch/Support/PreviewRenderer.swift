@@ -34,6 +34,8 @@ enum PreviewRenderer {
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let environment = AppEnvironment(screen: screen, defaults: defaults)
+        // Offscreen rendering should never claim the user's global shortcut.
+        environment.globalHotKey.stop()
         seedSampleData(environment)
 
         // CPU usage is a delta between two samples, so the previews need at
@@ -144,6 +146,32 @@ enum PreviewRenderer {
             kind: .battery, level: 0.76, detail: "Charging"
         ))
         if !render(environment, named: "peek-battery", into: directory) { failures += 1 }
+
+        environment.notch.expand()
+        environment.focusTimer.start(minutes: 25)
+        environment.notch.collapse()
+        if !render(environment, named: "peek-focus", into: directory) { failures += 1 }
+        environment.focusTimer.cancel()
+
+        let meeting = UpcomingMeeting(
+            id: "design-review",
+            title: "Product design review",
+            startDate: Date().addingTimeInterval(7 * 60),
+            endDate: Date().addingTimeInterval(67 * 60),
+            joinURL: URL(string: "https://meet.google.com/example")
+        )
+        environment.settings.preferences.upcomingMeetingsEnabled = true
+        environment.meetings.stop()
+        environment.meetings.seedForPreview(meeting)
+        environment.notch.collapse()
+        if !render(environment, named: "peek-meeting", into: directory) { failures += 1 }
+
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-productivity", into: directory) {
+            failures += 1
+        }
+        environment.meetings.seedForPreview(nil)
 
         // The agent indicator, which on a machine with nothing running would
         // otherwise never appear in a preview — and it is the state the peek

@@ -63,6 +63,20 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    var hasFocusTimer = false {
+        didSet {
+            guard hasFocusTimer != oldValue else { return }
+            refreshIdleState()
+        }
+    }
+
+    var hasUpcomingMeeting = false {
+        didSet {
+            guard hasUpcomingMeeting != oldValue else { return }
+            refreshIdleState()
+        }
+    }
+
     /// What the peek is carrying, which is what decides its width.
     ///
     /// Direct hardware feedback outranks a banner, which outranks live progress,
@@ -70,6 +84,8 @@ final class NotchViewModel: ObservableObject {
     var peekContent: PeekContent {
         if systemHUD != nil { return .systemHUD }
         if banner != nil { return .banner }
+        if hasFocusTimer { return .focus }
+        if hasUpcomingMeeting { return .meeting }
         if customLiveActivityCount > 0 { return .live }
         if hasAgentActivity { return .agent(agents: workingAgentCount) }
         return .media
@@ -234,6 +250,8 @@ final class NotchViewModel: ObservableObject {
     /// something is live, otherwise fully closed.
     private var idleState: NotchState {
         if systemHUD != nil || banner != nil { return .peek }
+        if hasFocusTimer, settings.preferences.focusTimerEnabled { return .peek }
+        if hasUpcomingMeeting, settings.preferences.upcomingMeetingsEnabled { return .peek }
         // An agent working is not gated behind the *media* peek preference —
         // someone who turned off "peek while playing" was asking not to see
         // album art over the menu bar, which says nothing about whether they
@@ -331,7 +349,8 @@ final class NotchViewModel: ObservableObject {
             }
         }
         systemHUDWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.65, execute: work)
+        let duration = min(max(settings.preferences.systemHUDDuration, 0.8), 5)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
     }
 
     private func show(banner event: NotchEvent) {

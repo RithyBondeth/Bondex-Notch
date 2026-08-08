@@ -230,6 +230,38 @@ discharge steps to the activity feed. Hardware feedback temporarily outranks
 playback and notification peeks, dismisses after a short delay, and can be
 disabled independently in Widget settings.
 
+### Accessibility and keyboard control
+
+Bondex follows the macOS Reduce Motion, Increase Contrast, and Reduce
+Transparency settings. Reduce Motion replaces directional panel transitions and
+continuous agent/media animation with short fades or still artwork; contrast and
+transparency preferences strengthen the panel automatically. Important app
+events can be announced through VoiceOver, while system volume and brightness
+are left to macOS so they are not spoken twice.
+
+A permission-free global shortcut opens the notch (`⌃⌥ Space` by default, with
+alternatives in Settings). Once open, Left and Right Arrow cycle tabs and Escape
+closes the panel. Keyboard-focused tab chips and controls get a visible outline.
+The hardware-HUD display time is also configurable.
+
+### Focus timer and meetings
+
+Home includes a restart-safe focus timer with start, pause, resume, and cancel
+controls. An active timer lives compactly beside the notch and is also available
+from the menu-bar menu. Scripts and Shortcuts can control the running app:
+
+```bash
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --focus-start 25
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --focus-pause
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --focus-resume
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --focus-cancel
+```
+
+Upcoming meetings are opt-in and use EventKit's full calendar authorization.
+The next event appears on Home within two hours and in the compact notch within
+ten minutes, with a Join action for supported web meeting links. Compact meeting
+titles are hidden by default so screen sharing does not expose calendar details.
+
 ### Custom live activities
 
 Any script, Shortcut, build tool, or terminal session can publish progress into

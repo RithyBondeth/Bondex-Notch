@@ -28,12 +28,16 @@ struct ExpandedView: View {
     private var topInset: CGFloat { notch.geometry.notchSize.height + 4 }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             header
             // A system `Divider` renders as a light separator tuned for a light
             // window; on a near-black panel it reads as a bright scratch.
             Rectangle()
-                .fill(Theme.hairline)
+                .fill(LinearGradient(
+                    colors: [.clear, Theme.hairline, .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ))
                 .frame(height: 1)
             widget
                 .frame(maxWidth: .infinity)
@@ -60,23 +64,32 @@ struct ExpandedView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 4) {
-            ForEach(environment.availableTabs) { tab in
-                TabChip(
-                    tab: tab,
-                    isSelected: notch.tab == tab,
-                    isLocked: tab.requiredFeature.map { !settings.isUnlocked($0) } ?? false,
-                    accent: accent
-                ) {
-                    withAnimation(Motion.content(settings.motion)) { notch.tab = tab }
+        HStack(spacing: 8) {
+            HStack(spacing: 2) {
+                ForEach(environment.availableTabs) { tab in
+                    TabChip(
+                        tab: tab,
+                        isSelected: notch.tab == tab,
+                        isLocked: tab.requiredFeature.map { !settings.isUnlocked($0) } ?? false,
+                        accent: accent
+                    ) {
+                        withAnimation(Motion.content(settings.motion)) { notch.tab = tab }
+                    }
                 }
             }
+            .padding(3)
+            .background(Color.white.opacity(0.045), in: Capsule(style: .continuous))
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 0.7)
+            )
 
             Spacer(minLength: 6)
 
             NotchButton(systemImage: "xmark", size: 10, tint: Theme.secondaryText) {
                 notch.collapse()
             }
+            .accessibilityLabel("Close notch")
         }
     }
 
@@ -117,15 +130,17 @@ private struct TabChip: View {
     let action: () -> Void
 
     @State private var isHovering = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: isLocked ? "lock.fill" : tab.systemImage)
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(isSelected ? accent : Theme.secondaryText)
                 if isSelected {
                     Text(tab.title)
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .fixedSize()
                         // Width, not opacity: the label has to push the
                         // neighbouring chips aside as it appears, or the strip
@@ -138,20 +153,32 @@ private struct TabChip: View {
                         )
                 }
             }
-            .foregroundStyle(isSelected ? Color.black : Theme.secondaryText)
-            .padding(.horizontal, isSelected ? 9 : 7)
-            .padding(.vertical, 5)
+            .foregroundStyle(isSelected ? Theme.primaryText : Theme.secondaryText)
+            .padding(.horizontal, isSelected ? 8 : 6)
+            .padding(.vertical, 4.5)
             .background(
                 Capsule(style: .continuous).fill(
                     isSelected
-                        ? AnyShapeStyle(accent)
-                        : AnyShapeStyle(Color.white.opacity(isHovering ? 0.14 : 0.06))
+                        ? AnyShapeStyle(accent.opacity(0.17))
+                        : AnyShapeStyle(Color.white.opacity(isHovering ? 0.09 : 0))
                 )
             )
+            .overlay(
+                Capsule(style: .continuous).strokeBorder(
+                    isFocused
+                        ? Color.white.opacity(0.9)
+                        : (isSelected ? accent.opacity(0.32) : .clear),
+                    lineWidth: isFocused ? 2 : 0.7
+                )
+            )
+            .shadow(color: isSelected ? accent.opacity(0.13) : .clear, radius: 7)
             .contentShape(Capsule())
             .animation(Motion.hover, value: isHovering)
         }
         .buttonStyle(.plain)
+        .focused($isFocused)
         .onHover { isHovering = $0 }
+        .accessibilityLabel(tab.title + (isLocked ? ", locked" : ""))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

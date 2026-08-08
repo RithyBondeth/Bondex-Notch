@@ -11,12 +11,20 @@ final class AppEnvironment: ObservableObject {
     let nowPlaying: NowPlayingService
     let metrics: SystemMetricsService
     let systemHUD: SystemHUDService
+    let focusTimer: FocusTimerService
+    let meetings: UpcomingMeetingService
+    let globalHotKey: GlobalHotKeyService
+    let accessibilityAnnouncements: AccessibilityAnnouncementService
     let files: FileActivityService
     let shelf: ShelfService
     let agents: AgentActivityService
     let liveActivities: LiveActivityService
     let notifications: NotificationService
     let notch: NotchViewModel
+
+    /// Installed by the window controller so a global shortcut can make the
+    /// nonactivating panel keyboard-operable without activating the whole app.
+    var requestKeyboardFocus: (() -> Void)?
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -31,6 +39,10 @@ final class AppEnvironment: ObservableObject {
         self.nowPlaying = NowPlayingService(events: events)
         self.metrics = SystemMetricsService(events: events)
         self.systemHUD = SystemHUDService()
+        self.focusTimer = FocusTimerService(defaults: defaults, events: events)
+        self.meetings = UpcomingMeetingService()
+        self.globalHotKey = GlobalHotKeyService()
+        self.accessibilityAnnouncements = AccessibilityAnnouncementService()
         self.files = FileActivityService(events: events)
         self.shelf = ShelfService(events: events)
         self.agents = AgentActivityService(events: events)
@@ -42,6 +54,13 @@ final class AppEnvironment: ObservableObject {
     }
 
     private func wire() {
+        globalHotKey.onPress = { [weak self] in
+            guard let self else { return }
+            let isOpening = !self.notch.state.isExpanded
+            self.notch.toggle()
+            if isOpening { self.requestKeyboardFocus?() }
+        }
+
         systemHUD.onPresentation = { [weak self] presentation in
             self?.notch.show(systemHUD: presentation)
         }
@@ -75,6 +94,34 @@ final class AppEnvironment: ObservableObject {
             }
             .store(in: &cancellables)
 
+        focusTimer.$snapshot
+            .map(\.isActive)
+            .removeDuplicates()
+            .sink { [weak self] isActive in
+                self?.notch.hasFocusTimer = isActive
+            }
+            .store(in: &cancellables)
+
+        meetings.$meeting
+            .map { $0?.startsSoon() ?? false }
+            .removeDuplicates()
+            .sink { [weak self] startsSoon in
+                self?.notch.hasUpcomingMeeting = startsSoon
+            }
+            .store(in: &cancellables)
+
+        events.$latest
+            .compactMap { $0 }
+            .sink { [weak self] event in
+                self?.accessibilityAnnouncements.announce(event: event)
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default
+            .publisher(for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
         metrics.$snapshot
             .sink { [weak self] snapshot in
                 self?.systemHUD.updateBattery(snapshot)
@@ -103,6 +150,8 @@ final class AppEnvironment: ObservableObject {
         agents.stop()
         liveActivities.stop()
         systemHUD.stop()
+        meetings.stop()
+        globalHotKey.stop()
     }
 
     private var isPlaying = false
@@ -134,6 +183,24 @@ final class AppEnvironment: ObservableObject {
             systemHUD.start()
         } else {
             systemHUD.stop()
+        }
+
+        accessibilityAnnouncements.isEnabled = preferences.announceImportantUpdates
+
+        if preferences.globalHotKeyEnabled {
+            globalHotKey.start(shortcut: preferences.globalShortcut)
+        } else {
+            globalHotKey.stop()
+        }
+
+        if preferences.upcomingMeetingsEnabled {
+            meetings.start()
+        } else {
+            meetings.stop()
+        }
+
+        if !preferences.focusTimerEnabled, focusTimer.snapshot.isActive {
+            focusTimer.cancel()
         }
 
         if preferences.agentActivityEnabled {

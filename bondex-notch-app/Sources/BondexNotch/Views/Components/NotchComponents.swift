@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Offscreen rendering
@@ -228,7 +229,12 @@ struct AudioBars: View {
             }
             .frame(height: AudioBarMetrics.height)
         } else {
-            AudioBarLayers(isAnimating: isAnimating, tint: tint, barCount: barCount)
+            AudioBarLayers(
+                isAnimating: isAnimating
+                    && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+                tint: tint,
+                barCount: barCount
+            )
                 .frame(
                     width: AudioBarMetrics.width(barCount: barCount),
                     height: AudioBarMetrics.height
@@ -478,6 +484,7 @@ struct NotchButton: View {
 
     @State private var isHovering = false
     @State private var isPressed = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         Button(action: action) {
@@ -489,9 +496,18 @@ struct NotchButton: View {
                     Circle().fill(
                         isProminent
                             ? AnyShapeStyle(tint)
-                            : AnyShapeStyle(Color.white.opacity(isHovering ? 0.16 : 0.0))
+                            : AnyShapeStyle(Color.white.opacity(isHovering ? 0.15 : 0.055))
                     )
                 )
+                .overlay(
+                    Circle().stroke(
+                        isFocused
+                            ? Color.white.opacity(0.9)
+                            : Color.white.opacity(isProminent ? 0.16 : 0.06),
+                        lineWidth: isFocused ? 2 : 0.7
+                    )
+                )
+                .shadow(color: isProminent ? tint.opacity(0.16) : .clear, radius: 6)
                 .contentShape(Circle())
                 // A touch of give on press. Transport controls are the only thing
                 // in the panel that gets clicked repeatedly, so they are worth
@@ -501,6 +517,7 @@ struct NotchButton: View {
                 .animation(.spring(duration: 0.22, bounce: 0.35), value: isPressed)
         }
         .buttonStyle(.plain)
+        .focused($isFocused)
         .onHover { isHovering = $0 }
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)

@@ -41,12 +41,12 @@ struct MusicWidget: View {
     }
 
     private func player(_ track: NowPlaying) -> some View {
-        VStack(spacing: 9) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
                 ArtworkView(image: track.artwork, cornerRadius: 9, tint: accent)
                     .frame(
-                        width: track.source.isBrowser ? 112 : 64,
-                        height: 64
+                        width: track.source.isBrowser ? 92 : 56,
+                        height: 56
                     )
 
                 VStack(alignment: .leading, spacing: 5) {

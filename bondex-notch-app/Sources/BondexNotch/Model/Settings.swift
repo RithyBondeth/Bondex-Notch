@@ -10,7 +10,7 @@ struct Preferences: Codable, Equatable {
     var accent: Theme.Accent = .graphite
     var customAccentHex = "6EA8FF"
     var panelStyle: Theme.PanelStyle = .gradient
-    var panelWidth: Double = 560
+    var panelWidth: Double = 520
     var panelOpacity: Double = 1
     var bottomCornerRadius: Double = Double(Theme.bottomRadius)
     var flareRadius: Double = Double(Theme.flareRadius)
@@ -22,6 +22,8 @@ struct Preferences: Codable, Equatable {
     var systemWidgetEnabled = true
     /// Show compact notch feedback when a hardware control changes.
     var systemHUDEnabled = true
+    /// How long transient hardware feedback remains visible.
+    var systemHUDDuration = 1.65
     /// Keep a compact copy of the System tab's gauges on Home.
     var showSystemSummaryOnHome = false
     var fileActivityEnabled = true
@@ -30,6 +32,11 @@ struct Preferences: Codable, Equatable {
     /// Show a mark beside the notch while Claude Code or Codex is working.
     var agentActivityEnabled = true
     var customLiveActivitiesEnabled = true
+    var focusTimerEnabled = true
+    var defaultFocusMinutes = 25
+    var upcomingMeetingsEnabled = false
+    /// Compact peeks may be visible while screen sharing; titles are private by default.
+    var showMeetingTitlesInPeek = false
     /// Order of the tabs in the expanded panel. Unknown or missing tabs are
     /// repaired by `SettingsStore` so upgrades never strand a new widget.
     var widgetOrder: [NotchTab] = NotchTab.allCases
@@ -49,6 +56,11 @@ struct Preferences: Codable, Equatable {
     /// Read media out of browser tabs as well as Music and Spotify. This is what
     /// makes YouTube and other web players show up.
     var browserMediaEnabled = true
+
+    /// A permission-free registered chord, not a global key logger.
+    var globalHotKeyEnabled = true
+    var globalShortcut: GlobalShortcut = .controlOptionSpace
+    var announceImportantUpdates = true
 
     var downloadsFolderBookmark: Data?
     var launchAtLogin = false

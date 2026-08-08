@@ -35,6 +35,9 @@
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Bondex Notch watches your Downloads folder so it can show transfer progress in the notch.</string>
 
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Bondex Notch reads your next meeting so it can show a countdown and join link in the notch.</string>
+
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Bondex. All rights reserved.</string>
 </dict>

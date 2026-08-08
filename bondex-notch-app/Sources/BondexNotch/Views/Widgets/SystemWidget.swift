@@ -21,7 +21,7 @@ struct SystemWidget: View {
     private var snapshot: SystemSnapshot { service.snapshot }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             gauge(
                 title: "CPU",
                 value: snapshot.cpuUsage,
@@ -60,7 +60,7 @@ struct SystemWidget: View {
                     .font(.system(size: 10, weight: .semibold).monospacedDigit())
                     .foregroundStyle(Theme.primaryText)
             }
-            .frame(width: compact ? 30 : 42, height: compact ? 30 : 42)
+            .frame(width: compact ? 28 : 38, height: compact ? 28 : 38)
 
             Text(title)
                 .font(.system(size: 9, weight: .medium))
@@ -86,7 +86,7 @@ struct SystemWidget: View {
                         .foregroundStyle(Theme.tertiaryText)
                 }
             }
-            .frame(width: compact ? 30 : 42, height: compact ? 30 : 42)
+            .frame(width: compact ? 28 : 38, height: compact ? 28 : 38)
 
             Text(batteryCaption)
                 .font(.system(size: 9, weight: .medium))

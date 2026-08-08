@@ -78,6 +78,33 @@ private struct GeneralSettings: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Keyboard & accessibility") {
+                Toggle("Global keyboard shortcut", isOn: binding(\.globalHotKeyEnabled))
+                Picker("Shortcut", selection: binding(\.globalShortcut)) {
+                    ForEach(GlobalShortcut.allCases) { shortcut in
+                        Text(shortcut.displayName).tag(shortcut)
+                    }
+                }
+                .disabled(!settings.preferences.globalHotKeyEnabled)
+
+                Toggle(
+                    "Announce important updates with VoiceOver",
+                    isOn: binding(\.announceImportantUpdates)
+                )
+
+                HStack {
+                    Text("Hardware HUD duration")
+                    Slider(value: binding(\.systemHUDDuration), in: 0.8...5, step: 0.1)
+                    Text(String(format: "%.1fs", settings.preferences.systemHUDDuration))
+                        .font(.caption.monospacedDigit())
+                        .frame(width: 40, alignment: .trailing)
+                }
+
+                Text("Escape closes the panel; Left and Right Arrow switch tabs.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }
@@ -115,6 +142,21 @@ private struct WidgetSettings: View {
                 Toggle("Show system summary on Home", isOn: binding(\.showSystemSummaryOnHome))
                     .disabled(!settings.preferences.systemWidgetEnabled)
                 Toggle("Custom live activities", isOn: binding(\.customLiveActivitiesEnabled))
+                Toggle("Focus timer", isOn: binding(\.focusTimerEnabled))
+                Stepper(
+                    "Default focus: \(settings.preferences.defaultFocusMinutes) minutes",
+                    value: binding(\.defaultFocusMinutes),
+                    in: 5...90,
+                    step: 5
+                )
+                .disabled(!settings.preferences.focusTimerEnabled)
+
+                Toggle("Upcoming meetings", isOn: meetingsBinding)
+                Toggle(
+                    "Show meeting titles in compact notch",
+                    isOn: binding(\.showMeetingTitlesInPeek)
+                )
+                .disabled(!settings.preferences.upcomingMeetingsEnabled)
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
             }
 
@@ -228,6 +270,18 @@ private struct WidgetSettings: View {
         Binding(
             get: { settings.preferences[keyPath: keyPath] },
             set: { settings.preferences[keyPath: keyPath] = $0 }
+        )
+    }
+
+    private var meetingsBinding: Binding<Bool> {
+        Binding(
+            get: { settings.preferences.upcomingMeetingsEnabled },
+            set: { enabled in
+                settings.preferences.upcomingMeetingsEnabled = enabled
+                if enabled, environment.meetings.authorizationStatus != .fullAccess {
+                    environment.meetings.requestAuthorization()
+                }
+            }
         )
     }
 
@@ -464,10 +518,12 @@ private struct LicenseSettings: View {
 private struct PermissionsSettings: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var nowPlaying: NowPlayingService
+    @ObservedObject private var meetings: UpcomingMeetingService
 
     init(environment: AppEnvironment) {
         self.environment = environment
         self.nowPlaying = environment.nowPlaying
+        self.meetings = environment.meetings
     }
 
     var body: some View {
@@ -511,6 +567,14 @@ private struct PermissionsSettings: View {
                     isGranted: environment.notifications.authorizationStatus == .authorized,
                     settingsPane: "x-apple.systempreferences:com.apple.preference.notifications",
                     action: environment.notifications.requestAuthorization
+                )
+
+                permissionRow(
+                    title: "Calendar",
+                    detail: "Lets Bondex show your next meeting and its join link.",
+                    isGranted: meetings.authorizationStatus == .fullAccess,
+                    settingsPane: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars",
+                    action: meetings.requestAuthorization
                 )
             } footer: {
                 Text("""
