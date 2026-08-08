@@ -16,6 +16,7 @@ final class AppEnvironment: ObservableObject {
     let globalHotKey: GlobalHotKeyService
     let accessibilityAnnouncements: AccessibilityAnnouncementService
     let files: FileActivityService
+    let clipboard: ClipboardHistoryService
     let shelf: ShelfService
     let agents: AgentActivityService
     let liveActivities: LiveActivityService
@@ -44,6 +45,7 @@ final class AppEnvironment: ObservableObject {
         self.globalHotKey = GlobalHotKeyService()
         self.accessibilityAnnouncements = AccessibilityAnnouncementService()
         self.files = FileActivityService(events: events)
+        self.clipboard = ClipboardHistoryService()
         self.shelf = ShelfService(events: events)
         self.agents = AgentActivityService(events: events)
         self.liveActivities = LiveActivityService(events: events)
@@ -147,6 +149,7 @@ final class AppEnvironment: ObservableObject {
         nowPlaying.stop()
         metrics.stop()
         files.stop()
+        clipboard.stop()
         agents.stop()
         liveActivities.stop()
         systemHUD.stop()
@@ -215,6 +218,12 @@ final class AppEnvironment: ObservableObject {
             liveActivities.stop()
         }
 
+        if preferences.clipboardHistoryEnabled {
+            clipboard.start()
+        } else {
+            clipboard.stop()
+        }
+
         let filesUnlocked = preferences.tier == .pro
         if preferences.fileActivityEnabled && filesUnlocked {
             files.start()
@@ -233,6 +242,7 @@ final class AppEnvironment: ObservableObject {
             case .live: return settings.preferences.customLiveActivitiesEnabled
             case .files: return settings.preferences.fileActivityEnabled
             case .activity: return settings.preferences.activityFeedEnabled
+            case .clipboard: return settings.preferences.clipboardHistoryEnabled
             case .shelf: return settings.preferences.shelfEnabled
             }
         }

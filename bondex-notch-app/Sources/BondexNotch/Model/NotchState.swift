@@ -58,6 +58,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     case live
     case files
     case activity
+    case clipboard
     case shelf
 
     var id: String { rawValue }
@@ -70,6 +71,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         case .live: return "Live"
         case .files: return "Files"
         case .activity: return "Activity"
+        case .clipboard: return "Clipboard"
         case .shelf: return "Shelf"
         }
     }
@@ -82,6 +84,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         case .live: return "waveform.path.ecg"
         case .files: return "arrow.down.circle.fill"
         case .activity: return "bell.fill"
+        case .clipboard: return "doc.on.clipboard.fill"
         case .shelf: return "tray.full.fill"
         }
     }
@@ -105,7 +108,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .home, .music, .system: return nil
         case .live: return 132
-        case .files, .activity, .shelf: return 132
+        case .files, .activity, .clipboard, .shelf: return 132
         }
     }
 }

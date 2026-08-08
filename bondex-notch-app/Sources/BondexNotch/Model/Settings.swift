@@ -28,6 +28,7 @@ struct Preferences: Codable, Equatable {
     var showSystemSummaryOnHome = false
     var fileActivityEnabled = true
     var activityFeedEnabled = true
+    var clipboardHistoryEnabled = true
     var shelfEnabled = true
     /// Show a mark beside the notch while Claude Code or Codex is working.
     var agentActivityEnabled = true

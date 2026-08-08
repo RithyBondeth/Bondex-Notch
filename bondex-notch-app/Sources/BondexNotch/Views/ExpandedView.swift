@@ -113,6 +113,8 @@ struct ExpandedView: View {
                 FileActivityWidget(environment: environment)
             case .activity:
                 ActivityWidget(environment: environment)
+            case .clipboard:
+                ClipboardWidget(environment: environment)
             case .shelf:
                 ShelfWidget(environment: environment)
             }
