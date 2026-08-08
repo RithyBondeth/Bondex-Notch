@@ -64,46 +64,73 @@ struct HomeWidget: View {
     @ViewBuilder
     private var mediaRow: some View {
         if let track = nowPlaying.nowPlaying {
-            HStack(spacing: 10) {
-                ArtworkView(image: track.artwork, cornerRadius: 7, tint: accent)
-                    .frame(width: 32, height: 32)
+            VStack(spacing: 9) {
+                HStack(spacing: 12) {
+                    ArtworkView(image: track.artwork, cornerRadius: 8, tint: accent)
+                        .frame(
+                            width: track.source.isBrowser ? 78 : 48,
+                            height: 48
+                        )
 
-                VStack(alignment: .leading, spacing: 1) {
-                    MarqueeText(
-                        text: track.title.isEmpty ? "Unknown Track" : track.title,
-                        font: .system(size: 12, weight: .semibold)
-                    )
-                    Text(track.artist.isEmpty
-                         ? track.source.displayName
-                         : "\(track.artist) · \(track.source.displayName)")
-                        .font(.system(size: 10))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(track.title.isEmpty ? "Unknown Track" : track.title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.primaryText)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        HStack(spacing: 5) {
+                            if !track.artist.isEmpty {
+                                Text(track.artist)
+                                    .lineLimit(1)
+                                Circle()
+                                    .fill(Theme.tertiaryText)
+                                    .frame(width: 2, height: 2)
+                            }
+                            Text(track.source.displayName)
+                                .lineLimit(1)
+                        }
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(Theme.secondaryText)
-                        .lineLimit(1)
+                    }
+
+                    if track.supportsTransport {
+                        HStack(spacing: 2) {
+                            NotchButton(systemImage: "backward.fill", size: 10) {
+                                nowPlaying.previous()
+                            }
+                            .accessibilityLabel("Previous")
+
+                            NotchButton(
+                                systemImage: track.isPlaying ? "pause.fill" : "play.fill",
+                                size: 12,
+                                isProminent: true,
+                                tint: accent
+                            ) {
+                                nowPlaying.playPause()
+                            }
+                            .accessibilityLabel(track.isPlaying ? "Pause" : "Play")
+
+                            NotchButton(systemImage: "forward.fill", size: 10) {
+                                nowPlaying.next()
+                            }
+                            .accessibilityLabel("Next")
+                        }
+                        .fixedSize()
+                    } else {
+                        AudioBars(isAnimating: track.isPlaying, tint: accent)
+                            .padding(.trailing, 4)
+                    }
                 }
 
-                Spacer(minLength: 4)
-
-                if track.supportsTransport {
-                    NotchButton(systemImage: "backward.fill", size: 10) {
-                        nowPlaying.previous()
-                    }
-                    NotchButton(
-                        systemImage: track.isPlaying ? "pause.fill" : "play.fill",
-                        size: 11,
-                        isProminent: true,
-                        tint: accent
-                    ) {
-                        nowPlaying.playPause()
-                    }
-                    NotchButton(systemImage: "forward.fill", size: 10) {
-                        nowPlaying.next()
-                    }
-                } else {
-                    AudioBars(isAnimating: track.isPlaying, tint: accent)
-                        .padding(.trailing, 4)
+                if !track.isLive {
+                    MeterBar(value: track.progress, tint: accent, height: 2)
+                        .accessibilityLabel("Playback progress")
+                        .accessibilityValue("\(Int(track.progress * 100)) percent")
                 }
             }
-            .notchCard(padding: Theme.compactCardPadding)
+            .notchCard(padding: 10)
         } else {
             HStack(spacing: 8) {
                 Image(systemName: idleIcon)

@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import OSAKit
 
 /// Why an Apple Event did not produce a value.
 enum ScriptFailure: Equatable, Sendable {
@@ -31,6 +32,10 @@ final class AppleScriptEngine: @unchecked Sendable {
     /// Recursive so a caller can hold the lock across a group of related events
     /// (one browser scan, say) without deadlocking on each individual one.
     private let lock = NSRecursiveLock()
+    /// Dia throttles its custom JavaScript command globally and returns a
+    /// successful-but-empty result when calls land less than about 0.5s apart.
+    private var lastDiaJavaScriptAt: Date?
+    private let diaJavaScriptInterval: TimeInterval = 0.55
 
     func withLock<T>(_ body: () -> T) -> T {
         lock.lock()
@@ -54,6 +59,37 @@ final class AppleScriptEngine: @unchecked Sendable {
     /// for JavaScript.
     func runJavaScript(_ source: String) -> ScriptOutcome {
         execute(source, isJavaScript: true)
+    }
+
+    /// Dia's custom command uses the system OSA engine and has to be paced. Unlike
+    /// other browsers, a throttled call is reported as success with an empty
+    /// result, which otherwise makes a paused tab hide the playing tab behind it.
+    func runDiaJavaScript(_ source: String) -> ScriptOutcome {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let lastDiaJavaScriptAt {
+            let remaining = diaJavaScriptInterval - Date().timeIntervalSince(lastDiaJavaScriptAt)
+            if remaining > 0 {
+                Thread.sleep(forTimeInterval: remaining)
+            }
+        }
+
+        guard let language = OSALanguage(forName: "AppleScript") else {
+            return ScriptOutcome(value: nil, failure: .transient)
+        }
+        let script = OSAScript(source: source, language: language)
+        var error: NSDictionary?
+        let descriptor = script.executeAndReturnError(&error)
+        lastDiaJavaScriptAt = Date()
+
+        if let error {
+            return ScriptOutcome(
+                value: nil,
+                failure: Self.classify(error, isJavaScript: true)
+            )
+        }
+        return ScriptOutcome(value: descriptor?.stringValue, failure: nil)
     }
 
     private func execute(_ source: String, isJavaScript: Bool) -> ScriptOutcome {
