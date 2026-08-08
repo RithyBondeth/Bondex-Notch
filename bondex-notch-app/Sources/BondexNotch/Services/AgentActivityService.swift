@@ -144,26 +144,21 @@ struct AgentActivity: Identifiable, Equatable {
 
 // MARK: - Service
 
-/// Reports when a coding agent is working, so the notch can show it.
+/// Reports when a coding agent is open or working, so the notch can show it.
 ///
-/// **The agent has to say so.** That is not the first design — the obvious one is
-/// to find the agent's process and watch its CPU — and it is worth recording why
-/// that does not work, because it looks like it should. Measured against three
-/// live Claude Code processes and a Codex process on a machine where an agent was
-/// actively mid-task, CPU over a two-second window was **0.000–0.001 cores**, and
-/// `proc_listchildpids` reported no children. An agent that is "working" is
-/// almost always *blocked* — waiting on a streaming API response, or on a tool it
-/// has spawned elsewhere. The CPU signal is not weak, it is absent, and a
-/// heuristic built on it would have been an indicator that essentially never lit
-/// up while looking like a working feature.
+/// Hook signals remain the authoritative source for the detailed live state:
+/// "Thinking", "Editing", and so on. Desktop hosts do not all forward user hooks,
+/// though, so process presence is also shown as a conservative `Open` fallback.
+/// Presence never claims that the agent is actively thinking; it only prevents a
+/// running Claude or Codex session from disappearing from the UI completely.
 ///
 /// So the mechanism is a file the agent touches, and the setup is one hook. That
 /// costs a one-time configuration step and buys an answer that is exactly right,
 /// including the part no heuristic could ever recover: *what* the agent is doing.
 ///
-/// Process discovery is still here, but only to answer "is this agent even
-/// installed", which is what lets Settings show setup instructions for the agents
-/// you actually use and stay quiet about the rest.
+/// CPU is deliberately not used. Agents spend most of a turn waiting on network
+/// responses or child tools, so low CPU says nothing useful about whether a turn
+/// is in progress.
 @MainActor
 final class AgentActivityService: ObservableObject {
 
@@ -197,7 +192,9 @@ final class AgentActivityService: ObservableObject {
     /// nothing to poll for when no agent is working — the watcher wakes us.
     private var expiryTimer: Timer?
     private var presenceTimer: Timer?
-    private var startedAt: [AgentKind: Date] = [:]
+    private var presentAgents: Set<AgentKind> = []
+    private var presenceStartedAt: [AgentKind: Date] = [:]
+    private var workingStartedAt: [AgentKind: Date] = [:]
 
     init(events: EventCenter) {
         self.events = events
@@ -219,9 +216,9 @@ final class AgentActivityService: ObservableObject {
         refresh()
         refreshPresence()
 
-        // Presence only changes when an agent is launched or quits, and it drives
-        // nothing but a hint in Settings, so it is sampled rarely.
-        let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+        // Desktop agents may not emit hooks, so presence is user-visible and
+        // needs to react promptly when one launches or quits.
+        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
             onMainActor { self?.refreshPresence() }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -236,7 +233,9 @@ final class AgentActivityService: ObservableObject {
         expiryTimer = nil
         presenceTimer?.invalidate()
         presenceTimer = nil
-        startedAt.removeAll()
+        presentAgents.removeAll()
+        presenceStartedAt.removeAll()
+        workingStartedAt.removeAll()
         active = []
     }
 
@@ -282,17 +281,28 @@ final class AgentActivityService: ObservableObject {
             // The *file's* date is a heartbeat that moves on every tool call, so
             // the run's start is remembered here instead — otherwise the elapsed
             // clock in the peek would reset itself every few seconds.
-            let started = startedAt[kind] ?? signal.date
-            startedAt[kind] = started
+            let started = workingStartedAt[kind] ?? signal.date
+            workingStartedAt[kind] = started
             fresh.append(AgentActivity(kind: kind, startedAt: started, status: signal.status))
         }
 
-        // Anything that was running and is no longer reporting has finished.
+        // Anything that was working and is no longer reporting has finished.
         // Keyed off what we were tracking rather than off a fixed list, because
         // the set of agents is only known from the directory.
         let stillWorking = Set(fresh.map(\.kind))
-        for kind in Array(startedAt.keys) where !stillWorking.contains(kind) {
+        for kind in Array(workingStartedAt.keys) where !stillWorking.contains(kind) {
             finish(kind)
+        }
+
+        // A running desktop/CLI host is the fallback when lifecycle hooks are
+        // unavailable. Never overwrite a richer hook-backed activity.
+        for kind in presentAgents where !stillWorking.contains(kind) {
+            let started = presenceStartedAt[kind] ?? now
+            presenceStartedAt[kind] = started
+            fresh.append(AgentActivity(kind: kind, startedAt: started, status: "Open"))
+        }
+        for kind in Array(presenceStartedAt.keys) where !presentAgents.contains(kind) {
+            presenceStartedAt.removeValue(forKey: kind)
         }
 
         // Most recently started first, so the agent you just set going is the one
@@ -330,7 +340,7 @@ final class AgentActivityService: ObservableObject {
     /// trace. Feed only — the peek reported it live for the whole run, and a
     /// banner afterwards would announce something you just watched happen.
     private func finish(_ kind: AgentKind) {
-        guard let started = startedAt.removeValue(forKey: kind) else { return }
+        guard let started = workingStartedAt.removeValue(forKey: kind) else { return }
         let elapsed = Date().timeIntervalSince(started)
         // Anything this short is not a piece of work worth a line in the feed.
         guard elapsed >= 20 else { return }
@@ -383,15 +393,19 @@ final class AgentActivityService: ObservableObject {
     // MARK: Presence
 
     private func refreshPresence() {
-        installed = Self.runningAgents()
+        let running = Self.runningAgents()
+        installed = running
+        guard running != presentAgents else { return }
+        presentAgents = running
+        refresh()
     }
 
     /// Which agents have a process running, from their executable paths.
     ///
-    /// Used only to decide whether Settings should offer setup instructions for
-    /// an agent. `proc_pidpath` resolves every process this user owns — measured
-    /// at 617 of 617 on a normal desktop — so this is reliable for what it is
-    /// asked, which is presence and not activity.
+    /// Used for the Settings hint and the conservative `Open` fallback.
+    /// `proc_pidpath` resolves every process this user owns — measured at 617 of
+    /// 617 on a normal desktop — so this is reliable for presence, while hooks
+    /// remain responsible for the richer activity state.
     nonisolated static func runningAgents() -> Set<AgentKind> {
         var found: Set<AgentKind> = []
         for pid in runningPIDs() {
