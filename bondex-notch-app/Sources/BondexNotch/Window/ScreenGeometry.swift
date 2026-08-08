@@ -97,6 +97,11 @@ struct NotchGeometry: Equatable {
         CGSize(width: max(notchSize.width + 190, 320), height: peekHeight)
     }
 
+    /// Privacy activity needs only one or two device marks and a short label.
+    var privacyPeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 190, 320), height: peekHeight)
+    }
+
     var focusPeekSize: CGSize {
         CGSize(width: max(notchSize.width + 165, 310), height: peekHeight)
     }
@@ -126,6 +131,7 @@ struct NotchGeometry: Equatable {
         case .peek:
             switch peek {
             case .systemHUD: return systemHUDPeekSize
+            case .privacy: return privacyPeekSize
             case .focus: return focusPeekSize
             case .meeting: return meetingPeekSize
             case .media: return mediaPeekSize

@@ -22,6 +22,8 @@ struct Preferences: Codable, Equatable {
     var systemWidgetEnabled = true
     /// Show compact notch feedback when a hardware control changes.
     var systemHUDEnabled = true
+    /// Show a persistent compact indicator while a camera or microphone is active.
+    var privacyIndicatorsEnabled = true
     /// How long transient hardware feedback remains visible.
     var systemHUDDuration = 1.65
     /// Keep a compact copy of the System tab's gauges on Home.

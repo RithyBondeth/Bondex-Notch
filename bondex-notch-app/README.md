@@ -230,6 +230,20 @@ discharge steps to the activity feed. Hardware feedback temporarily outranks
 playback and notification peeks, dismisses after a short delay, and can be
 disabled independently in Widget settings.
 
+### Microphone and camera privacy indicator
+
+While an input device is in use, a compact persistent peek shows an orange
+microphone mark, a green camera mark, or both. The same marks stay visible in the
+expanded header, so opening another widget does not hide the active-device state.
+The indicator can be disabled independently in Widget settings and announces
+state changes through VoiceOver when important announcements are enabled.
+
+Detection reads the public CoreAudio and CoreMediaIO device running-state APIs.
+Bondex never opens or records either stream and does not request microphone or
+camera permission. macOS does not expose the responsible application's identity
+through these public APIs, so the indicator intentionally reports the device,
+not an app name.
+
 ### Accessibility and keyboard control
 
 Bondex follows the macOS Reduce Motion, Increase Contrast, and Reduce

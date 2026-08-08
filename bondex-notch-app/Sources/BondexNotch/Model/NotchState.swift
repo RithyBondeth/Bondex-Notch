@@ -21,6 +21,7 @@ enum NotchState: Equatable {
 enum PeekContent: Equatable {
     /// A short-lived hardware control such as volume or display brightness.
     case systemHUD
+    case privacy
     case focus
     case meeting
     case media

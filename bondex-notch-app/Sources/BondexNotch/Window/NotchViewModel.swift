@@ -17,6 +17,12 @@ final class NotchViewModel: ObservableObject {
     /// Short-lived feedback for hardware keys. This intentionally does not enter
     /// the activity feed: changing volume is interaction feedback, not history.
     @Published private(set) var systemHUD: SystemHUDPresentation?
+    @Published var privacyActivity = PrivacyActivityState() {
+        didSet {
+            guard privacyActivity.isActive != oldValue.isActive else { return }
+            refreshIdleState()
+        }
+    }
 
     @Published private(set) var geometry: NotchGeometry
 
@@ -83,6 +89,7 @@ final class NotchViewModel: ObservableObject {
     /// agents and playback: the more immediate signal gets the limited space.
     var peekContent: PeekContent {
         if systemHUD != nil { return .systemHUD }
+        if privacyActivity.isActive { return .privacy }
         if banner != nil { return .banner }
         if hasFocusTimer { return .focus }
         if hasUpcomingMeeting { return .meeting }
@@ -250,6 +257,7 @@ final class NotchViewModel: ObservableObject {
     /// something is live, otherwise fully closed.
     private var idleState: NotchState {
         if systemHUD != nil || banner != nil { return .peek }
+        if privacyActivity.isActive { return .peek }
         if hasFocusTimer, settings.preferences.focusTimerEnabled { return .peek }
         if hasUpcomingMeeting, settings.preferences.upcomingMeetingsEnabled { return .peek }
         // An agent working is not gated behind the *media* peek preference —

@@ -1,6 +1,42 @@
 import AppKit
 import SwiftUI
 
+/// The same orange/green language macOS uses for microphone and camera use,
+/// kept as small marks so an active device never makes the notch feel bulky.
+struct PrivacyActivityMarks: View {
+    let state: PrivacyActivityState
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if state.cameraActive {
+                mark(
+                    systemImage: "video.fill",
+                    tint: Color(red: 0.25, green: 0.82, blue: 0.48)
+                )
+            }
+            if state.microphoneActive {
+                mark(
+                    systemImage: "mic.fill",
+                    tint: Color(red: 1.0, green: 0.58, blue: 0.16)
+                )
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Privacy indicator")
+        .accessibilityValue(state.accessibilityValue)
+    }
+
+    private func mark(systemImage: String, tint: Color) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 8.5, weight: .bold))
+            .foregroundStyle(tint)
+            .frame(width: 20, height: 20)
+            .background(Circle().fill(tint.opacity(0.15)))
+            .overlay(Circle().strokeBorder(tint.opacity(0.3), lineWidth: 0.7))
+            .shadow(color: tint.opacity(0.22), radius: 4)
+    }
+}
+
 // MARK: - Offscreen rendering
 
 private struct OffscreenRenderKey: EnvironmentKey {
