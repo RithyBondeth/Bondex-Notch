@@ -151,6 +151,7 @@ private struct WidgetSettings: View {
                 Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
                 Toggle("System", isOn: binding(\.systemWidgetEnabled))
                 Toggle("Show hardware controls in notch", isOn: binding(\.systemHUDEnabled))
+                Toggle("Microphone and camera privacy indicator", isOn: binding(\.privacyIndicatorsEnabled))
                 Toggle("Show system summary on Home", isOn: binding(\.showSystemSummaryOnHome))
                     .disabled(!settings.preferences.systemWidgetEnabled)
                 Toggle("Custom live activities", isOn: binding(\.customLiveActivitiesEnabled))
@@ -219,6 +220,14 @@ private struct WidgetSettings: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text("Clipboard Privacy")
+            }
+
+            Section {
+                Text("Uses device running-state APIs without opening or recording either device. macOS does not provide a public API that identifies which app is using it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Privacy Indicator")
             }
 
             Section {

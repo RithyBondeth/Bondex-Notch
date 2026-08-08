@@ -343,11 +343,22 @@ final class PeekWidthTests: XCTestCase {
         let collapsed = geometry.contentSize(for: .collapsed)
         let expanded = geometry.contentSize(for: .expanded)
 
-        for content in [PeekContent.media, .live, .agent(agents: 1), .agent(agents: 3), .banner] {
+        for content in [
+            PeekContent.media, .privacy, .live,
+            .agent(agents: 1), .agent(agents: 3), .banner
+        ] {
             let peek = geometry.contentSize(for: .peek, peek: content)
             XCTAssertLessThan(collapsed.width, peek.width)
             XCTAssertLessThan(peek.width, expanded.width)
         }
+    }
+
+    func testPrivacyPeekUsesTheCompactHardwareFootprint() {
+        let privacy = geometry.contentSize(for: .peek, peek: .privacy)
+        let hardware = geometry.contentSize(for: .peek, peek: .systemHUD)
+
+        XCTAssertEqual(privacy, hardware)
+        XCTAssertLessThan(privacy.width, geometry.contentSize(for: .peek, peek: .banner).width)
     }
 
     func testHitTestingFollowsTheNarrowerPeek() {
@@ -388,6 +399,10 @@ final class PreferencesDecodingTests: XCTestCase {
         XCTAssertEqual(decoded.hoverDelay, Preferences().hoverDelay, accuracy: 0.0001)
         XCTAssertEqual(decoded.browserMediaEnabled, Preferences().browserMediaEnabled)
         XCTAssertEqual(decoded.systemHUDEnabled, Preferences().systemHUDEnabled)
+        XCTAssertEqual(
+            decoded.privacyIndicatorsEnabled,
+            Preferences().privacyIndicatorsEnabled
+        )
         XCTAssertEqual(decoded.globalHotKeyEnabled, Preferences().globalHotKeyEnabled)
         XCTAssertEqual(decoded.quickCaptureEnabled, Preferences().quickCaptureEnabled)
         XCTAssertEqual(

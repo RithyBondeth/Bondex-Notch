@@ -147,6 +147,22 @@ enum PreviewRenderer {
         ))
         if !render(environment, named: "peek-battery", into: directory) { failures += 1 }
 
+        // Privacy state is read from hardware in the real app. Seed both devices
+        // here so its compact marks, label, and expanded-header treatment remain
+        // visually testable without activating a camera or microphone.
+        environment.notch.expand()
+        environment.privacyActivity.seedForPreview(.init(
+            microphoneActive: true,
+            cameraActive: true
+        ))
+        environment.notch.collapse()
+        if !render(environment, named: "peek-privacy", into: directory) { failures += 1 }
+
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-privacy", into: directory) { failures += 1 }
+        environment.privacyActivity.seedForPreview(.init())
+
         environment.notch.expand()
         environment.focusTimer.start(minutes: 25)
         environment.notch.collapse()

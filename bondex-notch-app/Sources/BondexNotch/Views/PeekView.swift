@@ -14,6 +14,7 @@ struct PeekView: View {
     @ObservedObject private var liveActivities: LiveActivityService
     @ObservedObject private var focusTimer: FocusTimerService
     @ObservedObject private var meetings: UpcomingMeetingService
+    @ObservedObject private var privacyActivity: PrivacyActivityService
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -24,6 +25,7 @@ struct PeekView: View {
         self.liveActivities = environment.liveActivities
         self.focusTimer = environment.focusTimer
         self.meetings = environment.meetings
+        self.privacyActivity = environment.privacyActivity
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -72,6 +74,10 @@ struct PeekView: View {
         if let hud = notch.systemHUD {
             systemHUDIcon(hud)
                 .transition(systemHUDLeadingTransition)
+        } else if privacyActivity.state.isActive {
+            PrivacyActivityMarks(state: privacyActivity.state)
+                .accessibilityHidden(true)
+                .transition(.scale.combined(with: .opacity))
         } else if let banner = notch.banner {
             EventIcon(event: banner, size: 12)
                 .frame(width: 22, height: 22)
@@ -137,6 +143,15 @@ struct PeekView: View {
         if let hud = notch.systemHUD {
             systemHUDMeter(hud)
                 .transition(systemHUDTrailingTransition)
+        } else if privacyActivity.state.isActive {
+            Text(privacyActivity.state.label)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(Theme.primaryText)
+                .lineLimit(1)
+                .fixedSize()
+                .accessibilityLabel("Privacy indicator")
+                .accessibilityValue(privacyActivity.state.accessibilityValue)
+                .transition(.opacity)
         } else if let banner = notch.banner {
             VStack(alignment: .trailing, spacing: 0) {
                 Text(banner.title)

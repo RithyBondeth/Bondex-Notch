@@ -11,6 +11,7 @@ final class AppEnvironment: ObservableObject {
     let nowPlaying: NowPlayingService
     let metrics: SystemMetricsService
     let systemHUD: SystemHUDService
+    let privacyActivity: PrivacyActivityService
     let focusTimer: FocusTimerService
     let meetings: UpcomingMeetingService
     let globalHotKey: GlobalHotKeyService
@@ -41,6 +42,7 @@ final class AppEnvironment: ObservableObject {
         self.nowPlaying = NowPlayingService(events: events)
         self.metrics = SystemMetricsService(events: events)
         self.systemHUD = SystemHUDService()
+        self.privacyActivity = PrivacyActivityService()
         self.focusTimer = FocusTimerService(defaults: defaults, events: events)
         self.meetings = UpcomingMeetingService()
         self.globalHotKey = GlobalHotKeyService()
@@ -77,6 +79,17 @@ final class AppEnvironment: ObservableObject {
         systemHUD.onPresentation = { [weak self] presentation in
             self?.notch.show(systemHUD: presentation)
         }
+
+        privacyActivity.$state
+            .removeDuplicates()
+            .sink { [weak self] state in
+                guard let self else { return }
+                let previous = self.notch.privacyActivity
+                self.notch.privacyActivity = state
+                guard previous != state else { return }
+                self.accessibilityAnnouncements.announce(state.accessibilityValue)
+            }
+            .store(in: &cancellables)
 
         // The peek state exists to report live media, so it follows playback.
         // The peek reports whatever is live: playback, or an agent working.
@@ -164,6 +177,7 @@ final class AppEnvironment: ObservableObject {
         agents.stop()
         liveActivities.stop()
         systemHUD.stop()
+        privacyActivity.stop()
         meetings.stop()
         globalHotKey.stop()
     }
@@ -197,6 +211,12 @@ final class AppEnvironment: ObservableObject {
             systemHUD.start()
         } else {
             systemHUD.stop()
+        }
+
+        if preferences.privacyIndicatorsEnabled {
+            privacyActivity.start()
+        } else {
+            privacyActivity.stop()
         }
 
         accessibilityAnnouncements.isEnabled = preferences.announceImportantUpdates

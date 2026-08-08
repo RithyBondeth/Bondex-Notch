@@ -86,6 +86,12 @@ struct ExpandedView: View {
 
             Spacer(minLength: 6)
 
+            if environment.privacyActivity.state.isActive {
+                PrivacyActivityMarks(state: environment.privacyActivity.state)
+                    .help(environment.privacyActivity.state.accessibilityValue)
+                    .transition(.scale.combined(with: .opacity))
+            }
+
             NotchButton(systemImage: "xmark", size: 10, tint: Theme.secondaryText) {
                 notch.collapse()
             }
