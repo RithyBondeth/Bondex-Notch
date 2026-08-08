@@ -8,7 +8,7 @@ Swift 6 · SwiftUI · AppKit · no third-party dependencies.
 ## Build and run
 
 ```bash
-./scripts/build-app.sh release
+./scripts/build-app.sh release --universal
 ```
 
 That produces `build/Bondex Notch.app`. Open it:
@@ -26,10 +26,10 @@ Run the tests:
 swift test
 ```
 
-For a universal (arm64 + x86_64) binary:
+For a faster build targeting only the current Mac during development:
 
 ```bash
-./scripts/build-app.sh release --universal
+./scripts/build-app.sh debug
 ```
 
 `swift build` alone produces a working executable, but run it from the bundle —
@@ -114,16 +114,18 @@ explaining, and the peek widens as agents join. The card lists three and then
 counts, because the panel is measured from its content and an unbounded list
 would push Home past its height ceiling and be silently cut off at the bottom.
 
-**The agent has to say so, and that is not a shortcut.** The obvious design is to
-find the agent's process and watch its CPU, and it does not work. Measured
-against three live Claude Code processes and a Codex process on a machine where
-an agent was mid-task, CPU over a two-second window was **0.000–0.001 cores**,
-and `proc_listchildpids` reported no children. An agent that is "working" is
-almost always *blocked* — on a streaming API response, or on a tool running
-elsewhere. That signal is not weak, it is absent, and an indicator built on it
-would have looked like a feature while essentially never lighting up.
+Agent presence works without configuration. Bondex scans executable names, not
+usernames, versioned installation folders, CPU usage, or a fixed application
+path, so standard CLI, editor-extension, and desktop-host installs are detected
+wherever they live. A presence-only agent is labelled `Open`; Bondex does not
+pretend that an open process is actively thinking.
 
-So the agent declares itself, through one hook:
+Hooks are optional enrichment. They replace `Open` with the exact live state —
+for example `Thinking`, `Editing`, or `Running tests`. This distinction matters
+because agents spend most turns waiting on network responses or child tools, so
+CPU usage cannot reliably reveal whether a turn is active.
+
+An agent can declare detailed activity through one hook:
 
 ```bash
 "/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-busy claude "Editing Foo.swift"
@@ -143,9 +145,11 @@ and MCP or local tools get a readable tool name. Existing Codex hooks that pass
 the literal status `Working` are enriched the same way, preserving their hook
 trust approval.
 
-Settings › Widgets shows the appropriate command with the real binary path
-filled in, and a Copy button. Explicit integrations wire `--agent-busy` per tool
-call and `--agent-idle` at the end of a turn; Codex uses `--agent-hook` for both.
+Settings › Widgets shows the appropriate command with this installation's real
+binary path filled in, and a Copy button. Nothing depends on the developer's
+project directory or username. Explicit integrations wire `--agent-busy` per
+tool call and `--agent-idle` at the end of a turn; Codex uses `--agent-hook` for
+both.
 
 Any agent name works, not just the ones Bondex ships artwork for — an unknown
 agent shows up under the generic mark with the name it gave. A closed list would
@@ -170,11 +174,12 @@ Claude Code's CLI and desktop app read the same file, so wiring it once covers
 both.
 
 Those write and remove `~/.bondex-notch/agents/<agent>`, which the app watches
-with a dispatch source — no polling, and nothing running at all when no agent is
-working. The file's modification date is a heartbeat and its first line is the
-status to show. A 90-second staleness backstop covers an agent killed mid-run
-without its idle hook firing; it is deliberately long, because it must sit
-through a single slow tool call without blinking out.
+with a dispatch source. Process presence is sampled every five seconds to cover
+desktop hosts that do not forward user hooks. The file's modification date is a
+heartbeat and its first line is the status to show. A 90-second staleness
+backstop covers an agent killed mid-run without its idle hook firing; it is
+deliberately long, because it must sit through a single slow tool call without
+blinking out.
 
 The orb is Core Animation, not SwiftUI, for the reason in *Keeping it cheap* —
 it is on screen for the entire length of a run.

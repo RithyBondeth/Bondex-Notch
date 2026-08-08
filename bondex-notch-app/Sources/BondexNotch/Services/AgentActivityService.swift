@@ -134,6 +134,9 @@ struct AgentActivity: Identifiable, Equatable {
     var startedAt: Date
     /// Optional one-line description the agent supplied, e.g. a tool name.
     var status: String?
+    /// True when a lifecycle hook reported real work. False means Bondex only
+    /// knows that the process is open, which must not be presented as thinking.
+    var isHookReported = true
 
     var id: String { kind.id }
 
@@ -299,7 +302,12 @@ final class AgentActivityService: ObservableObject {
         for kind in presentAgents where !stillWorking.contains(kind) {
             let started = presenceStartedAt[kind] ?? now
             presenceStartedAt[kind] = started
-            fresh.append(AgentActivity(kind: kind, startedAt: started, status: "Open"))
+            fresh.append(AgentActivity(
+                kind: kind,
+                startedAt: started,
+                status: "Open",
+                isHookReported: false
+            ))
         }
         for kind in Array(presenceStartedAt.keys) where !presentAgents.contains(kind) {
             presenceStartedAt.removeValue(forKey: kind)
