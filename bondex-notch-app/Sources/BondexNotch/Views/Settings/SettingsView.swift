@@ -158,6 +158,7 @@ private struct WidgetSettings: View {
                 )
                 .disabled(!settings.preferences.upcomingMeetingsEnabled)
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
+                Toggle("Clipboard history", isOn: binding(\.clipboardHistoryEnabled))
             }
 
             Section("Pro") {
@@ -197,6 +198,14 @@ private struct WidgetSettings: View {
                         .help("Move " + tab.title + " right")
                     }
                 }
+            }
+
+            Section {
+                Text("Clipboard items stay in memory for this session and are never written to disk. Entries marked concealed or transient by password managers are ignored.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Clipboard Privacy")
             }
 
             Section {

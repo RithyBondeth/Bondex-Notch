@@ -206,7 +206,7 @@ private struct ShelfDropModifier: ViewModifier {
             content
         } else {
             content.onDrop(
-                of: [.fileURL],
+                of: ShelfService.acceptedDropTypes,
                 delegate: ShelfDropDelegate(environment: environment)
             )
         }
@@ -228,11 +228,11 @@ private struct ShelfDropDelegate: DropDelegate {
     }
 
     func validateDrop(info: DropInfo) -> Bool {
-        info.hasItemsConforming(to: [.fileURL])
+        info.hasItemsConforming(to: ShelfService.acceptedDropTypes)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        let providers = info.itemProviders(for: [.fileURL])
+        let providers = info.itemProviders(for: ShelfService.acceptedDropTypes)
         guard !providers.isEmpty else { return false }
 
         return MainActor.assumeIsolated {
@@ -250,7 +250,11 @@ private struct ShelfDropDelegate: DropDelegate {
 
             Task { @MainActor in
                 let urls = await environment.shelf.resolve(providers: providers)
-                guard !urls.isEmpty else { return }
+                guard !urls.isEmpty else {
+                    Log.shelf.error("Drop had supported types but no usable file or image data")
+                    environment.notch.dragExited()
+                    return
+                }
                 environment.shelf.add(urls: urls)
                 environment.notch.tab = .shelf
                 environment.notch.expand()

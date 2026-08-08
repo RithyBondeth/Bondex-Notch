@@ -333,6 +333,18 @@ enum PreviewRenderer {
             .prefix(4)
         environment.shelf.add(urls: Array(samples))
 
+        environment.clipboard.seedForPreview([
+            ClipboardHistoryItem(
+                content: .text("https://developer.apple.com/documentation/vision"),
+                copiedAt: Date(),
+                isPinned: true
+            ),
+            ClipboardHistoryItem(
+                content: .text("Ship the compact clipboard history this week"),
+                copiedAt: Date().addingTimeInterval(-90)
+            )
+        ])
+
         environment.events.post(NotchEvent(
             kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
         ))
