@@ -97,6 +97,8 @@ final class NowPlayingService: ObservableObject {
     private let events: EventCenter
     private var lastAnnouncedTrackKey: String?
     private var artworkKey: String?
+    private var artworkFailureKey: String?
+    private var artworkRetryAfter = Date.distantPast
     private var isSampling = false
     private var artworkTask: Task<Void, Never>?
     /// See `seedForPreview`. Always false in the running app.
@@ -122,6 +124,11 @@ final class NowPlayingService: ObservableObject {
         timer = nil
         artworkTask?.cancel()
         artworkTask = nil
+        // If a download was interrupted, the same song must be allowed to start
+        // it again when the widget is re-enabled.
+        if nowPlaying?.artwork == nil {
+            artworkKey = nil
+        }
     }
 
     /// Publishes a track without polling for it, so the offscreen preview tool can
@@ -184,6 +191,8 @@ final class NowPlayingService: ObservableObject {
             nowPlaying = nil
             lastAnnouncedTrackKey = nil
             artworkKey = nil
+            artworkFailureKey = nil
+            artworkRetryAfter = .distantPast
             artworkTask?.cancel()
             artworkTask = nil
             return
@@ -217,6 +226,12 @@ final class NowPlayingService: ObservableObject {
               let url = track.artworkURL,
               track.trackKey != artworkKey else { return }
 
+        // A CDN hiccup must not condemn the track to its placeholder forever,
+        // but retrying every one-second media poll would be needlessly noisy.
+        if track.trackKey == artworkFailureKey, Date() < artworkRetryAfter {
+            return
+        }
+
         artworkKey = track.trackKey
         artworkTask?.cancel()
         let key = track.trackKey
@@ -224,12 +239,33 @@ final class NowPlayingService: ObservableObject {
         artworkTask = Task { [weak self] in
             var request = URLRequest(url: url)
             request.timeoutInterval = 4
-            guard let (data, _) = try? await URLSession.shared.data(for: request),
-                  let image = NSImage(data: data) else { return }
+            request.cachePolicy = .returnCacheDataElseLoad
+            request.setValue("image/avif,image/webp,image/*,*/*;q=0.8", forHTTPHeaderField: "Accept")
+
+            let image: NSImage?
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let response = response as? HTTPURLResponse,
+                   !(200 ... 299).contains(response.statusCode) {
+                    image = nil
+                } else {
+                    image = NSImage(data: data)
+                }
+            } catch {
+                image = nil
+            }
 
             guard let self, !Task.isCancelled else { return }
             // The track may have moved on while the image was in flight.
             guard self.nowPlaying?.trackKey == key else { return }
+            guard let image else {
+                self.artworkKey = nil
+                self.artworkFailureKey = key
+                self.artworkRetryAfter = Date().addingTimeInterval(15)
+                return
+            }
+            self.artworkFailureKey = nil
+            self.artworkRetryAfter = .distantPast
             self.nowPlaying?.artwork = image
         }
     }
@@ -241,7 +277,7 @@ final class NowPlayingService: ObservableObject {
 ///
 /// Not `@MainActor`: it runs on a background queue behind a shared Apple Event
 /// lock, because a single blocked event can stall for seconds.
-private final class MediaReader: @unchecked Sendable {
+final class MediaReader: @unchecked Sendable {
 
     typealias Transport = BrowserMediaReader.Transport
 
@@ -363,7 +399,7 @@ private final class MediaReader: @unchecked Sendable {
                 .run("tell application \"Spotify\" to return artwork url of current track")
                 .value
                 .flatMap(URL.init(string:))
-        case .webkit, .chromium:
+        case .webkit, .chromium, .dia:
             break
         }
 

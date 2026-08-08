@@ -54,6 +54,35 @@ final class BrowserScriptTests: XCTestCase {
         }
         XCTAssertTrue(script.contains("mediaSession"), "read script lost its metadata source")
     }
+
+    func testReadScriptHasArtworkFallbacks() {
+        let script = BrowserMediaReader.readScript
+        XCTAssertTrue(script.contains("b.poster"), "video posters should be usable as artwork")
+        XCTAssertTrue(script.contains("og:image"), "Open Graph artwork should be a fallback")
+        XCTAssertTrue(script.contains("twitter:image"), "Twitter card artwork should be a fallback")
+        XCTAssertTrue(script.contains("document.baseURI"), "relative artwork URLs must be resolved")
+        XCTAssertTrue(script.contains("/^https?:$/"), "unfetchable blob and data URLs must be rejected")
+    }
+
+    func testDiaJavaScriptResultsAreDecodedFromJSON() {
+        let encoded = "\"OK\\u0001Track title\\u0001Artist\""
+        XCTAssertEqual(
+            BrowserMediaReader.decodeJavaScriptResult(encoded, from: .dia),
+            "OK\u{01}Track title\u{01}Artist"
+        )
+    }
+
+    func testOtherBrowserResultsAreAlreadyPlainText() {
+        let plain = "OK\u{01}Track title"
+        XCTAssertEqual(
+            BrowserMediaReader.decodeJavaScriptResult(plain, from: .chromium),
+            plain
+        )
+        XCTAssertEqual(
+            BrowserMediaReader.decodeJavaScriptResult(plain, from: .webkit),
+            plain
+        )
+    }
 }
 
 final class MediaHostTests: XCTestCase {
@@ -156,6 +185,13 @@ final class MediaAppTests: XCTestCase {
                 "\(app.displayName)'s hint should name the setting"
             )
         }
+    }
+
+    func testDiaUsesItsOwnScriptingEngineAndLaunchHint() {
+        XCTAssertEqual(MediaApp.dia.bundleIdentifier, "company.thebrowser.dia")
+        XCTAssertEqual(MediaApp.dia.engine, .dia)
+        XCTAssertTrue(MediaApp.browsers.contains(.dia))
+        XCTAssertTrue(MediaApp.dia.javaScriptHint.contains("--enable-applescript-javascript"))
     }
 
     func testBrowsersWithoutTheSwitchSendNobodyLookingForIt() {
