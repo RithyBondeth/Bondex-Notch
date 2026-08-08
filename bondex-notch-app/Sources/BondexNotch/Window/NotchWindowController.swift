@@ -10,12 +10,14 @@ final class NotchWindowController {
     private var panel: NotchPanel?
     private var hostingView: PassthroughHostingView<NotchRootView>?
     private var tracker: MouseTracker?
+    private var keyMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
 
     private let environment: AppEnvironment
 
     init(environment: AppEnvironment) {
         self.environment = environment
+        environment.requestKeyboardFocus = { [weak self] in self?.focusPanel() }
     }
 
     func show(on screen: NSScreen) {
@@ -39,12 +41,15 @@ final class NotchWindowController {
         self.hostingView = hosting
 
         startTracking()
+        startKeyboardMonitoring()
         observeScreenChanges()
     }
 
     func hide() {
         tracker?.stop()
         tracker = nil
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
         panel?.orderOut(nil)
         panel = nil
         hostingView = nil
@@ -52,6 +57,46 @@ final class NotchWindowController {
     }
 
     // MARK: Pointer
+
+    private func focusPanel() {
+        guard let panel else { return }
+        panel.makeKeyAndOrderFront(nil)
+        if let hostingView { panel.makeFirstResponder(hostingView) }
+    }
+
+    private func startKeyboardMonitoring() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+            [weak self] event in
+            guard let self, self.panel?.isKeyWindow == true,
+                  self.environment.notch.state.isExpanded else { return event }
+
+            switch event.keyCode {
+            case 53: // Escape
+                self.environment.notch.collapse()
+                self.panel?.resignKey()
+                return nil
+            case 123: // Left arrow
+                self.selectAdjacentTab(offset: -1)
+                return nil
+            case 124: // Right arrow
+                self.selectAdjacentTab(offset: 1)
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    private func selectAdjacentTab(offset: Int) {
+        let tabs = environment.availableTabs
+        guard let current = tabs.firstIndex(of: environment.notch.tab), !tabs.isEmpty else {
+            return
+        }
+        let destination = (current + offset + tabs.count) % tabs.count
+        withAnimation(Motion.content(environment.settings.motion)) {
+            environment.notch.tab = tabs[destination]
+        }
+    }
 
     private func startTracking() {
         let tracker = MouseTracker { [weak self] location in

@@ -10,6 +10,7 @@ struct HomeWidget: View {
     @ObservedObject private var settings: SettingsStore
     @ObservedObject private var agents: AgentActivityService
     @ObservedObject private var liveActivities: LiveActivityService
+    @ObservedObject private var meetings: UpcomingMeetingService
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -17,6 +18,7 @@ struct HomeWidget: View {
         self.settings = environment.settings
         self.agents = environment.agents
         self.liveActivities = environment.liveActivities
+        self.meetings = environment.meetings
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -32,7 +34,14 @@ struct HomeWidget: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Theme.widgetSpacing) {
+            if settings.preferences.focusTimerEnabled {
+                FocusTimerCard(environment: environment)
+            }
+            if settings.preferences.upcomingMeetingsEnabled,
+               meetings.meeting?.isRelevantToHome() == true {
+                UpcomingMeetingCard(environment: environment)
+            }
             if settings.preferences.customLiveActivitiesEnabled,
                !liveActivities.active.isEmpty {
                 LiveActivityCard(environment: environment)
@@ -49,6 +58,8 @@ struct HomeWidget: View {
             }
             if !showsAgents
                 && liveActivities.active.isEmpty
+                && !settings.preferences.focusTimerEnabled
+                && meetings.meeting?.isRelevantToHome() != true
                 && !settings.preferences.musicWidgetEnabled
                 && !(settings.preferences.systemWidgetEnabled
                      && settings.preferences.showSystemSummaryOnHome) {
@@ -64,12 +75,12 @@ struct HomeWidget: View {
     @ViewBuilder
     private var mediaRow: some View {
         if let track = nowPlaying.nowPlaying {
-            VStack(spacing: 9) {
-                HStack(spacing: 12) {
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
                     ArtworkView(image: track.artwork, cornerRadius: 8, tint: accent)
                         .frame(
-                            width: track.source.isBrowser ? 78 : 48,
-                            height: 48
+                            width: track.source.isBrowser ? 68 : 44,
+                            height: 44
                         )
 
                     VStack(alignment: .leading, spacing: 5) {

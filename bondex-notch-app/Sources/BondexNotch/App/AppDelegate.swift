@@ -37,7 +37,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.menuBar = menuBar
 
         environment.settings.$preferences
-            .map(\.licenseKey)
             .removeDuplicates()
             .dropFirst()
             .sink { [weak menuBar] _ in menuBar?.refresh() }

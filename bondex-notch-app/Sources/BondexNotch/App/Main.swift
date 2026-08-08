@@ -21,6 +21,16 @@ struct BondexNotch {
             exit(MediaDiagnostic.run())
         }
 
+        switch FocusTimerCommand.parse(arguments) {
+        case .command(let command):
+            exit(command.run())
+        case .invalid(let flag, let message):
+            FileHandle.standardError.write(Data("bondex: \(flag) \(message)\n".utf8))
+            exit(2)
+        case .none:
+            break
+        }
+
         switch LiveActivityCommand.parse(arguments) {
         case .command(let command):
             exit(command.run())

@@ -14,6 +14,8 @@ import UniformTypeIdentifiers
 /// frame in a notch panel looks like.
 struct NotchRootView: View {
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var notch: NotchViewModel
     @ObservedObject private var settings: SettingsStore
@@ -89,14 +91,21 @@ struct NotchRootView: View {
                 accent: accent,
                 opacity: settings.preferences.panelOpacity
             ))
+            .overlay {
+                if state.isExpanded {
+                    shape
+                        .fill(Theme.panelGlow(accent: accent))
+                        .opacity(settings.preferences.panelStyle == .black ? 0.55 : 1)
+                }
+            }
             .overlay(shape.stroke(strokeStyle, lineWidth: notch.isDropTargeted ? 1.6 : 1))
             .frame(width: silhouetteWidth, height: contentSize.height)
             .shadow(
                 color: .black.opacity(
                     state.isExpanded ? 0.5 * min(max(settings.preferences.shadowStrength, 0), 1) : 0
                 ),
-                radius: 20,
-                y: 9
+                radius: 18,
+                y: 8
             )
             .opacity(silhouetteOpacity)
     }
@@ -158,11 +167,7 @@ struct NotchRootView: View {
                 // notch, so the content has to be laid out at whichever is
                 // current or the artwork ends up under the mask.
                 .frame(width: contentSize.width, height: contentSize.height)
-                .transition(
-                    .opacity
-                        .combined(with: .scale(scale: 0.94, anchor: .top))
-                        .animation(Motion.content(settings.motion))
-                )
+                .transition(peekTransition)
         case .expanded:
             // Fixed width, natural height: the height is the measurement the panel
             // sizes itself from, so it must not be dictated here. Top-aligned in
@@ -173,12 +178,22 @@ struct NotchRootView: View {
                 .onPreferenceChange(ExpandedHeightKey.self) { height in
                     notch.setMeasuredExpandedHeight(height)
                 }
-                .transition(
-                    .opacity
-                        .combined(with: .offset(y: -10))
-                        .animation(Motion.content(settings.motion))
-                )
+                .transition(expandedTransition)
         }
+    }
+
+    private var peekTransition: AnyTransition {
+        let transition: AnyTransition = reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.94, anchor: .top))
+        return transition.animation(Motion.content(settings.motion))
+    }
+
+    private var expandedTransition: AnyTransition {
+        let transition: AnyTransition = reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .offset(y: -10))
+        return transition.animation(Motion.content(settings.motion))
     }
 }
 

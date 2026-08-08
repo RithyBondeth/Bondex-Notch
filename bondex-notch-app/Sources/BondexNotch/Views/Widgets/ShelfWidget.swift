@@ -76,6 +76,7 @@ struct ShelfWidget: View {
             NotchButton(systemImage: "xmark.circle.fill", size: 9, tint: Theme.tertiaryText) {
                 service.remove(item)
             }
+            .accessibilityLabel("Remove \(item.name) from shelf")
             .offset(x: 4, y: -4)
         }
         // Dragging out hands the receiver the original file URL — nothing is

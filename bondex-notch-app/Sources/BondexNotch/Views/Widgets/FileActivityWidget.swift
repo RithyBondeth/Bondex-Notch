@@ -78,6 +78,7 @@ struct FileActivityWidget: View {
                 NotchButton(systemImage: "magnifyingglass", size: 10, tint: Theme.secondaryText) {
                     service.reveal(activity)
                 }
+                .accessibilityLabel("Reveal \(activity.displayName) in Finder")
             } else {
                 ProgressView()
                     .controlSize(.small)

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// The status item — the only chrome an LSUIElement app gets, so it carries
@@ -9,6 +10,7 @@ final class MenuBarController: NSObject {
     private var statusItem: NSStatusItem?
     private let environment: AppEnvironment
     private let onOpenSettings: () -> Void
+    private var cancellables = Set<AnyCancellable>()
 
     init(environment: AppEnvironment, onOpenSettings: @escaping () -> Void) {
         self.environment = environment
@@ -25,6 +27,12 @@ final class MenuBarController: NSObject {
         item.button?.image?.isTemplate = true
         item.menu = makeMenu()
         statusItem = item
+
+        environment.focusTimer.$snapshot
+            .map(\.phase)
+            .removeDuplicates()
+            .sink { [weak self] _ in self?.refresh() }
+            .store(in: &cancellables)
     }
 
     private func makeMenu() -> NSMenu {
@@ -37,6 +45,26 @@ final class MenuBarController: NSObject {
         )
         toggle.target = self
         menu.addItem(toggle)
+
+        if environment.settings.preferences.focusTimerEnabled {
+            let focus = NSMenuItem(
+                title: focusMenuTitle,
+                action: #selector(toggleFocusTimer),
+                keyEquivalent: ""
+            )
+            focus.target = self
+            menu.addItem(focus)
+
+            if environment.focusTimer.snapshot.isActive {
+                let cancelFocus = NSMenuItem(
+                    title: "Cancel Focus Timer",
+                    action: #selector(cancelFocusTimer),
+                    keyEquivalent: ""
+                )
+                cancelFocus.target = self
+                menu.addItem(cancelFocus)
+            }
+        }
 
         menu.addItem(.separator())
 
@@ -80,6 +108,28 @@ final class MenuBarController: NSObject {
 
     @objc private func openSettings() {
         onOpenSettings()
+    }
+
+    private var focusMenuTitle: String {
+        let snapshot = environment.focusTimer.snapshot
+        if snapshot.isRunning { return "Pause Focus Timer" }
+        if snapshot.isActive { return "Resume Focus Timer" }
+        return "Start \(environment.settings.preferences.defaultFocusMinutes)-Minute Focus"
+    }
+
+    @objc private func toggleFocusTimer() {
+        let timer = environment.focusTimer
+        if timer.snapshot.isRunning {
+            timer.pause()
+        } else if timer.snapshot.isActive {
+            timer.resume()
+        } else {
+            timer.start(minutes: environment.settings.preferences.defaultFocusMinutes)
+        }
+    }
+
+    @objc private func cancelFocusTimer() {
+        environment.focusTimer.cancel()
     }
 
     @objc private func quit() {

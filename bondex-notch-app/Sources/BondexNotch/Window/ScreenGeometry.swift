@@ -67,7 +67,7 @@ struct NotchGeometry: Equatable {
     /// The user can make the panel narrower or wider. The window reserves the
     /// largest supported footprint once, while `NotchViewModel.contentSize`
     /// chooses the live width without ever resizing the AppKit window.
-    static let expandedContentSize = CGSize(width: 680, height: 420)
+    static let expandedContentSize = CGSize(width: 680, height: 520)
 
     /// Extra room around the content for the drop shadow and the hover margin.
     static let windowInset = CGSize(width: 90, height: 60)
@@ -84,17 +84,25 @@ struct NotchGeometry: Equatable {
     /// While a banner is up: wide enough to carry a readable line or two of text,
     /// because a transient notification is nothing without its message.
     var bannerPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 260, 360), height: peekHeight)
+        CGSize(width: max(notchSize.width + 230, 340), height: peekHeight)
     }
 
     var livePeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 220, 340), height: peekHeight)
+        CGSize(width: max(notchSize.width + 190, 320), height: peekHeight)
     }
 
     /// Hardware controls need room for an icon, a readable meter and a value,
     /// but should still feel lighter than a notification banner.
     var systemHUDPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 210, 340), height: peekHeight)
+        CGSize(width: max(notchSize.width + 190, 320), height: peekHeight)
+    }
+
+    var focusPeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 165, 310), height: peekHeight)
+    }
+
+    var meetingPeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 205, 350), height: peekHeight)
     }
 
     /// While agents are working: a mark and a name for each one.
@@ -118,6 +126,8 @@ struct NotchGeometry: Equatable {
         case .peek:
             switch peek {
             case .systemHUD: return systemHUDPeekSize
+            case .focus: return focusPeekSize
+            case .meeting: return meetingPeekSize
             case .media: return mediaPeekSize
             case .live: return livePeekSize
             case .agent(let agents): return agentPeekSize(agents: agents)

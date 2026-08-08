@@ -388,6 +388,13 @@ final class PreferencesDecodingTests: XCTestCase {
         XCTAssertEqual(decoded.hoverDelay, Preferences().hoverDelay, accuracy: 0.0001)
         XCTAssertEqual(decoded.browserMediaEnabled, Preferences().browserMediaEnabled)
         XCTAssertEqual(decoded.systemHUDEnabled, Preferences().systemHUDEnabled)
+        XCTAssertEqual(decoded.globalHotKeyEnabled, Preferences().globalHotKeyEnabled)
+        XCTAssertEqual(decoded.focusTimerEnabled, Preferences().focusTimerEnabled)
+        XCTAssertEqual(decoded.upcomingMeetingsEnabled, Preferences().upcomingMeetingsEnabled)
+        XCTAssertEqual(
+            decoded.announceImportantUpdates,
+            Preferences().announceImportantUpdates
+        )
         XCTAssertEqual(
             decoded.showSystemSummaryOnHome,
             Preferences().showSystemSummaryOnHome

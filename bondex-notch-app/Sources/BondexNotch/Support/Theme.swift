@@ -65,11 +65,30 @@ enum Theme {
     // MARK: Surfaces
 
     static let surface = Color.black
-    static let surfaceElevated = Color(white: 0.11)
-    static let hairline = Color.white.opacity(0.10)
+    static var surfaceElevated: Color {
+        Color(white: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 0.16 : 0.085)
+    }
+    static var surfaceRaised: Color {
+        Color(white: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 0.22 : 0.135)
+    }
+    static var hairline: Color {
+        Color.white.opacity(
+            NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 0.32 : 0.16
+        )
+    }
     static let primaryText = Color.white
-    static let secondaryText = Color.white.opacity(0.62)
-    static let tertiaryText = Color.white.opacity(0.38)
+    static var secondaryText: Color {
+        Color.white.opacity(
+            NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 0.86 : 0.68
+        )
+    }
+    /// Small captions use this color, so it stays above normal-text contrast
+    /// instead of acting like decorative chrome.
+    static var tertiaryText: Color {
+        Color.white.opacity(
+            NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 0.78 : 0.56
+        )
+    }
 
     /// Fill for the expanded panel.
     ///
@@ -79,6 +98,9 @@ enum Theme {
     /// invisible — and lifts a couple of percent by the bottom edge, which is
     /// just enough to give the panel a body.
     static func panelFill(style: PanelStyle, accent: Color, opacity: Double) -> AnyShapeStyle {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+            return AnyShapeStyle(Color.black)
+        }
         let opacity = min(max(opacity, 0.65), 1)
         switch style {
         case .black:
@@ -87,8 +109,8 @@ enum Theme {
             return AnyShapeStyle(LinearGradient(
                 stops: [
                     .init(color: .black.opacity(opacity), location: 0),
-                    .init(color: .black.opacity(opacity), location: 0.34),
-                    .init(color: Color(white: 0.055).opacity(opacity), location: 1)
+                    .init(color: Color(red: 0.018, green: 0.021, blue: 0.029).opacity(opacity), location: 0.42),
+                    .init(color: Color(red: 0.035, green: 0.039, blue: 0.05).opacity(opacity), location: 1)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -120,20 +142,32 @@ enum Theme {
         ))
     }
 
+    /// A restrained pool of colour below the hardware notch. It gives the
+    /// expanded surface a focal point without turning the entire panel into an
+    /// accent-coloured slab.
+    static func panelGlow(accent: Color) -> AnyShapeStyle {
+        AnyShapeStyle(RadialGradient(
+            colors: [accent.opacity(0.14), accent.opacity(0.035), .clear],
+            center: UnitPoint(x: 0.5, y: 0.02),
+            startRadius: 0,
+            endRadius: 260
+        ))
+    }
+
     // MARK: Metrics
 
     /// Concave fillet where the panel meets the top edge of the screen.
     static let flareRadius: CGFloat = 11
     /// Convex radius on the two bottom corners.
-    static let bottomRadius: CGFloat = 24
+    static let bottomRadius: CGFloat = 20
     static let peekBottomRadius: CGFloat = 15
     static let collapsedBottomRadius: CGFloat = 10
 
-    static let contentPadding: CGFloat = 16
+    static let contentPadding: CGFloat = 14
     /// Card padding on the Home tab, which stacks two rows where the other tabs
     /// have one.
     static let compactCardPadding: CGFloat = 8
-    static let widgetSpacing: CGFloat = 12
+    static let widgetSpacing: CGFloat = 8
 }
 
 extension Color {
@@ -181,10 +215,25 @@ extension View {
     ///   of cards into the same panel every other tab fills with one.
     func notchCard(padding: CGFloat = 10) -> some View {
         self.padding(padding)
-            .background(Theme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Theme.hairline, lineWidth: 1)
+            .background(
+                LinearGradient(
+                    colors: [Theme.surfaceRaised.opacity(0.72), Theme.surfaceElevated],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 13, style: .continuous)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.20), Theme.hairline.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.8
+                    )
+            )
+            .shadow(color: .black.opacity(0.18), radius: 7, y: 3)
     }
 }

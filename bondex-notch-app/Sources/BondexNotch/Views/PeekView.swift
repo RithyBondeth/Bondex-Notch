@@ -4,12 +4,16 @@ import SwiftUI
 /// Nothing is ever drawn in the middle, where the hardware notch is.
 struct PeekView: View {
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var notch: NotchViewModel
     @ObservedObject private var settings: SettingsStore
     @ObservedObject private var nowPlaying: NowPlayingService
     @ObservedObject private var agents: AgentActivityService
     @ObservedObject private var liveActivities: LiveActivityService
+    @ObservedObject private var focusTimer: FocusTimerService
+    @ObservedObject private var meetings: UpcomingMeetingService
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -18,6 +22,8 @@ struct PeekView: View {
         self.nowPlaying = environment.nowPlaying
         self.agents = environment.agents
         self.liveActivities = environment.liveActivities
+        self.focusTimer = environment.focusTimer
+        self.meetings = environment.meetings
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -37,14 +43,14 @@ struct PeekView: View {
         HStack(spacing: 0) {
             leading
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 11)
+                .padding(.leading, 10)
 
             // Reserved for the hardware notch.
             Color.clear.frame(width: notchWidth)
 
             trailing
                 .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 11)
+                .padding(.trailing, 10)
                 // Both strips ask for infinite width, and without this SwiftUI
                 // splits the free space down the middle — handing half the peek
                 // to a 21pt piece of artwork and truncating the half that is
@@ -72,6 +78,27 @@ struct PeekView: View {
                 .background(
                     Circle().fill(banner.tint.opacity(0.16))
                 )
+                .transition(.scale.combined(with: .opacity))
+        } else if focusTimer.snapshot.isActive {
+            ZStack {
+                ProgressRing(
+                    value: focusTimer.snapshot.progress,
+                    tint: accent,
+                    lineWidth: 2.2
+                )
+                Image(systemName: "timer")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(accent)
+            }
+            .frame(width: 22, height: 22)
+            .accessibilityHidden(true)
+            .transition(.scale.combined(with: .opacity))
+        } else if let meeting = meetings.meeting, meeting.startsSoon() {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.29, green: 0.62, blue: 0.98))
+                .frame(width: 22, height: 22)
+                .accessibilityHidden(true)
                 .transition(.scale.combined(with: .opacity))
         } else if let activity = currentLive {
             ZStack {
@@ -125,6 +152,28 @@ struct PeekView: View {
             }
             .frame(maxWidth: 150, alignment: .trailing)
             .transition(.opacity)
+        } else if focusTimer.snapshot.isActive {
+            Text(focusTimer.snapshot.timeString)
+                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                .foregroundStyle(Theme.primaryText)
+                .accessibilityLabel("Focus timer")
+                .accessibilityValue(focusTimer.snapshot.timeString + " remaining")
+                .transition(.opacity)
+        } else if let meeting = meetings.meeting, meeting.startsSoon() {
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(settings.preferences.showMeetingTitlesInPeek
+                     ? meeting.title
+                     : "Upcoming meeting")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                    .lineLimit(1)
+                Text(meeting.relativeString())
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+            .frame(maxWidth: 145, alignment: .trailing)
+            .accessibilityElement(children: .combine)
+            .transition(.opacity)
         } else if let activity = currentLive {
             VStack(alignment: .trailing, spacing: 0) {
                 Text(activity.title)
@@ -161,11 +210,13 @@ struct PeekView: View {
     /// Both halves emerge from behind the camera, so the HUD feels like the
     /// hardware surface extending rather than content appearing inside a pill.
     private var systemHUDLeadingTransition: AnyTransition {
-        .move(edge: .trailing).combined(with: .opacity)
+        if reduceMotion { return .opacity }
+        return .move(edge: .trailing).combined(with: .opacity)
     }
 
     private var systemHUDTrailingTransition: AnyTransition {
-        .move(edge: .leading).combined(with: .opacity)
+        if reduceMotion { return .opacity }
+        return .move(edge: .leading).combined(with: .opacity)
     }
 
     private func systemHUDIcon(_ hud: SystemHUDPresentation) -> some View {
@@ -177,7 +228,7 @@ struct PeekView: View {
                 .shadow(color: systemHUDTint(hud).opacity(0.28), radius: 4)
         }
         .frame(width: 22, height: 22)
-        .accessibilityLabel(systemHUDAccessibilityLabel(hud))
+        .accessibilityHidden(true)
     }
 
     private func systemHUDMeter(_ hud: SystemHUDPresentation) -> some View {
@@ -287,6 +338,7 @@ struct PeekView: View {
 /// animation here means rapid hardware-key repeats glide to the next level
 /// instead of replacing the whole peek or stepping visibly between samples.
 private struct SystemHUDLevelRail: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let value: Double
     let tint: Color
 
@@ -322,9 +374,11 @@ private struct SystemHUDLevelRail: View {
                 }
             }
         }
-        .frame(width: 84, height: 5)
+        .frame(width: 74, height: 5)
         .animation(
-            .interactiveSpring(response: 0.18, dampingFraction: 0.9),
+            reduceMotion
+                ? .linear(duration: 0.06)
+                : .interactiveSpring(response: 0.18, dampingFraction: 0.9),
             value: value
         )
     }

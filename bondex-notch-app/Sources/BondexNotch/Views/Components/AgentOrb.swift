@@ -41,7 +41,12 @@ struct AgentOrb: View {
             }
             .frame(width: size, height: size)
         } else {
-            AgentOrbLayers(kind: kind, size: size, isAnimating: isAnimating)
+            AgentOrbLayers(
+                kind: kind,
+                size: size,
+                isAnimating: isAnimating
+                    && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            )
                 .frame(width: size, height: size)
         }
     }

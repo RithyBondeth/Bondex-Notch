@@ -21,6 +21,8 @@ enum NotchState: Equatable {
 enum PeekContent: Equatable {
     /// A short-lived hardware control such as volume or display brightness.
     case systemHUD
+    case focus
+    case meeting
     case media
     case live
     /// - Parameter agents: how many agents are working, each of which brings its
@@ -102,8 +104,8 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     var widgetHeight: CGFloat? {
         switch self {
         case .home, .music, .system: return nil
-        case .live: return 148
-        case .files, .activity, .shelf: return 148
+        case .live: return 132
+        case .files, .activity, .shelf: return 132
         }
     }
 }
