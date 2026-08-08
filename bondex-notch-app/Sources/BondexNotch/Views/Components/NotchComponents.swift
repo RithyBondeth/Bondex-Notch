@@ -433,26 +433,27 @@ struct ArtworkView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            Group {
+            ZStack {
                 if let image {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
                 } else {
-                    ZStack {
-                        LinearGradient(
-                            colors: [tint.opacity(0.55), tint.opacity(0.18)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        Image(systemName: "music.note")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.85))
-                    }
+                    LinearGradient(
+                        colors: [tint.opacity(0.55), tint.opacity(0.18)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Image(systemName: "music.note")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.85))
                 }
             }
-            // A wide browser thumbnail otherwise keeps its natural width and
-            // paints beyond the fixed frame supplied by the media row.
+            // `ZStack` is a real layout boundary. A transparent `Group` passes
+            // modifiers through to its child, which lets some remotely decoded
+            // wide images paint outside the size proposed by the parent.
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
