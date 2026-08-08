@@ -46,6 +46,16 @@ final class MenuBarController: NSObject {
         toggle.target = self
         menu.addItem(toggle)
 
+        if environment.settings.preferences.quickCaptureEnabled {
+            let capture = NSMenuItem(
+                title: "Quick Capture…",
+                action: #selector(openQuickCapture),
+                keyEquivalent: ""
+            )
+            capture.target = self
+            menu.addItem(capture)
+        }
+
         if environment.settings.preferences.focusTimerEnabled {
             let focus = NSMenuItem(
                 title: focusMenuTitle,
@@ -108,6 +118,14 @@ final class MenuBarController: NSObject {
 
     @objc private func openSettings() {
         onOpenSettings()
+    }
+
+    @objc private func openQuickCapture() {
+        environment.quickCapture.begin()
+        environment.notch.tab = .capture
+        environment.notch.setPinned(true)
+        environment.notch.expand()
+        environment.requestKeyboardFocus?()
     }
 
     private var focusMenuTitle: String {

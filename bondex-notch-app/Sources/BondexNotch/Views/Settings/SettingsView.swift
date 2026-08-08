@@ -88,6 +88,18 @@ private struct GeneralSettings: View {
                 }
                 .disabled(!settings.preferences.globalHotKeyEnabled)
 
+                Toggle("Quick Capture shortcut", isOn: binding(\.quickCaptureHotKeyEnabled))
+                    .disabled(!settings.preferences.quickCaptureEnabled)
+                Picker("Quick Capture", selection: binding(\.quickCaptureShortcut)) {
+                    ForEach(QuickCaptureShortcut.allCases) { shortcut in
+                        Text(shortcut.displayName).tag(shortcut)
+                    }
+                }
+                .disabled(
+                    !settings.preferences.quickCaptureEnabled
+                        || !settings.preferences.quickCaptureHotKeyEnabled
+                )
+
                 Toggle(
                     "Announce important updates with VoiceOver",
                     isOn: binding(\.announceImportantUpdates)
@@ -159,6 +171,7 @@ private struct WidgetSettings: View {
                 .disabled(!settings.preferences.upcomingMeetingsEnabled)
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
                 Toggle("Clipboard history", isOn: binding(\.clipboardHistoryEnabled))
+                Toggle("Quick Capture", isOn: binding(\.quickCaptureEnabled))
             }
 
             Section("Pro") {
