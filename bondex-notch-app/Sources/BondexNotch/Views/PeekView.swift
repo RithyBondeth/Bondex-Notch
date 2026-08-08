@@ -63,7 +63,10 @@ struct PeekView: View {
 
     @ViewBuilder
     private var leading: some View {
-        if let banner = notch.banner {
+        if let hud = notch.systemHUD {
+            systemHUDIcon(hud)
+                .transition(systemHUDLeadingTransition)
+        } else if let banner = notch.banner {
             EventIcon(event: banner, size: 12)
                 .frame(width: 22, height: 22)
                 .background(
@@ -104,7 +107,10 @@ struct PeekView: View {
 
     @ViewBuilder
     private var trailing: some View {
-        if let banner = notch.banner {
+        if let hud = notch.systemHUD {
+            systemHUDMeter(hud)
+                .transition(systemHUDTrailingTransition)
+        } else if let banner = notch.banner {
             VStack(alignment: .trailing, spacing: 0) {
                 Text(banner.title)
                     .font(.system(size: 11, weight: .semibold))
@@ -150,6 +156,97 @@ struct PeekView: View {
         }
     }
 
+    // MARK: Hardware controls
+
+    /// Both halves emerge from behind the camera, so the HUD feels like the
+    /// hardware surface extending rather than content appearing inside a pill.
+    private var systemHUDLeadingTransition: AnyTransition {
+        .move(edge: .trailing).combined(with: .opacity)
+    }
+
+    private var systemHUDTrailingTransition: AnyTransition {
+        .move(edge: .leading).combined(with: .opacity)
+    }
+
+    private func systemHUDIcon(_ hud: SystemHUDPresentation) -> some View {
+        ZStack {
+            Image(systemName: systemHUDSymbol(hud))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(systemHUDTint(hud))
+                .contentTransition(.symbolEffect(.replace))
+                .shadow(color: systemHUDTint(hud).opacity(0.28), radius: 4)
+        }
+        .frame(width: 22, height: 22)
+        .accessibilityLabel(systemHUDAccessibilityLabel(hud))
+    }
+
+    private func systemHUDMeter(_ hud: SystemHUDPresentation) -> some View {
+        HStack(spacing: 6) {
+            SystemHUDLevelRail(
+                value: hud.isMuted ? 0 : hud.clampedLevel,
+                tint: systemHUDTint(hud)
+            )
+
+            if hud.isMuted {
+                Text("MUTED")
+                    .font(.system(size: 8.5, weight: .bold))
+                    .tracking(0.6)
+                    .foregroundStyle(Theme.secondaryText)
+                    .frame(width: 36, alignment: .trailing)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                    Text("\(hud.percentage)")
+                        .font(.system(size: 11.5, weight: .semibold).monospacedDigit())
+                    Text("%")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Theme.secondaryText)
+                }
+                .foregroundStyle(Theme.primaryText)
+                .frame(width: 36, alignment: .trailing)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(systemHUDAccessibilityLabel(hud))
+        .accessibilityValue(hud.isMuted ? "Muted" : "\(hud.percentage) percent")
+    }
+
+    private func systemHUDAccessibilityLabel(_ hud: SystemHUDPresentation) -> String {
+        if let detail = hud.detail { return detail }
+        switch hud.kind {
+        case .volume: return "Volume"
+        case .brightness: return "Display brightness"
+        case .keyboardBrightness: return "Keyboard brightness"
+        case .battery: return "Battery"
+        }
+    }
+
+    private func systemHUDSymbol(_ hud: SystemHUDPresentation) -> String {
+        switch hud.kind {
+        case .volume:
+            if hud.isMuted || hud.clampedLevel == 0 { return "speaker.slash.fill" }
+            if hud.clampedLevel < 0.34 { return "speaker.wave.1.fill" }
+            if hud.clampedLevel < 0.67 { return "speaker.wave.2.fill" }
+            return "speaker.wave.3.fill"
+        case .brightness: return "sun.max.fill"
+        case .keyboardBrightness: return "keyboard.fill"
+        case .battery:
+            return hud.detail == "Charging" ? "bolt.fill" : "battery.100percent"
+        }
+    }
+
+    private func systemHUDTint(_ hud: SystemHUDPresentation) -> Color {
+        switch hud.kind {
+        case .battery where hud.clampedLevel < 0.15:
+            return Color(red: 0.98, green: 0.35, blue: 0.35)
+        case .battery:
+            return Color(red: 0.32, green: 0.80, blue: 0.55)
+        case .brightness, .keyboardBrightness:
+            return Color(red: 0.99, green: 0.72, blue: 0.25)
+        case .volume:
+            return Theme.primaryText
+        }
+    }
+
     /// Just the names of the agents that are working.
     ///
     /// The status and the elapsed clock used to be here too, and they have moved
@@ -183,5 +280,71 @@ struct PeekView: View {
             }
         }
         .lineLimit(1)
+    }
+}
+
+/// A compact continuous rail with its own value animation. Keeping the fill
+/// animation here means rapid hardware-key repeats glide to the next level
+/// instead of replacing the whole peek or stepping visibly between samples.
+private struct SystemHUDLevelRail: View {
+    let value: Double
+    let tint: Color
+
+    private let horizontalInset: CGFloat = 1.5
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.1))
+                    .overlay(
+                        Capsule().stroke(Color.white.opacity(0.05), lineWidth: 0.5)
+                    )
+
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [tint.opacity(0.68), tint],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: fillWidth(in: contentWidth(proxy.size.width)))
+                    .offset(x: horizontalInset)
+                    .shadow(color: tint.opacity(0.22), radius: 2.5)
+
+                if value > 0.01 {
+                    Circle()
+                        .fill(Color.white.opacity(0.92))
+                        .frame(width: 5, height: 5)
+                        .shadow(color: tint.opacity(0.4), radius: 2)
+                        .offset(x: thumbOffset(in: proxy.size.width))
+                }
+            }
+        }
+        .frame(width: 84, height: 5)
+        .animation(
+            .interactiveSpring(response: 0.18, dampingFraction: 0.9),
+            value: value
+        )
+    }
+
+    private func fillWidth(in width: CGFloat) -> CGFloat {
+        let clamped = min(max(value, 0), 1)
+        guard clamped > 0 else { return 0 }
+        return max(width * clamped, 5)
+    }
+
+    private func contentWidth(_ width: CGFloat) -> CGFloat {
+        max(width - horizontalInset * 2, 0)
+    }
+
+    private func thumbOffset(in width: CGFloat) -> CGFloat {
+        let clamped = min(max(value, 0), 1)
+        let content = contentWidth(width)
+        return min(
+            max(horizontalInset + content * clamped - 2.5, horizontalInset),
+            width - horizontalInset - 5
+        )
     }
 }

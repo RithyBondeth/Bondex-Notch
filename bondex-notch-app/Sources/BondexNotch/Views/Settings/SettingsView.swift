@@ -111,6 +111,7 @@ private struct WidgetSettings: View {
                 Toggle("Music", isOn: binding(\.musicWidgetEnabled))
                 Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
                 Toggle("System", isOn: binding(\.systemWidgetEnabled))
+                Toggle("Show hardware controls in notch", isOn: binding(\.systemHUDEnabled))
                 Toggle("Show system summary on Home", isOn: binding(\.showSystemSummaryOnHome))
                     .disabled(!settings.preferences.systemWidgetEnabled)
                 Toggle("Custom live activities", isOn: binding(\.customLiveActivitiesEnabled))

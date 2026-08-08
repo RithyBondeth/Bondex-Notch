@@ -153,6 +153,17 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertLessThan(peek.height, expanded.height)
     }
 
+    func testSystemHUDGetsAReadableCompactWidth() {
+        let geometry = geometry(hasNotch: true)
+        let media = geometry.contentSize(for: .peek, peek: .media)
+        let hud = geometry.contentSize(for: .peek, peek: .systemHUD)
+        let expanded = geometry.contentSize(for: .expanded)
+
+        XCTAssertGreaterThan(hud.width, media.width)
+        XCTAssertLessThan(hud.width, expanded.width)
+        XCTAssertEqual(hud.height, media.height)
+    }
+
     func testHoverRectAlwaysContainsTheStateItGuards() {
         let geometry = geometry(hasNotch: true)
 
@@ -175,6 +186,12 @@ final class NotchGeometryTests: XCTestCase {
 }
 
 final class FormattingTests: XCTestCase {
+
+    func testSystemHUDClampsAndRoundsPercentages() {
+        XCTAssertEqual(SystemHUDPresentation(kind: .volume, level: -1).percentage, 0)
+        XCTAssertEqual(SystemHUDPresentation(kind: .brightness, level: 0.684).percentage, 68)
+        XCTAssertEqual(SystemHUDPresentation(kind: .battery, level: 2).percentage, 100)
+    }
 
     func testClockStringFormatsMinutesAndSeconds() {
         XCTAssertEqual(TimeInterval(0).clockString, "0:00")

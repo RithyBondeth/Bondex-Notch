@@ -20,6 +20,8 @@ struct Preferences: Codable, Equatable {
 
     var musicWidgetEnabled = true
     var systemWidgetEnabled = true
+    /// Show compact notch feedback when a hardware control changes.
+    var systemHUDEnabled = true
     /// Keep a compact copy of the System tab's gauges on Home.
     var showSystemSummaryOnHome = false
     var fileActivityEnabled = true

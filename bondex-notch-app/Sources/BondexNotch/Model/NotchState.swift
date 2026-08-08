@@ -19,12 +19,33 @@ enum NotchState: Equatable {
 /// needs readable text, a banner needs a line or two, and an agent strip grows
 /// with every agent that starts working.
 enum PeekContent: Equatable {
+    /// A short-lived hardware control such as volume or display brightness.
+    case systemHUD
     case media
     case live
     /// - Parameter agents: how many agents are working, each of which brings its
     ///   own mark and its own name.
     case agent(agents: Int)
     case banner
+}
+
+/// The values shown beside the notch when a hardware control changes.
+struct SystemHUDPresentation: Equatable {
+    enum Kind: Equatable {
+        case volume
+        case brightness
+        case keyboardBrightness
+        case battery
+    }
+
+    var kind: Kind
+    var level: Double
+    var isMuted = false
+    var detail: String? = nil
+
+    var clampedLevel: Double { min(max(level, 0), 1) }
+
+    var percentage: Int { Int((clampedLevel * 100).rounded()) }
 }
 
 /// Which widget the expanded panel is showing.

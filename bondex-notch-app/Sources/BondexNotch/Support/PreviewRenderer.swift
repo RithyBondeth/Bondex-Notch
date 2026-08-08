@@ -126,6 +126,25 @@ enum PreviewRenderer {
         ))
         if !render(environment, named: "peek-banner", into: directory) { failures += 1 }
 
+        // Hardware-key feedback has its own compact meter layout and temporarily
+        // outranks banners and playback, so keep a deterministic visual check.
+        // Full volume exercises both rail insets; this is the boundary where a
+        // fill without an inner gutter otherwise touches both track edges.
+        environment.systemHUD.stop()
+        environment.notch.show(systemHUD: .init(kind: .volume, level: 1.0))
+        if !render(environment, named: "peek-volume", into: directory) { failures += 1 }
+
+        environment.notch.show(systemHUD: .init(kind: .volume, level: 0.68, isMuted: true))
+        if !render(environment, named: "peek-muted", into: directory) { failures += 1 }
+
+        environment.notch.show(systemHUD: .init(kind: .brightness, level: 0.42))
+        if !render(environment, named: "peek-brightness", into: directory) { failures += 1 }
+
+        environment.notch.show(systemHUD: .init(
+            kind: .battery, level: 0.76, detail: "Charging"
+        ))
+        if !render(environment, named: "peek-battery", into: directory) { failures += 1 }
+
         // The agent indicator, which on a machine with nothing running would
         // otherwise never appear in a preview — and it is the state the peek
         // spends its time in for anyone who uses a coding agent.

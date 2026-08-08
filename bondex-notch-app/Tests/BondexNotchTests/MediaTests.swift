@@ -387,6 +387,7 @@ final class PreferencesDecodingTests: XCTestCase {
         // And the fields it had never heard of get their defaults.
         XCTAssertEqual(decoded.hoverDelay, Preferences().hoverDelay, accuracy: 0.0001)
         XCTAssertEqual(decoded.browserMediaEnabled, Preferences().browserMediaEnabled)
+        XCTAssertEqual(decoded.systemHUDEnabled, Preferences().systemHUDEnabled)
         XCTAssertEqual(
             decoded.showSystemSummaryOnHome,
             Preferences().showSystemSummaryOnHome
