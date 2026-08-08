@@ -15,6 +15,7 @@ final class AppEnvironment: ObservableObject {
     let meetings: UpcomingMeetingService
     let globalHotKey: GlobalHotKeyService
     let accessibilityAnnouncements: AccessibilityAnnouncementService
+    let quickCapture: QuickCaptureService
     let files: FileActivityService
     let clipboard: ClipboardHistoryService
     let shelf: ShelfService
@@ -44,6 +45,7 @@ final class AppEnvironment: ObservableObject {
         self.meetings = UpcomingMeetingService()
         self.globalHotKey = GlobalHotKeyService()
         self.accessibilityAnnouncements = AccessibilityAnnouncementService()
+        self.quickCapture = QuickCaptureService(defaults: defaults)
         self.files = FileActivityService(events: events)
         self.clipboard = ClipboardHistoryService()
         self.shelf = ShelfService(events: events)
@@ -61,6 +63,15 @@ final class AppEnvironment: ObservableObject {
             let isOpening = !self.notch.state.isExpanded
             self.notch.toggle()
             if isOpening { self.requestKeyboardFocus?() }
+        }
+
+        globalHotKey.onQuickCapture = { [weak self] in
+            guard let self else { return }
+            self.quickCapture.begin()
+            self.notch.tab = .capture
+            self.notch.setPinned(true)
+            self.notch.expand()
+            self.requestKeyboardFocus?()
         }
 
         systemHUD.onPresentation = { [weak self] presentation in
@@ -190,8 +201,15 @@ final class AppEnvironment: ObservableObject {
 
         accessibilityAnnouncements.isEnabled = preferences.announceImportantUpdates
 
-        if preferences.globalHotKeyEnabled {
-            globalHotKey.start(shortcut: preferences.globalShortcut)
+        let captureHotKeyEnabled = preferences.quickCaptureEnabled
+            && preferences.quickCaptureHotKeyEnabled
+        if preferences.globalHotKeyEnabled || captureHotKeyEnabled {
+            globalHotKey.start(
+                shortcut: preferences.globalHotKeyEnabled ? preferences.globalShortcut : nil,
+                quickCaptureShortcut: captureHotKeyEnabled
+                    ? preferences.quickCaptureShortcut
+                    : nil
+            )
         } else {
             globalHotKey.stop()
         }
@@ -237,6 +255,7 @@ final class AppEnvironment: ObservableObject {
         settings.orderedTabs.filter { tab in
             switch tab {
             case .home: return true
+            case .capture: return settings.preferences.quickCaptureEnabled
             case .music: return settings.preferences.musicWidgetEnabled
             case .system: return settings.preferences.systemWidgetEnabled
             case .live: return settings.preferences.customLiveActivitiesEnabled

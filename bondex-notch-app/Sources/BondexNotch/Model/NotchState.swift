@@ -53,6 +53,7 @@ struct SystemHUDPresentation: Equatable {
 /// Which widget the expanded panel is showing.
 enum NotchTab: String, CaseIterable, Codable, Identifiable {
     case home
+    case capture
     case music
     case system
     case live
@@ -66,6 +67,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .home: return "Home"
+        case .capture: return "Capture"
         case .music: return "Music"
         case .system: return "System"
         case .live: return "Live"
@@ -79,6 +81,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     var systemImage: String {
         switch self {
         case .home: return "square.grid.2x2.fill"
+        case .capture: return "square.and.pencil"
         case .music: return "music.note"
         case .system: return "gauge.medium"
         case .live: return "waveform.path.ecg"
@@ -107,6 +110,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     var widgetHeight: CGFloat? {
         switch self {
         case .home, .music, .system: return nil
+        case .capture: return 132
         case .live: return 132
         case .files, .activity, .clipboard, .shelf: return 132
         }

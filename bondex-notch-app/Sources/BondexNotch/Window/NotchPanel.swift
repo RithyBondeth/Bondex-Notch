@@ -34,8 +34,8 @@ final class NotchPanel: NSPanel {
         becomesKeyOnlyIfNeeded = true
     }
 
-    /// Needed so text fields (the license key box is the only one today) can
-    /// receive keystrokes when the panel is used interactively.
+    /// Needed so Quick Capture, search, and settings text fields can receive
+    /// keystrokes when the panel is used interactively.
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }

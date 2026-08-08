@@ -345,6 +345,18 @@ enum PreviewRenderer {
             )
         ])
 
+        environment.quickCapture.seedForPreview([
+            QuickCaptureItem(
+                text: "Review the release checklist before 4 PM",
+                createdAt: Date(),
+                isPinned: true
+            ),
+            QuickCaptureItem(
+                text: "https://developer.apple.com/design/human-interface-guidelines/",
+                createdAt: Date().addingTimeInterval(-120)
+            )
+        ])
+
         environment.events.post(NotchEvent(
             kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
         ))

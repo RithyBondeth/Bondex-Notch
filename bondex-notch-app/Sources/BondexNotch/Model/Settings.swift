@@ -29,6 +29,7 @@ struct Preferences: Codable, Equatable {
     var fileActivityEnabled = true
     var activityFeedEnabled = true
     var clipboardHistoryEnabled = true
+    var quickCaptureEnabled = true
     var shelfEnabled = true
     /// Show a mark beside the notch while Claude Code or Codex is working.
     var agentActivityEnabled = true
@@ -61,6 +62,8 @@ struct Preferences: Codable, Equatable {
     /// A permission-free registered chord, not a global key logger.
     var globalHotKeyEnabled = true
     var globalShortcut: GlobalShortcut = .controlOptionSpace
+    var quickCaptureHotKeyEnabled = true
+    var quickCaptureShortcut: QuickCaptureShortcut = .controlOptionC
     var announceImportantUpdates = true
 
     var downloadsFolderBookmark: Data?
@@ -153,9 +156,8 @@ final class SettingsStore: ObservableObject {
         var result = preferences.widgetOrder.filter { seen.insert($0).inserted }
 
         // Insert tabs introduced by a newer release beside their canonical
-        // neighbour instead of dumping them at the end of a user's saved order.
-        // This puts the new System tab after Music while preserving every move
-        // the user already made among their existing tabs.
+        // neighbour instead of dumping them at the end of a user's saved order,
+        // while preserving every move the user already made among existing tabs.
         for tab in NotchTab.allCases where !seen.contains(tab) {
             let canonical = NotchTab.allCases
             let tabIndex = canonical.firstIndex(of: tab)!

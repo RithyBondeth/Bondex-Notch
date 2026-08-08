@@ -72,6 +72,9 @@ final class NotchWindowController {
 
             switch event.keyCode {
             case 53: // Escape
+                if self.environment.notch.tab == .capture {
+                    self.environment.quickCapture.cancelDraft()
+                }
                 self.environment.notch.collapse()
                 self.panel?.resignKey()
                 return nil

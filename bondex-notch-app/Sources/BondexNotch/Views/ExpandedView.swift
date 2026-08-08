@@ -103,6 +103,8 @@ struct ExpandedView: View {
             switch notch.tab {
             case .home:
                 HomeWidget(environment: environment)
+            case .capture:
+                QuickCaptureWidget(environment: environment)
             case .music:
                 MusicWidget(environment: environment)
             case .system:
