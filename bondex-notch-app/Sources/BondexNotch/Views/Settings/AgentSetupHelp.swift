@@ -3,11 +3,9 @@ import SwiftUI
 
 /// Setup instructions for the agent indicator.
 ///
-/// This exists because the feature genuinely cannot work without one
-/// configuration step, and a toggle that silently does nothing until you find
-/// the documentation is worse than no toggle. The exact hook block is shown and
-/// copyable, with the binary's real path already filled in — the most common way
-/// to get this wrong is pointing a hook at a Bondex that has since moved.
+/// Process presence works without setup. Hooks are optional enrichment for the
+/// exact live state, and the commands use the running bundle's real path so they
+/// remain correct wherever this Mac installed the app.
 struct AgentSetupHelp: View {
 
     @ObservedObject var environment: AppEnvironment
@@ -23,10 +21,9 @@ struct AgentSetupHelp: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("""
-            An agent that is "working" is almost always waiting — on the model, \
-            or on a tool. It burns no measurable CPU, so there is nothing to \
-            detect from the outside. Instead the agent says so itself, through \
-            one hook:
+            Running agents appear automatically. Add the optional lifecycle \
+            hooks below for detailed live statuses such as Thinking, Editing, \
+            and Running tests.
             """)
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -51,7 +48,7 @@ struct AgentSetupHelp: View {
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.green)
                 }
-                if agents.active.contains(where: { $0.kind == kind }) {
+                if agents.active.contains(where: { $0.kind == kind && $0.isHookReported }) {
                     Text("working now")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(kind.tint)

@@ -12,7 +12,7 @@ Dynamic Island-style surface — and the site that sells it.
 ## Quick start
 
 ```bash
-cd bondex-notch-app && ./scripts/build-app.sh release && open "build/Bondex Notch.app"
+cd bondex-notch-app && ./scripts/build-app.sh release --universal && open "build/Bondex Notch.app"
 ```
 
 ```bash
@@ -31,4 +31,5 @@ points worth knowing up front, both covered in detail in
 - The "Activity" widget is a feed of events Bondex observes itself. No Mac app
   can read other applications' notifications.
 
-Requires macOS 14 or later and Xcode 16+ to build.
+Requires macOS 14 or later and Xcode 16+ to build. The universal release runs
+natively on both Apple Silicon and Intel Macs.

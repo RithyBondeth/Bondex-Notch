@@ -18,6 +18,23 @@ final class AgentDetectionTests: XCTestCase {
         XCTAssertEqual(AgentActivityService.agentKind(forExecutablePath: path), .codex)
     }
 
+    func testDetectionDoesNotDependOnUsernameInstallRootOrVersion() {
+        let paths: [(String, AgentKind)] = [
+            ("/opt/homebrew/bin/claude", .claude),
+            ("/usr/local/bin/claude", .claude),
+            ("/Users/another-person/.local/bin/claude", .claude),
+            ("/Applications/Claude.app/Contents/Resources/claude-code/99.4.1/claude.app/Contents/MacOS/claude", .claude),
+            ("/opt/homebrew/bin/codex", .codex),
+            ("/usr/local/bin/codex", .codex),
+            ("/Applications/ChatGPT.app/Contents/Resources/codex", .codex),
+            ("/Users/someone/.editor/extensions/openai.chatgpt-next/bin/x86_64/codex", .codex)
+        ]
+
+        for (path, expected) in paths {
+            XCTAssertEqual(AgentActivityService.agentKind(forExecutablePath: path), expected, path)
+        }
+    }
+
     func testTheClaudeDesktopAppIsNotACodingAgent() {
         // Capital C. Matching case-insensitively would light the notch up for
         // every minute the desktop app is open.
@@ -208,6 +225,16 @@ final class AgentActivityModelTests: XCTestCase {
         let started = Date().addingTimeInterval(-125)
         let activity = AgentActivity(kind: .claude, startedAt: started, status: nil)
         XCTAssertEqual(activity.elapsed().clockString, "2:05")
+    }
+
+    func testPresenceFallbackDoesNotClaimHookReportedWork() {
+        let activity = AgentActivity(
+            kind: .codex,
+            startedAt: Date(),
+            status: "Open",
+            isHookReported: false
+        )
+        XCTAssertFalse(activity.isHookReported)
     }
 
     /// The staleness backstop only has to catch an agent that was killed without
