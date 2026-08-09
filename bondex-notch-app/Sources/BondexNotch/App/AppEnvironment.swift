@@ -18,6 +18,7 @@ final class AppEnvironment: ObservableObject {
     let globalHotKey: GlobalHotKeyService
     let accessibilityAnnouncements: AccessibilityAnnouncementService
     let quickCapture: QuickCaptureService
+    let customActions: CustomActionService
     let files: FileActivityService
     let clipboard: ClipboardHistoryService
     let shelf: ShelfService
@@ -50,6 +51,7 @@ final class AppEnvironment: ObservableObject {
         self.globalHotKey = GlobalHotKeyService()
         self.accessibilityAnnouncements = AccessibilityAnnouncementService()
         self.quickCapture = QuickCaptureService(defaults: defaults)
+        self.customActions = CustomActionService()
         self.files = FileActivityService(events: events)
         self.clipboard = ClipboardHistoryService()
         self.shelf = ShelfService(events: events)
@@ -285,6 +287,7 @@ final class AppEnvironment: ObservableObject {
             switch tab {
             case .home: return true
             case .capture: return settings.preferences.quickCaptureEnabled
+            case .shortcuts: return settings.preferences.customShortcutsEnabled
             case .music: return settings.preferences.musicWidgetEnabled
             case .system: return settings.preferences.systemWidgetEnabled
             case .live: return settings.preferences.customLiveActivitiesEnabled
@@ -294,5 +297,42 @@ final class AppEnvironment: ObservableObject {
             case .shelf: return settings.preferences.shelfEnabled
             }
         }
+    }
+
+    /// Returns the widget's new enabled state, or nil for tabs that are not
+    /// independently toggleable. Custom actions call this instead of carrying
+    /// writable key paths or mutating preferences themselves.
+    @discardableResult
+    func toggleWidget(_ tab: NotchTab) -> Bool? {
+        let newValue: Bool
+        switch tab {
+        case .music:
+            newValue = !settings.preferences.musicWidgetEnabled
+            settings.preferences.musicWidgetEnabled = newValue
+        case .system:
+            newValue = !settings.preferences.systemWidgetEnabled
+            settings.preferences.systemWidgetEnabled = newValue
+        case .live:
+            newValue = !settings.preferences.customLiveActivitiesEnabled
+            settings.preferences.customLiveActivitiesEnabled = newValue
+        case .files:
+            newValue = !settings.preferences.fileActivityEnabled
+            settings.preferences.fileActivityEnabled = newValue
+        case .activity:
+            newValue = !settings.preferences.activityFeedEnabled
+            settings.preferences.activityFeedEnabled = newValue
+        case .clipboard:
+            newValue = !settings.preferences.clipboardHistoryEnabled
+            settings.preferences.clipboardHistoryEnabled = newValue
+        case .capture:
+            newValue = !settings.preferences.quickCaptureEnabled
+            settings.preferences.quickCaptureEnabled = newValue
+        case .shelf:
+            newValue = !settings.preferences.shelfEnabled
+            settings.preferences.shelfEnabled = newValue
+        case .home, .shortcuts:
+            return nil
+        }
+        return newValue
     }
 }

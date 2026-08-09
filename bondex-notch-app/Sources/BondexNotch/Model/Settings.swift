@@ -32,6 +32,8 @@ struct Preferences: Codable, Equatable {
     var activityFeedEnabled = true
     var clipboardHistoryEnabled = true
     var quickCaptureEnabled = true
+    var customShortcutsEnabled = true
+    var customActions: [CustomAction] = []
     var shelfEnabled = true
     /// Show a mark beside the notch while Claude Code or Codex is working.
     var agentActivityEnabled = true

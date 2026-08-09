@@ -111,6 +111,8 @@ struct ExpandedView: View {
                 HomeWidget(environment: environment)
             case .capture:
                 QuickCaptureWidget(environment: environment)
+            case .shortcuts:
+                CustomShortcutsWidget(environment: environment)
             case .music:
                 MusicWidget(environment: environment)
             case .system:

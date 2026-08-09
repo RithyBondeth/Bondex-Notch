@@ -250,7 +250,9 @@ final class ExpandedSizingTests: XCTestCase {
     func testListTabsKeepAStableArea() {
         // A panel that resized as feed items arrived and aged out would be worse
         // than one that stays put.
-        for tab in [NotchTab.capture, .live, .files, .activity, .clipboard, .shelf] {
+        for tab in [
+            NotchTab.capture, .shortcuts, .live, .files, .activity, .clipboard, .shelf
+        ] {
             XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) would resize as its list changed")
         }
     }
@@ -410,6 +412,11 @@ final class PreferencesDecodingTests: XCTestCase {
             Preferences().quickCaptureHotKeyEnabled
         )
         XCTAssertEqual(decoded.quickCaptureShortcut, Preferences().quickCaptureShortcut)
+        XCTAssertEqual(
+            decoded.customShortcutsEnabled,
+            Preferences().customShortcutsEnabled
+        )
+        XCTAssertEqual(decoded.customActions, Preferences().customActions)
         XCTAssertEqual(decoded.focusTimerEnabled, Preferences().focusTimerEnabled)
         XCTAssertEqual(decoded.upcomingMeetingsEnabled, Preferences().upcomingMeetingsEnabled)
         XCTAssertEqual(
@@ -473,7 +480,10 @@ final class PreferencesDecodingTests: XCTestCase {
 
         XCTAssertEqual(
             store.orderedTabs,
-            [.shelf, .home, .capture, .music, .system, .live, .files, .activity, .clipboard]
+            [
+                .shelf, .home, .capture, .shortcuts, .music,
+                .system, .live, .files, .activity, .clipboard
+            ]
         )
     }
 
@@ -487,7 +497,10 @@ final class PreferencesDecodingTests: XCTestCase {
 
         XCTAssertEqual(
             store.orderedTabs,
-            [.activity, .clipboard, .home, .capture, .music, .system, .live, .shelf, .files]
+            [
+                .activity, .clipboard, .home, .capture, .shortcuts,
+                .music, .system, .live, .shelf, .files
+            ]
         )
     }
 }
