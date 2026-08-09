@@ -38,15 +38,62 @@ final class LicenseValidatorTests: XCTestCase {
         XCTAssertNil(LicenseValidator.makeKey(payload: "ZZZZZZZZ"))
     }
 
-    func testTierFollowsTheKey() {
-        var preferences = Preferences()
-        XCTAssertEqual(preferences.tier, .free)
+    @MainActor
+    func testCompleteAppIsAvailableForTwentyFourHours() throws {
+        let suiteName = "LicenseTrialTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        var currentDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let settings = SettingsStore(defaults: defaults, now: { currentDate })
 
-        preferences.licenseKey = LicenseValidator.makeKey(payload: "BEEF1234") ?? ""
-        XCTAssertEqual(preferences.tier, .pro)
+        XCTAssertEqual(
+            settings.licenseAccess,
+            .trial(expiresAt: currentDate.addingTimeInterval(SettingsStore.trialDuration))
+        )
+        XCTAssertTrue(settings.canUseApp)
 
-        preferences.licenseKey = "nonsense"
-        XCTAssertEqual(preferences.tier, .free)
+        currentDate.addTimeInterval(SettingsStore.trialDuration)
+        settings.refreshLicenseAccess()
+        XCTAssertEqual(settings.licenseAccess, .expired)
+        XCTAssertFalse(settings.canUseApp)
+    }
+
+    @MainActor
+    func testPurchasedLicenseUnlocksAnExpiredTrial() throws {
+        let suiteName = "LicenseActivationTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        var currentDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let settings = SettingsStore(defaults: defaults, now: { currentDate })
+
+        currentDate.addTimeInterval(SettingsStore.trialDuration + 1)
+        settings.refreshLicenseAccess()
+        XCTAssertEqual(settings.licenseAccess, .expired)
+
+        settings.preferences.licenseKey = try XCTUnwrap(
+            LicenseValidator.makeKey(payload: "BEEF1234")
+        )
+        XCTAssertEqual(settings.licenseAccess, .licensed)
+        XCTAssertTrue(settings.canUseApp)
+    }
+
+    @MainActor
+    func testTrialStartPersistsAcrossRelaunches() throws {
+        let suiteName = "LicensePersistenceTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        var currentDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let first = SettingsStore(defaults: defaults, now: { currentDate })
+        let originalStart = first.trialStartedAt
+
+        currentDate.addTimeInterval(60 * 60)
+        let relaunched = SettingsStore(defaults: defaults, now: { currentDate })
+        XCTAssertEqual(relaunched.trialStartedAt, originalStart)
+        XCTAssertEqual(
+            relaunched.trialTimeRemaining,
+            SettingsStore.trialDuration - 60 * 60,
+            accuracy: 0.01
+        )
     }
 }
 

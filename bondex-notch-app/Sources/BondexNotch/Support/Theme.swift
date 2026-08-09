@@ -42,8 +42,6 @@ enum Theme {
             }
         }
 
-        /// Pro tiers unlock the non-default accents.
-        var requiresPro: Bool { self != .graphite }
     }
 
     enum PanelStyle: String, CaseIterable, Codable, Identifiable {

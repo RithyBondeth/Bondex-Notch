@@ -592,25 +592,3 @@ struct EmptyStateView: View {
         .padding(.vertical, 16)
     }
 }
-
-/// Shown in place of a widget the current tier does not include.
-struct LockedFeatureView: View {
-    let feature: ProFeature
-    var tint: Color
-
-    var body: some View {
-        VStack(spacing: 7) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(tint)
-            Text("\(feature.displayName) is a Pro feature")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.primaryText)
-            Text("Add your license key in Settings to unlock it.")
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.tertiaryText)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-    }
-}

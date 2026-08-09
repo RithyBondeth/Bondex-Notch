@@ -77,7 +77,6 @@ struct ExpandedView: View {
                     TabChip(
                         tab: tab,
                         isSelected: notch.tab == tab,
-                        isLocked: tab.requiredFeature.map { !settings.isUnlocked($0) } ?? false,
                         accent: accent
                     ) {
                         withAnimation(Motion.content(settings.motion)) { notch.tab = tab }
@@ -128,31 +127,27 @@ struct ExpandedView: View {
 
     @ViewBuilder
     private var widget: some View {
-        if let feature = notch.tab.requiredFeature, !settings.isUnlocked(feature) {
-            LockedFeatureView(feature: feature, tint: accent)
-        } else {
-            switch notch.tab {
-            case .home:
-                HomeWidget(environment: environment)
-            case .capture:
-                QuickCaptureWidget(environment: environment)
-            case .shortcuts:
-                CustomShortcutsWidget(environment: environment)
-            case .music:
-                MusicWidget(environment: environment)
-            case .system:
-                SystemWidget(environment: environment)
-            case .live:
-                LiveActivityWidget(environment: environment)
-            case .files:
-                FileActivityWidget(environment: environment)
-            case .activity:
-                ActivityWidget(environment: environment)
-            case .clipboard:
-                ClipboardWidget(environment: environment)
-            case .shelf:
-                ShelfWidget(environment: environment)
-            }
+        switch notch.tab {
+        case .home:
+            HomeWidget(environment: environment)
+        case .capture:
+            QuickCaptureWidget(environment: environment)
+        case .shortcuts:
+            CustomShortcutsWidget(environment: environment)
+        case .music:
+            MusicWidget(environment: environment)
+        case .system:
+            SystemWidget(environment: environment)
+        case .live:
+            LiveActivityWidget(environment: environment)
+        case .files:
+            FileActivityWidget(environment: environment)
+        case .activity:
+            ActivityWidget(environment: environment)
+        case .clipboard:
+            ClipboardWidget(environment: environment)
+        case .shelf:
+            ShelfWidget(environment: environment)
         }
     }
 }
@@ -162,7 +157,6 @@ struct ExpandedView: View {
 private struct TabChip: View {
     let tab: NotchTab
     let isSelected: Bool
-    let isLocked: Bool
     let accent: Color
     let action: () -> Void
 
@@ -172,7 +166,7 @@ private struct TabChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Image(systemName: isLocked ? "lock.fill" : tab.systemImage)
+                Image(systemName: tab.systemImage)
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(isSelected ? accent : Theme.secondaryText)
                 if isSelected {
@@ -215,7 +209,7 @@ private struct TabChip: View {
         .buttonStyle(.plain)
         .focused($isFocused)
         .onHover { isHovering = $0 }
-        .accessibilityLabel(tab.title + (isLocked ? ", locked" : ""))
+        .accessibilityLabel(tab.title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

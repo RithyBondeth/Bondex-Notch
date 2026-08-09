@@ -28,7 +28,7 @@ enum PreviewRenderer {
         }
 
         // A throwaway defaults domain: rendering previews must never touch the
-        // user's real preferences (it unlocks Pro to exercise every widget).
+        // user's real preferences (it activates a licence for stable previews).
         let suiteName = "com.bondex.notch.preview"
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -415,8 +415,7 @@ enum PreviewRenderer {
 
     /// Deterministic content so previews are comparable between runs.
     private static func seedSampleData(_ environment: AppEnvironment) {
-        // Unlock Pro in the throwaway domain so the gated widgets render as
-        // themselves rather than as the upsell.
+        // Keep preview output independent from the trial clock.
         if let key = LicenseValidator.makeKey(payload: "BEEF1234") {
             environment.settings.preferences.licenseKey = key
         }

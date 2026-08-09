@@ -241,7 +241,7 @@ final class NotchViewModel: ObservableObject {
 
     func dragEntered() {
         isDropTargeted = true
-        guard settings.isUnlocked(.shelf), settings.preferences.shelfEnabled else { return }
+        guard settings.canUseApp, settings.preferences.shelfEnabled else { return }
         tab = .shelf
         expand()
     }

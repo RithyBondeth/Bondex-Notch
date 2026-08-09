@@ -152,7 +152,7 @@ export function CreditCardForm({
             style={cardStyle}
           >
             <div className="payment-card__header">
-              <span className="payment-card__brand">Bondex Pro</span>
+              <span className="payment-card__brand">Bondex Notch</span>
               <span className="payment-card__network" aria-label="Card payment">
                 <i />
                 <i />
@@ -191,7 +191,7 @@ export function CreditCardForm({
               <span>Authorized signature</span>
               <strong>{'•'.repeat(cvv.length) || 'CVV'}</strong>
             </div>
-            <p>Bondex Notch · One-time Pro license</p>
+            <p>Bondex Notch · One-time lifetime licence</p>
           </section>
         </div>
       </div>

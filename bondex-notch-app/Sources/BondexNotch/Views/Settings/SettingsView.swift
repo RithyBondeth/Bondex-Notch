@@ -32,7 +32,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .profiles: return "Adapt widgets and appearance to your context"
         case .shortcuts: return "Build your personal quick-action grid"
         case .appearance: return "Shape, colour, material, and motion"
-        case .license: return "Manage your Bondex Notch plan"
+        case .license: return "Trial status, purchase, and activation"
         case .permissions: return "Review access used by integrations"
         }
     }
@@ -84,6 +84,9 @@ struct SettingsView: View {
         .tint(settings.effectiveAccentColor)
         .frame(minWidth: 720, idealWidth: 800, minHeight: 520, idealHeight: 570)
         .preferredColorScheme(.dark)
+        .onChange(of: settings.licenseAccess) { _, access in
+            if !access.canUseApp { selection = .license }
+        }
     }
 
     private var sidebar: some View {
@@ -110,6 +113,7 @@ struct SettingsView: View {
                     SettingsSidebarButton(
                         page: page,
                         isSelected: selection == page,
+                        isDisabled: !settings.canUseApp && page != .license,
                         accent: settings.effectiveAccentColor
                     ) {
                         withAnimation(.easeOut(duration: 0.16)) { selection = page }
@@ -122,9 +126,9 @@ struct SettingsView: View {
 
             HStack(spacing: 7) {
                 Circle()
-                    .fill(settings.tier == .pro ? Color.green : Color.white.opacity(0.35))
+                    .fill(settings.canUseApp ? Color.green : Color.orange)
                     .frame(width: 6, height: 6)
-                Text(settings.tier == .pro ? "Pro active" : "Free plan")
+                Text(settings.licenseAccess.displayName)
                     .font(.system(size: 10, weight: .semibold))
                 Spacer()
                 Text(Bundle.main.shortVersion)
@@ -200,6 +204,7 @@ struct SettingsView: View {
 private struct SettingsSidebarButton: View {
     let page: SettingsPage
     let isSelected: Bool
+    let isDisabled: Bool
     let accent: Color
     let action: () -> Void
 
@@ -238,6 +243,8 @@ private struct SettingsSidebarButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.42 : 1)
         .onHover { hovering = $0 }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -409,7 +416,7 @@ private struct WidgetSettings: View {
 
     var body: some View {
         Form {
-            Section("Free") {
+            Section("Widgets") {
                 Toggle("Music", isOn: binding(\.musicWidgetEnabled))
                 Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
                 Toggle("System", isOn: binding(\.systemWidgetEnabled))
@@ -448,17 +455,9 @@ private struct WidgetSettings: View {
                 Toggle("Custom shortcuts", isOn: binding(\.customShortcutsEnabled))
             }
 
-            Section("Pro") {
+            Section("Files") {
                 Toggle("File activity", isOn: binding(\.fileActivityEnabled))
-                    .disabled(!settings.isUnlocked(.fileActivity))
                 Toggle("Drop shelf", isOn: binding(\.shelfEnabled))
-                    .disabled(!settings.isUnlocked(.shelf))
-
-                if settings.tier != .pro {
-                    Text("Pro widgets stay visible but inactive until a license key is added.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
 
             Section("Tab order") {
@@ -813,9 +812,6 @@ private struct AppearanceSettings: View {
                                 .fill(accent == .custom ? settings.effectiveAccentColor : accent.color)
                                 .frame(width: 10, height: 10)
                             Text(accent.displayName)
-                            if accent.requiresPro && settings.tier != .pro {
-                                Text("Pro").font(.caption2).foregroundStyle(.secondary)
-                            }
                         }
                         .tag(accent)
                     }
@@ -823,15 +819,7 @@ private struct AppearanceSettings: View {
                 .pickerStyle(.inline)
                 .labelsHidden()
 
-                if settings.tier != .pro {
-                    Text("Custom accents require Pro; Graphite is used until then.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-
                 ColorPicker("Custom color", selection: customAccent, supportsOpacity: false)
-                    .disabled(settings.tier != .pro)
             }
 
 
@@ -949,11 +937,25 @@ private struct LicenseSettings: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Current tier") {
-                    Text(settings.tier.displayName)
+                LabeledContent("Access") {
+                    Text(settings.licenseAccess.displayName)
                         .fontWeight(.semibold)
-                        .foregroundStyle(settings.tier == .pro ? .green : .secondary)
+                        .foregroundStyle(settings.canUseApp ? .green : .orange)
                 }
+                LabeledContent("Status") {
+                    Text(settings.licenseStatusDetail)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section {
+                Link(
+                    "Purchase Bondex Notch",
+                    destination: URL(string: "https://bondex-notch.bondeth.site/checkout/")!
+                )
+                Text("The 24-hour trial includes the complete app. One licence keeps every feature unlocked after it ends.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("License key") {
@@ -977,12 +979,6 @@ private struct LicenseSettings: View {
                 }
             }
 
-            Section("Pro includes") {
-                ForEach(ProFeature.allCases) { feature in
-                    Label(feature.displayName, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-            }
         }
         .modernSettingsForm()
         .onAppear { draftKey = settings.preferences.licenseKey }
@@ -992,7 +988,7 @@ private struct LicenseSettings: View {
         let key = draftKey.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         if LicenseValidator.validate(key) {
             settings.preferences.licenseKey = key
-            message = "Pro unlocked."
+            message = "Licence activated. Full access unlocked."
         } else {
             message = "That key is not valid."
         }

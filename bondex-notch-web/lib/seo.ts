@@ -29,11 +29,10 @@ export const softwareApplicationJsonLd = {
     `${SITE_URL}/app-previews/system.png`,
   ],
   offers: {
-    '@type': 'AggregateOffer',
-    lowPrice: '0',
-    highPrice: '14.99',
+    '@type': 'Offer',
+    price: '14.99',
     priceCurrency: 'USD',
-    offerCount: '2',
+    description: 'One-time lifetime licence after a full 24-hour trial',
     url: `${SITE_URL}/#pricing`,
   },
   featureList: [

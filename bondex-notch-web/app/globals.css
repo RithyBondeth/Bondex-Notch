@@ -3031,6 +3031,8 @@ button.real-empty { cursor:pointer; }
   grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
   gap: 16px;
   align-items: start;
+  max-width: 720px;
+  margin-inline: auto;
 }
 
 .plan {
@@ -3165,7 +3167,7 @@ button.real-empty { cursor:pointer; }
   max-width: 66ch;
 }
 
-/* ── Pro checkout ─────────────────────────────────────── */
+/* ── Product checkout ─────────────────────────────────── */
 
 .checkout-page {
   min-height: 100vh;

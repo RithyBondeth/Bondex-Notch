@@ -16,12 +16,11 @@ export default function Features() {
           </header>
 
           <div className="grid">
-            {features.map(({ icon, title, body, tier }) => (
+            {features.map(({ icon, title, body }) => (
               <article className="feature" key={icon}>
                 <span className="feature__icon" data-icon={icon} aria-hidden="true" />
                 <h3>{title}</h3>
                 <p>{body}</p>
-                {tier && <span className="tag">{tier}</span>}
               </article>
             ))}
           </div>

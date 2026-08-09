@@ -69,9 +69,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings(page: SettingsPage? = nil) {
         guard let environment else { return }
+        let requestedPage: SettingsPage? = environment.settings.canUseApp ? page : .license
 
         if let settingsWindow {
-            if let page {
+            if let requestedPage {
                 // Replacing only `rootView` with another SettingsView lets
                 // SwiftUI preserve the existing view's @State, so commands
                 // such as "Open Profiles settings" can leave the old page
@@ -79,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // navigation state while all settings themselves remain
                 // persisted in the shared environment.
                 let hosting = NSHostingController(
-                    rootView: SettingsView(environment: environment, initialPage: page)
+                    rootView: SettingsView(environment: environment, initialPage: requestedPage)
                 )
                 settingsWindow.contentViewController = hosting
                 settingsHosting = hosting
@@ -89,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        let view = SettingsView(environment: environment, initialPage: page ?? .general)
+        let view = SettingsView(environment: environment, initialPage: requestedPage ?? .general)
         let hosting = NSHostingController(rootView: view)
 
         let window = NSWindow(contentViewController: hosting)

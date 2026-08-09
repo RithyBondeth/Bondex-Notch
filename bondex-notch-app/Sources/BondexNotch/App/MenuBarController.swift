@@ -29,6 +29,11 @@ final class MenuBarController: NSObject {
             .removeDuplicates()
             .sink { [weak self] _ in self?.refresh() }
             .store(in: &cancellables)
+
+        environment.settings.$licenseAccess
+            .removeDuplicates()
+            .sink { [weak self] _ in self?.refresh() }
+            .store(in: &cancellables)
     }
 
     private func makeMenu() -> NSMenu {
@@ -42,42 +47,60 @@ final class MenuBarController: NSObject {
         toggle.target = self
         menu.addItem(toggle)
 
-        let palette = NSMenuItem(
-            title: "Command Palette…",
-            action: #selector(openCommandPalette),
-            keyEquivalent: ""
-        )
-        palette.target = self
-        menu.addItem(palette)
-
-        if environment.settings.preferences.quickCaptureEnabled {
-            let capture = NSMenuItem(
-                title: "Quick Capture…",
-                action: #selector(openQuickCapture),
+        if environment.settings.canUseApp {
+            let palette = NSMenuItem(
+                title: "Command Palette…",
+                action: #selector(openCommandPalette),
                 keyEquivalent: ""
             )
-            capture.target = self
-            menu.addItem(capture)
-        }
+            palette.target = self
+            menu.addItem(palette)
 
-        if environment.settings.preferences.focusTimerEnabled {
-            let focus = NSMenuItem(
-                title: focusMenuTitle,
-                action: #selector(toggleFocusTimer),
-                keyEquivalent: ""
-            )
-            focus.target = self
-            menu.addItem(focus)
-
-            if environment.focusTimer.snapshot.isActive {
-                let cancelFocus = NSMenuItem(
-                    title: "Cancel Focus Timer",
-                    action: #selector(cancelFocusTimer),
+            if environment.settings.preferences.quickCaptureEnabled {
+                let capture = NSMenuItem(
+                    title: "Quick Capture…",
+                    action: #selector(openQuickCapture),
                     keyEquivalent: ""
                 )
-                cancelFocus.target = self
-                menu.addItem(cancelFocus)
+                capture.target = self
+                menu.addItem(capture)
             }
+
+            if environment.settings.preferences.focusTimerEnabled {
+                let focus = NSMenuItem(
+                    title: focusMenuTitle,
+                    action: #selector(toggleFocusTimer),
+                    keyEquivalent: ""
+                )
+                focus.target = self
+                menu.addItem(focus)
+
+                if environment.focusTimer.snapshot.isActive {
+                    let cancelFocus = NSMenuItem(
+                        title: "Cancel Focus Timer",
+                        action: #selector(cancelFocusTimer),
+                        keyEquivalent: ""
+                    )
+                    cancelFocus.target = self
+                    menu.addItem(cancelFocus)
+                }
+            }
+        } else {
+            let purchase = NSMenuItem(
+                title: "Purchase Bondex Notch…",
+                action: #selector(openPurchase),
+                keyEquivalent: ""
+            )
+            purchase.target = self
+            menu.addItem(purchase)
+
+            let activate = NSMenuItem(
+                title: "Activate Licence…",
+                action: #selector(openLicenseSettings),
+                keyEquivalent: ""
+            )
+            activate.target = self
+            menu.addItem(activate)
         }
 
         menu.addItem(.separator())
@@ -90,13 +113,13 @@ final class MenuBarController: NSObject {
         settings.target = self
         menu.addItem(settings)
 
-        let tier = NSMenuItem(
-            title: "Tier: \(environment.settings.tier.displayName)",
+        let access = NSMenuItem(
+            title: "\(environment.settings.licenseAccess.displayName): \(environment.settings.licenseStatusDetail)",
             action: nil,
             keyEquivalent: ""
         )
-        tier.isEnabled = false
-        menu.addItem(tier)
+        access.isEnabled = false
+        menu.addItem(access)
 
         menu.addItem(.separator())
 
@@ -111,7 +134,7 @@ final class MenuBarController: NSObject {
         return menu
     }
 
-    /// The tier line is built once, so refresh it whenever the license changes.
+    /// The access line is built once, so refresh it whenever the licence changes.
     func refresh() {
         statusItem?.menu = makeMenu()
     }
@@ -122,6 +145,15 @@ final class MenuBarController: NSObject {
 
     @objc private func openSettings() {
         onOpenSettings()
+    }
+
+    @objc private func openLicenseSettings() {
+        environment.requestSettingsPage?(.license)
+    }
+
+    @objc private func openPurchase() {
+        guard let url = URL(string: "https://bondex-notch.bondeth.site/checkout/") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func openCommandPalette() {

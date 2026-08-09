@@ -172,7 +172,13 @@ struct NotchRootView: View {
             // Fixed width, natural height: the height is the measurement the panel
             // sizes itself from, so it must not be dictated here. Top-aligned in
             // the canvas so the content does not shift as the height settles.
-            ExpandedView(environment: environment)
+            Group {
+                if settings.canUseApp {
+                    ExpandedView(environment: environment)
+                } else {
+                    TrialExpiredView(environment: environment)
+                }
+            }
                 .frame(width: contentSize.width)
                 .frame(maxHeight: canvasSize.height, alignment: .top)
                 .onPreferenceChange(ExpandedHeightKey.self) { height in
@@ -194,6 +200,63 @@ struct NotchRootView: View {
             ? .opacity
             : .opacity.combined(with: .offset(y: -10))
         return transition.animation(Motion.content(settings.motion))
+    }
+}
+
+/// The only panel content available after the trial. It deliberately keeps
+/// purchase and activation one click away while all product functionality is
+/// removed from the view hierarchy.
+private struct TrialExpiredView: View {
+    @ObservedObject var environment: AppEnvironment
+    @ObservedObject private var settings: SettingsStore
+
+    init(environment: AppEnvironment) {
+        self.environment = environment
+        self.settings = environment.settings
+    }
+
+    var body: some View {
+        VStack(spacing: 13) {
+            Image(systemName: "lock.circle.fill")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(settings.effectiveAccentColor)
+
+            VStack(spacing: 4) {
+                Text("Your 24-hour trial has ended")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(Theme.primaryText)
+                Text("Purchase once to continue using the complete Bondex Notch app.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+
+            HStack(spacing: 8) {
+                Link(destination: URL(string: "https://bondex-notch.bondeth.site/checkout/")!) {
+                    Label("Purchase", systemImage: "cart.fill")
+                        .frame(minWidth: 104)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    environment.requestSettingsPage?(.license)
+                } label: {
+                    Label("Activate licence", systemImage: "key.fill")
+                        .frame(minWidth: 104)
+                }
+                .buttonStyle(.bordered)
+            }
+            .controlSize(.small)
+        }
+        .tint(settings.effectiveAccentColor)
+        .padding(.top, environment.notch.geometry.notchSize.height + 12)
+        .padding(.horizontal, Theme.contentPadding)
+        .padding(.bottom, Theme.contentPadding + 2)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: ExpandedHeightKey.self, value: proxy.size.height)
+            }
+        )
     }
 }
 
@@ -238,12 +301,12 @@ private struct ShelfDropDelegate: DropDelegate {
         return MainActor.assumeIsolated {
             environment.notch.isDropTargeted = false
 
-            guard environment.settings.isUnlocked(.shelf),
+            guard environment.settings.canUseApp,
                   environment.settings.preferences.shelfEnabled else {
                 environment.events.post(NotchEvent(
                     kind: .shelf,
-                    title: "Drop Shelf is a Pro feature",
-                    subtitle: "Add a license key in Settings"
+                    title: "Your trial has ended",
+                    subtitle: "Purchase Bondex Notch to continue"
                 ))
                 return false
             }

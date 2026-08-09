@@ -1,34 +1,24 @@
 import Foundation
 
-enum LicenseTier: String, Codable {
-    case free
-    case pro
+/// The app has one feature set. A user can access it during the 24-hour trial
+/// or after activating a purchased licence.
+enum LicenseAccessState: Equatable {
+    case trial(expiresAt: Date)
+    case licensed
+    case expired
 
     var displayName: String {
         switch self {
-        case .free: return "Free"
-        case .pro: return "Pro"
+        case .trial: return "24-hour trial"
+        case .licensed: return "Licensed"
+        case .expired: return "Trial expired"
         }
     }
-}
 
-/// Features that the proposal splits across the Free and Pro tiers.
-///
-/// Only add a case once the feature actually exists — this list is rendered
-/// verbatim as "Pro includes" in Settings, so an aspirational entry reads as a
-/// promise the app does not keep.
-enum ProFeature: String, CaseIterable, Identifiable {
-    case fileActivity
-    case shelf
-    case customThemes
-
-    var id: String { rawValue }
-
-    var displayName: String {
+    var canUseApp: Bool {
         switch self {
-        case .fileActivity: return "File Activity"
-        case .shelf: return "Drop Shelf"
-        case .customThemes: return "Custom Themes"
+        case .trial, .licensed: return true
+        case .expired: return false
         }
     }
 }
@@ -36,9 +26,9 @@ enum ProFeature: String, CaseIterable, Identifiable {
 /// Offline license check.
 ///
 /// NOTE: This is deliberately a *format* check, not real DRM. It exists so the
-/// Free/Pro split in the proposal is wired end to end; before shipping paid
-/// builds, replace `validate` with a server-issued signed receipt (or
-/// StoreKit 2 `Transaction.currentEntitlements`) so keys cannot be forged.
+/// licence activation flow is wired end to end; before shipping paid builds,
+/// replace `validate` with a server-issued signed receipt so keys cannot be
+/// forged. StoreKit is not required for direct website distribution.
 enum LicenseValidator {
     static let keyFormat = "BNDX-XXXX-XXXX-XXXX"
 

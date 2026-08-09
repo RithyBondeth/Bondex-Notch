@@ -28,11 +28,11 @@ export default function CheckoutPage() {
         </header>
 
         <section className="checkout-intro">
-          <p className="label">Bondex Notch Pro</p>
-          <h1>Make your notch feel complete.</h1>
+          <p className="label">Bondex Notch</p>
+          <h1>Keep the complete app.</h1>
           <p>
-            Unlock file activity, the drop shelf, every accent theme, and deep
-            appearance controls with one lifetime license.
+            After your 24-hour trial, one lifetime licence keeps every Bondex
+            Notch feature available. There are no Free or Pro tiers.
           </p>
         </section>
 
@@ -42,15 +42,15 @@ export default function CheckoutPage() {
               <BrandMark />
               <span>
                 <small>Lifetime license</small>
-                <strong>Bondex Notch Pro</strong>
+                <strong>Bondex Notch</strong>
               </span>
               <strong>$14.99</strong>
             </div>
 
             <ul className="order-card__features">
-              <li>File activity and live downloads</li>
-              <li>Drag-and-drop file shelf</li>
-              <li>All themes and appearance controls</li>
+              <li>The complete app after your 24-hour trial</li>
+              <li>Every current feature included</li>
+              <li>No feature tiers or recurring app fee</li>
               <li>Use the version you buy forever</li>
             </ul>
 

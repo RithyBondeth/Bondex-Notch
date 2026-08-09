@@ -7,10 +7,10 @@ export default function Pricing() {
         <div className="slab">
           <header className="slab__head">
             <p className="label">Pricing</p>
-            <h2 className="title">Pay once, or don&apos;t pay at all</h2>
+            <h2 className="title">Try everything. Then pay once.</h2>
             <p className="lede">
-              No subscription for the app itself. Buy the license, keep the
-              version you bought, forever.
+              Your first 24 hours include the complete app—no locked features.
+              Purchase one licence to keep using Bondex Notch afterward.
             </p>
           </header>
 

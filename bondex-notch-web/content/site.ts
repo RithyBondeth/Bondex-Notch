@@ -24,8 +24,6 @@ export interface Feature {
   icon: FeatureIcon;
   title: string;
   body: string;
-  /** Shown as a corner tag. Omit for features in the free tier. */
-  tier?: 'Pro';
 }
 
 export const features: Feature[] = [
@@ -103,7 +101,6 @@ export const features: Feature[] = [
     body:
       'Watches your Downloads folder and reports transfers as they land, with ' +
       'live throughput. Click through to reveal anything in Finder.',
-    tier: 'Pro',
   },
   {
     icon: 'system',
@@ -135,7 +132,6 @@ export const features: Feature[] = [
       'Drag files onto the notch to park them, then drag them back out ' +
       'anywhere. Nothing is copied — the shelf holds references to your real ' +
       'files.',
-    tier: 'Pro',
   },
   {
     icon: 'tune',
@@ -143,7 +139,6 @@ export const features: Feature[] = [
     body:
       'Tune width, opacity, corners, top flares, rim, shadow and animation speed. ' +
       'Choose a preset or custom accent and reorder every tab.',
-    tier: 'Pro',
   },
   {
     icon: 'bolt',
@@ -219,9 +214,12 @@ export interface Plan {
 
 export const plans: Plan[] = [
   {
-    name: 'Free',
-    price: '$0',
-    note: 'Everything you need to live in the notch.',
+    name: 'Bondex Notch',
+    price: '$14.99',
+    cadence: 'one-time',
+    note: 'Try the complete app free for 24 hours. Then purchase once to keep using it.',
+    featured: true,
+    badge: '24-hour full trial',
     items: [
       'Music and supported browser playback',
       'Agent activity for Codex, Claude, Gemini, Ollama and custom agents',
@@ -233,37 +231,12 @@ export const plans: Plan[] = [
       'System metrics, connected-device batteries and hardware HUD',
       'Privacy indicators and activity feed',
       'Hover, peek and expand behaviour',
-      'Graphite theme',
+      'File activity and live downloads',
+      'Drag-and-drop file shelf',
+      'Every theme and appearance control',
+      'Lifetime licence, no feature tiers',
     ],
-    cta: { label: 'Get early access', href: '#contact', style: 'ghost' },
-  },
-  {
-    name: 'Pro',
-    price: '$14.99',
-    cadence: 'one-time',
-    note: 'Everything in Free, plus:',
-    featured: true,
-    badge: 'Most popular',
-    items: [
-      'File activity widget',
-      'Drop shelf',
-      'All accent themes and deep appearance controls',
-      'Lifetime license, no account',
-    ],
-    cta: { label: 'Buy Pro', href: '/checkout', style: 'solid' },
-  },
-  {
-    name: 'AI add-on',
-    price: '$4',
-    cadence: '/month',
-    note: 'Optional. Cancel whenever.',
-    items: [
-      'Notification summarisation',
-      'Smart replies',
-      'Calendar assistance',
-      'Requires a Pro license',
-    ],
-    unavailable: 'On the roadmap',
+    cta: { label: 'Buy Bondex Notch', href: '/checkout', style: 'solid' },
   },
 ];
 

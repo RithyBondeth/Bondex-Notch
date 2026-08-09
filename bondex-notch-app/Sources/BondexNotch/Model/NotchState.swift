@@ -96,14 +96,6 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    var requiredFeature: ProFeature? {
-        switch self {
-        case .files: return .fileActivity
-        case .shelf: return .shelf
-        default: return nil
-        }
-    }
-
     /// Fixed height for this tab's widget area, or nil to size to its content.
     ///
     /// The list tabs scroll inside a stable area: a panel that grew and shrank as

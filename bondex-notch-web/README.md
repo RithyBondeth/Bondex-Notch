@@ -123,8 +123,8 @@ first interaction, and never starts under `prefers-reduced-motion`.
 
 - The download section links to the repository's quick-start instructions until
   the first signed release is published.
-- Pricing shows $14.99 one-time and $4/month for the AI add-on, mid-range of the
-  proposal's $9.99–$19.99 and $3–$5. Confirm before publishing.
+- Pricing shows one complete $14.99 lifetime licence after a full 24-hour trial.
+  Confirm the final price before publishing.
 - The "Genuinely light" card deliberately does not quote a memory figure. Add
   one only once it has been measured on a release build.
 - `npm audit` reports high-severity libvips advisories against `sharp`, which

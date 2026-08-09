@@ -30,7 +30,7 @@ export default function Hero() {
         </div>
 
         <p className="meta">
-          macOS 14+ · Free to start · No account · Everything stays on your Mac
+          macOS 14+ · Full 24-hour trial · No account · Everything stays on your Mac
         </p>
 
         <div className="hero__signals" aria-label="Highlights">

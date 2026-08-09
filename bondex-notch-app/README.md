@@ -391,22 +391,27 @@ Both are handled with the supported alternative rather than a private API:
 
 ## Permissions
 
-All three are optional and requested only when the relevant widget is enabled.
+All four are optional and requested only when the relevant widget is enabled.
 
 | Permission | Needed for | Prompted by |
 |---|---|---|
 | Automation | Music widget, per app read | first AppleScript call |
 | Files and Folders | Downloads watching | first read of `~/Downloads` |
 | Notifications | Bondex posting its own alerts | Settings → Permissions |
+| Calendar | Upcoming meetings and meeting profile rules | enabling Upcoming meetings |
 
 Ad-hoc signatures change on every rebuild, so macOS treats each build as a new
 app and re-prompts. Sign with a stable Developer ID identity to keep grants.
 
 ## Licensing
 
-`LicenseValidator` is a **format and checksum check, not DRM** — it exists so the
-Free/Pro split is wired end to end. Before shipping paid builds, replace it with
-StoreKit 2 entitlements or a server-signed receipt.
+Bondex Notch has one complete feature set. The 24-hour trial begins on first
+launch; when it expires, product services and actions stop and the app exposes
+only purchase and licence activation. A valid licence unlocks the complete app.
+
+`LicenseValidator` is a **format and checksum check, not DRM**. Before shipping
+paid builds, replace it with a server-signed receipt. StoreKit is unnecessary
+for direct website distribution.
 
 Generate a test key:
 
@@ -442,8 +447,8 @@ renders every state to PNG without a display:
 "build/Bondex Notch.app/Contents/MacOS/BondexNotch" --render-previews ./previews
 ```
 
-It runs against a throwaway `UserDefaults` domain (it unlocks Pro to exercise
-the gated widgets) and never touches real preferences. Two caveats, both
+It runs against a throwaway `UserDefaults` domain with a test licence and never
+touches real preferences. Two caveats, both
 `ImageRenderer` limitations rather than app behaviour: `.onDrop` cannot be
 rasterised, and `ScrollView` renders empty — `NotchRootView` and
 `ScrollingStack` both degrade when `\.isRenderingOffscreen` is set.
