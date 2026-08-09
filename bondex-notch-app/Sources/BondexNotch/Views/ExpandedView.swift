@@ -93,6 +93,18 @@ struct ExpandedView: View {
 
             Spacer(minLength: 6)
 
+            if let profile = settings.activeProfile {
+                Image(systemName: profile.systemImage)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(accent.opacity(0.14)))
+                    .overlay(Circle().strokeBorder(accent.opacity(0.25), lineWidth: 0.7))
+                    .help("\(profile.displayName) profile active")
+                    .accessibilityLabel("\(profile.displayName) profile active")
+                    .transition(.scale.combined(with: .opacity))
+            }
+
             if environment.privacyActivity.state.isActive {
                 PrivacyActivityMarks(state: environment.privacyActivity.state)
                     .help(environment.privacyActivity.state.accessibilityValue)

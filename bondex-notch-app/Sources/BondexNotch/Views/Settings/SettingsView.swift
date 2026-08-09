@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general
     case widgets
+    case profiles
     case shortcuts
     case appearance
     case license
@@ -16,6 +17,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "General"
         case .widgets: return "Widgets"
+        case .profiles: return "Profiles"
         case .shortcuts: return "Shortcuts"
         case .appearance: return "Appearance"
         case .license: return "License"
@@ -27,6 +29,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "Interaction, keyboard, and accessibility"
         case .widgets: return "Choose what appears in your notch"
+        case .profiles: return "Adapt widgets and appearance to your context"
         case .shortcuts: return "Build your personal quick-action grid"
         case .appearance: return "Shape, colour, material, and motion"
         case .license: return "Manage your Bondex Notch plan"
@@ -38,6 +41,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "slider.horizontal.3"
         case .widgets: return "square.grid.2x2.fill"
+        case .profiles: return "person.crop.circle.badge.clock.fill"
         case .shortcuts: return "bolt.square.fill"
         case .appearance: return "paintbrush.pointed.fill"
         case .license: return "key.fill"
@@ -192,6 +196,8 @@ struct SettingsView: View {
             GeneralSettings(settings: settings)
         case .widgets:
             WidgetSettings(environment: environment, settings: settings)
+        case .profiles:
+            ProfileSettings(environment: environment)
         case .shortcuts:
             ShortcutSettings(settings: settings)
         case .appearance:
@@ -275,7 +281,7 @@ private struct SettingsGlassBackdrop: View {
     }
 }
 
-private extension View {
+extension View {
     func modernSettingsForm() -> some View {
         self
             .formStyle(.grouped)
@@ -443,6 +449,15 @@ private struct WidgetSettings: View {
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
                 Toggle("Clipboard history", isOn: binding(\.clipboardHistoryEnabled))
                 Toggle("Quick Capture", isOn: binding(\.quickCaptureEnabled))
+                Toggle(
+                    "Enhance captures with Apple Intelligence",
+                    isOn: binding(\.appleIntelligenceCaptureEnabled)
+                )
+                .disabled(!settings.preferences.quickCaptureEnabled)
+                Text("Enhancement is always user-triggered and uses Apple's on-device model when available.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .disabled(!settings.preferences.quickCaptureEnabled)
                 Toggle("Custom shortcuts", isOn: binding(\.customShortcutsEnabled))
             }
 

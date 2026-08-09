@@ -32,6 +32,9 @@ struct Preferences: Codable, Equatable {
     var activityFeedEnabled = true
     var clipboardHistoryEnabled = true
     var quickCaptureEnabled = true
+    /// User-triggered only. Capture text remains on device when the system
+    /// Apple Intelligence model is available.
+    var appleIntelligenceCaptureEnabled = true
     var customShortcutsEnabled = true
     var customActions: [CustomAction] = []
     var shelfEnabled = true
@@ -46,6 +49,12 @@ struct Preferences: Codable, Equatable {
     /// Order of the tabs in the expanded panel. Unknown or missing tabs are
     /// repaired by `SettingsStore` so upgrades never strand a new widget.
     var widgetOrder: [NotchTab] = NotchTab.allCases
+
+    var smartProfileMode: SmartProfileMode = .off
+    var selectedProfileID: UUID? = UUID(
+        uuidString: "99C206C1-D819-4DA3-97F4-87C8FDE7A101"
+    )
+    var notchProfiles: [NotchProfile] = NotchProfile.defaults
 
     /// Expand when the pointer rests on the notch, versus requiring a click.
     var expandOnHover = true
@@ -99,6 +108,7 @@ final class SettingsStore: ObservableObject {
     /// Surfaced in Settings when macOS refuses to register the login item
     /// (common for ad-hoc signed local builds).
     @Published var launchAtLoginError: String?
+    @Published private(set) var activeProfile: NotchProfile?
 
     private let defaults: UserDefaults
     /// Guards the write-back that undoes a failed login-item registration, so
@@ -146,7 +156,7 @@ final class SettingsStore: ObservableObject {
     /// Accent falls back to the free accent when Pro lapses, so a downgraded
     /// user never gets stuck looking at a locked theme.
     var effectiveAccent: Theme.Accent {
-        let accent = preferences.accent
+        let accent = activeProfile?.accent ?? preferences.accent
         if accent.requiresPro && tier != .pro { return .graphite }
         return accent
     }
@@ -158,6 +168,8 @@ final class SettingsStore: ObservableObject {
     }
 
     var orderedTabs: [NotchTab] {
+        if let activeProfile { return activeProfile.orderedTabs }
+
         var seen = Set<NotchTab>()
         var result = preferences.widgetOrder.filter { seen.insert($0).inserted }
 
@@ -176,6 +188,37 @@ final class SettingsStore: ObservableObject {
             seen.insert(tab)
         }
         return result
+    }
+
+    var effectivePanelWidth: Double {
+        activeProfile?.panelWidth ?? preferences.panelWidth
+    }
+
+    var effectivePanelStyle: Theme.PanelStyle {
+        activeProfile?.panelStyle ?? preferences.panelStyle
+    }
+
+    func isTabEnabled(_ tab: NotchTab) -> Bool {
+        if let activeProfile {
+            return tab == .home || activeProfile.enabledTabs.contains(tab)
+        }
+        switch tab {
+        case .home: return true
+        case .capture: return preferences.quickCaptureEnabled
+        case .shortcuts: return preferences.customShortcutsEnabled
+        case .music: return preferences.musicWidgetEnabled
+        case .system: return preferences.systemWidgetEnabled
+        case .live: return preferences.customLiveActivitiesEnabled
+        case .files: return preferences.fileActivityEnabled
+        case .activity: return preferences.activityFeedEnabled
+        case .clipboard: return preferences.clipboardHistoryEnabled
+        case .shelf: return preferences.shelfEnabled
+        }
+    }
+
+    func setActiveProfile(_ profile: NotchProfile?) {
+        guard activeProfile != profile else { return }
+        activeProfile = profile
     }
 
     func resetAppearance() {

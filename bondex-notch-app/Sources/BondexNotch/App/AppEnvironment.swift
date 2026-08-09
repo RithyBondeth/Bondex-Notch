@@ -15,9 +15,11 @@ final class AppEnvironment: ObservableObject {
     let privacyActivity: PrivacyActivityService
     let focusTimer: FocusTimerService
     let meetings: UpcomingMeetingService
+    let smartProfiles: SmartProfileService
     let globalHotKey: GlobalHotKeyService
     let accessibilityAnnouncements: AccessibilityAnnouncementService
     let quickCapture: QuickCaptureService
+    let captureIntelligence: CaptureIntelligenceService
     let commandPalette: CommandPaletteService
     let customActions: CustomActionService
     let files: FileActivityService
@@ -50,9 +52,11 @@ final class AppEnvironment: ObservableObject {
         self.privacyActivity = PrivacyActivityService()
         self.focusTimer = FocusTimerService(defaults: defaults, events: events)
         self.meetings = UpcomingMeetingService()
+        self.smartProfiles = SmartProfileService(settings: settings)
         self.globalHotKey = GlobalHotKeyService()
         self.accessibilityAnnouncements = AccessibilityAnnouncementService()
         self.quickCapture = QuickCaptureService(defaults: defaults)
+        self.captureIntelligence = CaptureIntelligenceService()
         self.commandPalette = CommandPaletteService()
         self.customActions = CustomActionService()
         self.files = FileActivityService(events: events)
@@ -149,6 +153,10 @@ final class AppEnvironment: ObservableObject {
             }
             .store(in: &cancellables)
 
+        meetings.$meeting
+            .sink { [weak self] meeting in self?.smartProfiles.updateMeeting(meeting) }
+            .store(in: &cancellables)
+
         events.$latest
             .compactMap { $0 }
             .sink { [weak self] event in
@@ -164,6 +172,18 @@ final class AppEnvironment: ObservableObject {
         metrics.$snapshot
             .sink { [weak self] snapshot in
                 self?.systemHUD.updateBattery(snapshot)
+                self?.smartProfiles.updatePower(snapshot)
+            }
+            .store(in: &cancellables)
+
+        settings.$activeProfile
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.applyWidgetActivation(self.settings.preferences)
+                if !self.availableTabs.contains(self.notch.tab) {
+                    self.notch.tab = self.availableTabs.first ?? .home
+                }
             }
             .store(in: &cancellables)
 
@@ -179,6 +199,7 @@ final class AppEnvironment: ObservableObject {
 
     func start() {
         notifications.start()
+        smartProfiles.start()
         applyWidgetActivation(settings.preferences)
     }
 
@@ -193,7 +214,55 @@ final class AppEnvironment: ObservableObject {
         deviceBatteries.stop()
         privacyActivity.stop()
         meetings.stop()
+        smartProfiles.stop()
         globalHotKey.stop()
+    }
+
+    @discardableResult
+    func performAppIntentCommand(
+        _ action: AppIntentCommand.Action,
+        value: String? = nil,
+        minutes: Int? = nil
+    ) -> Bool {
+        switch action {
+        case .automaticProfiles:
+            smartProfiles.useAutomaticMode()
+            return true
+
+        case .activateProfile:
+            guard let value, let profileID = UUID(uuidString: value),
+                  settings.preferences.notchProfiles.contains(where: {
+                      $0.id == profileID
+                  }) else { return false }
+            smartProfiles.activate(profileID)
+            return true
+
+        case .createCapture:
+            guard settings.preferences.quickCaptureEnabled,
+                  let value, quickCapture.capture(value) else { return false }
+            showFromAppIntent(.capture)
+            accessibilityAnnouncements.announce("Quick Capture saved")
+            return true
+
+        case .showWidget:
+            guard let value, let tab = NotchTab(rawValue: value),
+                  availableTabs.contains(tab) else { return false }
+            showFromAppIntent(tab)
+            return true
+
+        case .startFocus:
+            guard settings.preferences.focusTimerEnabled else { return false }
+            focusTimer.start(minutes: minutes ?? 25)
+            showFromAppIntent(.home)
+            return true
+        }
+    }
+
+    private func showFromAppIntent(_ tab: NotchTab) {
+        commandPalette.dismiss()
+        notch.tab = tab
+        notch.setPinned(true)
+        notch.expand()
     }
 
     private var isPlaying = false
@@ -209,13 +278,15 @@ final class AppEnvironment: ObservableObject {
     private func applyWidgetActivation(_ preferences: Preferences) {
         // Set before starting: it decides whether the first poll scans tabs.
         nowPlaying.includeBrowsers = preferences.browserMediaEnabled
-        if preferences.musicWidgetEnabled {
+        if settings.isTabEnabled(.music) {
             nowPlaying.start()
         } else {
             nowPlaying.stop()
         }
 
-        if preferences.systemWidgetEnabled || preferences.systemHUDEnabled {
+        if settings.isTabEnabled(.system)
+            || preferences.systemHUDEnabled
+            || smartProfiles.needsPowerContext {
             metrics.start()
         } else {
             metrics.stop()
@@ -227,7 +298,7 @@ final class AppEnvironment: ObservableObject {
             systemHUD.stop()
         }
 
-        if preferences.systemWidgetEnabled {
+        if settings.isTabEnabled(.system) {
             deviceBatteries.start()
         } else {
             deviceBatteries.stop()
@@ -241,7 +312,7 @@ final class AppEnvironment: ObservableObject {
 
         accessibilityAnnouncements.isEnabled = preferences.announceImportantUpdates
 
-        let captureHotKeyEnabled = preferences.quickCaptureEnabled
+        let captureHotKeyEnabled = settings.isTabEnabled(.capture)
             && preferences.quickCaptureHotKeyEnabled
         if preferences.globalHotKeyEnabled
             || captureHotKeyEnabled
@@ -259,7 +330,7 @@ final class AppEnvironment: ObservableObject {
             globalHotKey.stop()
         }
 
-        if preferences.upcomingMeetingsEnabled {
+        if preferences.upcomingMeetingsEnabled || smartProfiles.needsMeetingContext {
             meetings.start()
         } else {
             meetings.stop()
@@ -275,20 +346,20 @@ final class AppEnvironment: ObservableObject {
             agents.stop()
         }
 
-        if preferences.customLiveActivitiesEnabled {
+        if settings.isTabEnabled(.live) {
             liveActivities.start()
         } else {
             liveActivities.stop()
         }
 
-        if preferences.clipboardHistoryEnabled {
+        if settings.isTabEnabled(.clipboard) {
             clipboard.start()
         } else {
             clipboard.stop()
         }
 
         let filesUnlocked = preferences.tier == .pro
-        if preferences.fileActivityEnabled && filesUnlocked {
+        if settings.isTabEnabled(.files) && filesUnlocked {
             files.start()
         } else {
             files.stop()
@@ -297,20 +368,7 @@ final class AppEnvironment: ObservableObject {
 
     /// Tabs the user can actually reach, given their tier and widget toggles.
     var availableTabs: [NotchTab] {
-        settings.orderedTabs.filter { tab in
-            switch tab {
-            case .home: return true
-            case .capture: return settings.preferences.quickCaptureEnabled
-            case .shortcuts: return settings.preferences.customShortcutsEnabled
-            case .music: return settings.preferences.musicWidgetEnabled
-            case .system: return settings.preferences.systemWidgetEnabled
-            case .live: return settings.preferences.customLiveActivitiesEnabled
-            case .files: return settings.preferences.fileActivityEnabled
-            case .activity: return settings.preferences.activityFeedEnabled
-            case .clipboard: return settings.preferences.clipboardHistoryEnabled
-            case .shelf: return settings.preferences.shelfEnabled
-            }
-        }
+        settings.orderedTabs.filter(settings.isTabEnabled)
     }
 
     var commandPaletteResults: [CommandPaletteCommand] {
@@ -381,6 +439,23 @@ final class AppEnvironment: ObservableObject {
             notch.tab = tab
             commandPalette.dismiss()
 
+        case let .activateProfile(id):
+            smartProfiles.activate(id)
+            commandPalette.dismiss()
+            if let profile = settings.preferences.notchProfiles.first(where: { $0.id == id }) {
+                accessibilityAnnouncements.announce("Switched to \(profile.displayName) profile")
+            }
+
+        case .automaticProfiles:
+            smartProfiles.useAutomaticMode()
+            commandPalette.dismiss()
+            accessibilityAnnouncements.announce("Automatic profiles enabled")
+
+        case .disableProfiles:
+            smartProfiles.turnOff()
+            commandPalette.dismiss()
+            accessibilityAnnouncements.announce("Smart profiles off")
+
         case let .openSettings(page):
             commandPalette.dismiss()
             notch.collapse()
@@ -391,7 +466,7 @@ final class AppEnvironment: ObservableObject {
     private var commandPaletteCommands: [CommandPaletteCommand] {
         var commands: [CommandPaletteCommand] = []
 
-        if settings.preferences.quickCaptureEnabled {
+        if settings.isTabEnabled(.capture) {
             commands.append(CommandPaletteCommand(
                 id: "capture-new",
                 title: "Create quick capture",
@@ -429,7 +504,7 @@ final class AppEnvironment: ObservableObject {
             ))
         }
 
-        if settings.preferences.customShortcutsEnabled {
+        if settings.isTabEnabled(.shortcuts) {
             commands += settings.preferences.customActions.enumerated().map { index, action in
                 CommandPaletteCommand(
                     id: "action-\(action.id.uuidString)",
@@ -457,7 +532,7 @@ final class AppEnvironment: ObservableObject {
             )
         }
 
-        if settings.preferences.clipboardHistoryEnabled {
+        if settings.isTabEnabled(.clipboard) {
             commands += clipboard.items.enumerated().map { index, item in
                 CommandPaletteCommand(
                     id: "clipboard-\(item.id.uuidString)",
@@ -472,7 +547,7 @@ final class AppEnvironment: ObservableObject {
             }
         }
 
-        if settings.preferences.quickCaptureEnabled {
+        if settings.isTabEnabled(.capture) {
             commands += quickCapture.items.enumerated().map { index, item in
                 CommandPaletteCommand(
                     id: "capture-\(item.id.uuidString)",
@@ -487,7 +562,7 @@ final class AppEnvironment: ObservableObject {
             }
         }
 
-        if settings.preferences.shelfEnabled, settings.isUnlocked(.shelf) {
+        if settings.isTabEnabled(.shelf), settings.isUnlocked(.shelf) {
             commands += shelf.items.enumerated().map { index, item in
                 CommandPaletteCommand(
                     id: "shelf-\(item.id.uuidString)",
@@ -502,6 +577,47 @@ final class AppEnvironment: ObservableObject {
             }
         }
 
+        if settings.preferences.smartProfileMode != .automatic {
+            commands.append(CommandPaletteCommand(
+                id: "profiles-automatic",
+                title: "Use Automatic Profiles",
+                subtitle: "Switch profiles when your context changes",
+                systemImage: "wand.and.stars",
+                category: "Profile",
+                keywords: ["smart", "context", "mode"],
+                priority: 80,
+                action: .automaticProfiles
+            ))
+        }
+
+        commands += settings.preferences.notchProfiles.enumerated().map { index, profile in
+            CommandPaletteCommand(
+                id: "profile-\(profile.id.uuidString)",
+                title: "Switch to \(profile.displayName) Profile",
+                subtitle: settings.activeProfile?.id == profile.id
+                    ? "Currently active"
+                    : "Use its widgets and appearance",
+                systemImage: profile.systemImage,
+                category: "Profile",
+                keywords: ["smart", "mode", profile.displayName],
+                priority: 81 + index,
+                action: .activateProfile(profile.id)
+            )
+        }
+
+        if settings.preferences.smartProfileMode != .off {
+            commands.append(CommandPaletteCommand(
+                id: "profiles-off",
+                title: "Turn Smart Profiles Off",
+                subtitle: "Restore your standard notch setup",
+                systemImage: "circle.slash",
+                category: "Profile",
+                keywords: ["disable", "default", "mode"],
+                priority: 89,
+                action: .disableProfiles
+            ))
+        }
+
         commands += SettingsPage.allCases.enumerated().map { index, page in
             CommandPaletteCommand(
                 id: "settings-\(page.rawValue)",
@@ -510,7 +626,7 @@ final class AppEnvironment: ObservableObject {
                 systemImage: page.systemImage,
                 category: "Settings",
                 keywords: ["preferences", page.rawValue],
-                priority: 90 + index,
+                priority: 110 + index,
                 action: .openSettings(page)
             )
         }
@@ -523,6 +639,21 @@ final class AppEnvironment: ObservableObject {
     /// writable key paths or mutating preferences themselves.
     @discardableResult
     func toggleWidget(_ tab: NotchTab) -> Bool? {
+        if let activeProfile = settings.activeProfile,
+           let profileIndex = settings.preferences.notchProfiles.firstIndex(where: {
+               $0.id == activeProfile.id
+           }) {
+            guard tab != .home, tab != .shortcuts else { return nil }
+            let isEnabled = settings.preferences.notchProfiles[profileIndex]
+                .enabledTabs.contains(tab)
+            if isEnabled {
+                settings.preferences.notchProfiles[profileIndex].enabledTabs.removeAll { $0 == tab }
+            } else {
+                settings.preferences.notchProfiles[profileIndex].enabledTabs.append(tab)
+            }
+            return !isEnabled
+        }
+
         let newValue: Bool
         switch tab {
         case .music:

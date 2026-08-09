@@ -42,26 +42,27 @@ struct HomeWidget: View {
                meetings.meeting?.isRelevantToHome() == true {
                 UpcomingMeetingCard(environment: environment)
             }
-            if settings.preferences.customLiveActivitiesEnabled,
+            if settings.isTabEnabled(.live),
                !liveActivities.active.isEmpty {
                 LiveActivityCard(environment: environment)
             }
             if showsAgents {
                 AgentActivityCard(environment: environment)
             }
-            if settings.preferences.musicWidgetEnabled {
+            if settings.isTabEnabled(.music) {
                 mediaRow
             }
-            if settings.preferences.systemWidgetEnabled
+            if settings.isTabEnabled(.system)
                 && settings.preferences.showSystemSummaryOnHome {
                 SystemWidget(environment: environment, compact: true)
             }
             if !showsAgents
-                && liveActivities.active.isEmpty
+                && (!settings.isTabEnabled(.live) || liveActivities.active.isEmpty)
                 && !settings.preferences.focusTimerEnabled
-                && meetings.meeting?.isRelevantToHome() != true
-                && !settings.preferences.musicWidgetEnabled
-                && !(settings.preferences.systemWidgetEnabled
+                && (!settings.preferences.upcomingMeetingsEnabled
+                    || meetings.meeting?.isRelevantToHome() != true)
+                && !settings.isTabEnabled(.music)
+                && !(settings.isTabEnabled(.system)
                      && settings.preferences.showSystemSummaryOnHome) {
                 EmptyStateView(
                     systemImage: "square.grid.2x2",

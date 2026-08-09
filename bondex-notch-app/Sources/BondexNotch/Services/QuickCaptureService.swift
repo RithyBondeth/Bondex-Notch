@@ -6,21 +6,25 @@ struct QuickCaptureItem: Codable, Identifiable, Equatable {
     var text: String
     var createdAt: Date
     var isPinned: Bool
+    var enhancement: CaptureEnhancement?
 
     init(
         id: UUID = UUID(),
         text: String,
         createdAt: Date = Date(),
-        isPinned: Bool = false
+        isPinned: Bool = false,
+        enhancement: CaptureEnhancement? = nil
     ) {
         self.id = id
         self.text = text
         self.createdAt = createdAt
         self.isPinned = isPinned
+        self.enhancement = enhancement
     }
 
     var title: String {
-        text
+        if let title = enhancement?.title, !title.isEmpty { return title }
+        return text
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
@@ -31,12 +35,19 @@ struct QuickCaptureItem: Codable, Identifiable, Equatable {
     }
 
     var detail: String {
-        isLink ? "Link" : createdAt.formatted(date: .abbreviated, time: .shortened)
+        if let summary = enhancement?.summary, !summary.isEmpty { return summary }
+        return isLink ? "Link" : createdAt.formatted(date: .abbreviated, time: .shortened)
     }
 
     func matches(_ query: String) -> Bool {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return needle.isEmpty || text.localizedCaseInsensitiveContains(needle)
+        return needle.isEmpty
+            || text.localizedCaseInsensitiveContains(needle)
+            || enhancement?.title.localizedCaseInsensitiveContains(needle) == true
+            || enhancement?.summary.localizedCaseInsensitiveContains(needle) == true
+            || enhancement?.tags.contains(where: {
+                $0.localizedCaseInsensitiveContains(needle)
+            }) == true
     }
 }
 
@@ -45,7 +56,15 @@ struct QuickCaptureItem: Codable, Identifiable, Equatable {
 @MainActor
 final class QuickCaptureService: ObservableObject {
     @Published private(set) var items: [QuickCaptureItem]
-    @Published var draft = ""
+    @Published var draft = "" {
+        didSet {
+            if draft != enhancedDraftText {
+                draftEnhancement = nil
+                enhancedDraftText = nil
+            }
+        }
+    }
+    @Published private(set) var draftEnhancement: CaptureEnhancement?
     @Published private(set) var focusRequest = 0
 
     private static let defaultsKey = "com.bondex.notch.quick-captures"
@@ -55,6 +74,7 @@ final class QuickCaptureService: ObservableObject {
     private let pasteboard: NSPasteboard
     private let capacity: Int
     private var wantsComposerFocus = false
+    private var enhancedDraftText: String?
 
     init(
         defaults: UserDefaults = .standard,
@@ -88,14 +108,33 @@ final class QuickCaptureService: ObservableObject {
     @discardableResult
     func saveDraft() -> Bool {
         guard let text = normalized(draft) else { return false }
-        add(text)
+        add(text, enhancement: draftEnhancement)
         draft = ""
+        draftEnhancement = nil
+        enhancedDraftText = nil
         begin()
+        return true
+    }
+
+    func applyEnhancement(_ enhancement: CaptureEnhancement) {
+        guard normalized(draft) != nil else { return }
+        draftEnhancement = enhancement
+        enhancedDraftText = draft
+    }
+
+    /// Saves text supplied by a system integration such as App Intents without
+    /// borrowing or clearing the user's in-progress composer draft.
+    @discardableResult
+    func capture(_ value: String) -> Bool {
+        guard let text = normalized(value) else { return false }
+        add(text)
         return true
     }
 
     func cancelDraft() {
         draft = ""
+        draftEnhancement = nil
+        enhancedDraftText = nil
         wantsComposerFocus = false
     }
 
@@ -137,13 +176,14 @@ final class QuickCaptureService: ObservableObject {
         trimToCapacity()
     }
 
-    private func add(_ text: String) {
+    private func add(_ text: String, enhancement: CaptureEnhancement? = nil) {
         if let index = items.firstIndex(where: { $0.text == text }) {
             var existing = items.remove(at: index)
             existing.createdAt = Date()
+            if let enhancement { existing.enhancement = enhancement }
             items.append(existing)
         } else {
-            items.append(QuickCaptureItem(text: text))
+            items.append(QuickCaptureItem(text: text, enhancement: enhancement))
         }
         sortItems()
         trimToCapacity()

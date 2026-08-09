@@ -15,7 +15,7 @@ final class SettingsDesignTests: XCTestCase {
     func testTheSidebarIncludesEveryExistingSettingsArea() {
         XCTAssertEqual(
             SettingsPage.allCases,
-            [.general, .widgets, .shortcuts, .appearance, .license, .permissions]
+            [.general, .widgets, .profiles, .shortcuts, .appearance, .license, .permissions]
         )
     }
 }

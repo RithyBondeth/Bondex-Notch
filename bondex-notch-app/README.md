@@ -314,7 +314,19 @@ and press Return to save. A paste button pulls copied selected text into the
 draft without saving it automatically. Captures can be searched, copied again,
 pinned, opened when they are links, removed individually, or cleared together.
 The shortcut is permission-free and configurable in Settings; captures remain
-in Bondex Notch's local preferences and are never transmitted.
+in Bondex Notch's local preferences and are never transmitted. On supported
+Macs, the optional sparkle action uses Apple Intelligence's on-device model to
+suggest a concise title, summary, explicit action items, and tags. Enhancement
+is always user-triggered, can be disabled in Settings, and never saves until the
+user confirms the capture.
+
+### Siri and Shortcuts actions
+
+Bondex exposes actions to Apple Shortcuts for creating a Quick Capture, starting
+a focus timer, showing a widget, selecting a built-in Smart Profile, and turning
+automatic profiles back on. These actions respect disabled widgets and features,
+so a Shortcut cannot silently re-enable a preference. After installing or
+updating the app, open Bondex once so macOS can refresh the available actions.
 
 ### Custom live activities
 

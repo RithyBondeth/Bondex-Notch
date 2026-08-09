@@ -7,6 +7,7 @@ struct QuickCaptureWidget: View {
 
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var service: QuickCaptureService
+    @ObservedObject private var intelligence: CaptureIntelligenceService
     @ObservedObject private var settings: SettingsStore
     @Environment(\.isRenderingOffscreen) private var isRenderingOffscreen
 
@@ -17,6 +18,7 @@ struct QuickCaptureWidget: View {
     init(environment: AppEnvironment) {
         self.environment = environment
         self.service = environment.quickCapture
+        self.intelligence = environment.captureIntelligence
         self.settings = environment.settings
     }
 
@@ -28,6 +30,18 @@ struct QuickCaptureWidget: View {
     var body: some View {
         VStack(spacing: 6) {
             inputBar
+
+            if let enhancement = service.draftEnhancement {
+                enhancementPreview(enhancement)
+            } else if let error = intelligence.errorMessage,
+                      settings.preferences.appleIntelligenceCaptureEnabled {
+                Text(error)
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel("Apple Intelligence: \(error)")
+            }
 
             if service.isEmpty {
                 EmptyStateView(
@@ -48,7 +62,11 @@ struct QuickCaptureWidget: View {
                 }
             }
         }
-        .onAppear { focusComposerIfRequested() }
+        .onAppear {
+            intelligence.refreshAvailability()
+            focusComposerIfRequested()
+        }
+        .onChange(of: service.draft) { _, _ in intelligence.clearError() }
         .onChange(of: service.focusRequest) { _, _ in focusComposerIfRequested() }
         .onChange(of: service.isEmpty) { _, isEmpty in
             if isEmpty, mode == .search { endSearch() }
@@ -73,6 +91,31 @@ struct QuickCaptureWidget: View {
             )
 
             if mode == .capture {
+                if settings.preferences.appleIntelligenceCaptureEnabled {
+                    if intelligence.isEnhancing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.68)
+                            .frame(width: 24, height: 24)
+                            .accessibilityLabel("Enhancing capture")
+                    } else {
+                        NotchButton(
+                            systemImage: "sparkles",
+                            size: 9,
+                            tint: intelligence.availability.isAvailable
+                                ? accent
+                                : Theme.tertiaryText
+                        ) {
+                            enhanceDraft()
+                        }
+                        .disabled(
+                            !service.canSaveDraft || !intelligence.availability.isAvailable
+                        )
+                        .accessibilityLabel("Enhance with Apple Intelligence")
+                        .help(intelligence.availability.explanation)
+                    }
+                }
+
                 NotchButton(systemImage: "doc.on.clipboard", size: 9, tint: Theme.secondaryText) {
                     _ = service.pasteFromClipboard()
                 }
@@ -143,6 +186,36 @@ struct QuickCaptureWidget: View {
         }
     }
 
+    private func enhancementPreview(_ enhancement: CaptureEnhancement) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 8.5, weight: .semibold))
+                .foregroundStyle(accent)
+
+            Text(enhancement.title)
+                .font(.system(size: 9, weight: .semibold))
+                .lineLimit(1)
+
+            if !enhancement.tags.isEmpty {
+                Text(enhancement.tags.map { "#" + $0 }.joined(separator: "  "))
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(Theme.tertiaryText)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 23)
+        .background(accent.opacity(0.08), in: Capsule(style: .continuous))
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(accent.opacity(0.16), lineWidth: 0.7)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Suggested title: \(enhancement.title)")
+    }
+
     private func row(_ item: QuickCaptureItem) -> some View {
         HStack(spacing: 7) {
             Button { service.copy(item) } label: {
@@ -211,6 +284,14 @@ struct QuickCaptureWidget: View {
     private func saveDraft() {
         if service.saveDraft() {
             environment.accessibilityAnnouncements.announce("Quick Capture saved")
+        }
+    }
+
+    private func enhanceDraft() {
+        Task {
+            guard let enhancement = await intelligence.enhance(service.draft) else { return }
+            service.applyEnhancement(enhancement)
+            environment.accessibilityAnnouncements.announce("Quick Capture enhanced")
         }
     }
 

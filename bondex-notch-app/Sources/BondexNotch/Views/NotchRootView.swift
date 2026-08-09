@@ -87,7 +87,7 @@ struct NotchRootView: View {
         // 38pt peek strip just reads as having a defined bottom edge.
         shape
             .fill(Theme.panelFill(
-                style: settings.preferences.panelStyle,
+                style: settings.effectivePanelStyle,
                 accent: accent,
                 opacity: settings.preferences.panelOpacity
             ))
@@ -95,7 +95,7 @@ struct NotchRootView: View {
                 if state.isExpanded {
                     shape
                         .fill(Theme.panelGlow(accent: accent))
-                        .opacity(settings.preferences.panelStyle == .black ? 0.55 : 1)
+                        .opacity(settings.effectivePanelStyle == .black ? 0.55 : 1)
                 }
             }
             .overlay(shape.stroke(strokeStyle, lineWidth: notch.isDropTargeted ? 1.6 : 1))
