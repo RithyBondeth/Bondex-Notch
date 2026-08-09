@@ -53,6 +53,10 @@ export default function RibbonField() {
   return (
     <div className="field" aria-hidden="true">
       <canvas ref={canvasRef} />
+      <div className="field__aurora" />
+      <div className="field__orbit field__orbit--one" />
+      <div className="field__orbit field__orbit--two" />
+      <div className="field__starlight" />
     </div>
   );
 }
