@@ -5,6 +5,7 @@ import MotionEffects from '@/components/MotionEffects';
 import NotchBar from '@/components/NotchBar';
 import RibbonField from '@/components/RibbonField';
 import { FIELD_BACKDROP } from '@/lib/ribbonField';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/seo';
 import './globals.css';
 
 /* Self-hosted at build time, so there is no third-party round trip or layout
@@ -25,29 +26,47 @@ const ubuntuMono = Ubuntu_Mono({
   display: 'swap',
 });
 
-const title = "Bondex Notch — Your Mac's notch, finally useful";
-const description =
-  'A native macOS utility that turns the notch into a live view of your ' +
-  'captures, focus sessions, meetings, music, coding agents, live tasks and system status. ' +
-  'Built in Swift. No Electron, no web view.';
-
 export const metadata: Metadata = {
-  metadataBase: new URL('https://bondex-notch.bondeth-plus1.chatgpt.site'),
-  title,
-  description,
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: '/' },
+  authors: [{ name: 'Rithy Bondeth', url: SITE_URL }],
+  creator: 'Rithy Bondeth',
+  publisher: SITE_NAME,
+  category: 'technology',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
   openGraph: {
     type: 'website',
-    title,
-    description:
-      'A native macOS utility that turns the notch into a live view of your ' +
-      'captures, focus sessions, meetings, music, agents and system status.',
-    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Bondex Notch on a Mac display' }],
+    url: '/',
+    siteName: SITE_NAME,
+    locale: 'en_US',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [{
+      url: '/og.jpg',
+      width: 1200,
+      height: 630,
+      type: 'image/jpeg',
+      alt: 'Bondex Notch on a Mac display',
+    }],
   },
   twitter: {
     card: 'summary_large_image',
-    title,
-    description,
-    images: ['/og.png'],
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ['/og.jpg'],
   },
 };
 
