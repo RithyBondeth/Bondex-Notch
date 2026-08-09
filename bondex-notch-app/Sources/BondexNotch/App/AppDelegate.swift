@@ -74,8 +74,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let window = NSWindow(contentViewController: hosting)
         window.title = "Bondex Notch Settings"
-        window.styleMask = [.titled, .closable, .miniaturizable]
-        window.setContentSize(NSSize(width: 620, height: 520))
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(
+            calibratedRed: 0.055,
+            green: 0.06,
+            blue: 0.075,
+            alpha: 0.98
+        )
+        window.isOpaque = false
+        window.isMovableByWindowBackground = true
+        window.setContentSize(NSSize(width: 800, height: 570))
+        window.contentMinSize = NSSize(width: 720, height: 520)
+        window.contentMaxSize = NSSize(width: 980, height: 760)
         window.isReleasedWhenClosed = false
         window.center()
         window.makeKeyAndOrderFront(nil)
