@@ -114,7 +114,7 @@ final class NotchViewModel: ObservableObject {
 
     func pointerMoved(to location: CGPoint) {
         // While expanded, the whole panel keeps it open; while closed, only the
-        // notch strip does.
+        // notch strip opens it.
         let liveRect = geometry.hoverRect(ofSize: contentSize, isExpanded: state.isExpanded)
         let triggerRect = geometry.hoverRect(for: .collapsed)
 
@@ -142,7 +142,16 @@ final class NotchViewModel: ObservableObject {
             return
         }
 
-        if triggerRect.contains(location) || liveRect.contains(location) {
+        // Only the notch itself opens the panel — deliberately *not* the peek.
+        //
+        // The peek is much wider than the notch (the notch plus 120 while
+        // playing, plus 260 for a banner), and it is on screen for as long as
+        // anything is playing. Treating it as a trigger meant that whenever
+        // music was on, the panel sprang open from anywhere within ~80pt either
+        // side of the notch — including the whole stretch of menu bar the
+        // pointer crosses on the way to the menu bar items on the right. The
+        // peek is a readout, not a target; the notch under it is the target.
+        if triggerRect.contains(location) {
             cancelPendingClose()
             scheduleOpen()
         } else {

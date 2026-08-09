@@ -78,6 +78,18 @@ re-derived on `didChangeScreenParametersNotification`.
 | `peek` | notch + 120 while playing, + 260 for a banner | media playing, or a transient banner |
 | `expanded` | 560 wide, height **measured from the content** | pointer on the notch, or clicked to pin |
 
+The playback peek is exactly as *tall* as the notch on a Mac that has one, so it
+reads as the notch having grown sideways rather than as a tab hanging below the
+menu bar — it is the longest-lived thing the app draws, so it is the one that has
+to disappear into the hardware. A banner keeps a small drop, because it carries
+two lines of text and is gone in three seconds.
+
+Only the notch opens the panel on hover, never the peek drawn over it. The peek
+is much wider than the notch and is on screen for as long as anything is playing,
+so treating it as a trigger meant the panel sprang open from most of the way
+across the menu bar whenever music was on. The peek is a readout; the notch under
+it is the target.
+
 Only the widths are fixed. The expanded panel's height comes from what it is
 actually showing: `ExpandedView` reports its laid-out height through
 `ExpandedHeightKey`, and `NotchViewModel.contentSize` clamps that between a floor
