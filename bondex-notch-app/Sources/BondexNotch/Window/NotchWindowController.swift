@@ -17,7 +17,13 @@ final class NotchWindowController {
 
     init(environment: AppEnvironment) {
         self.environment = environment
-        environment.requestKeyboardFocus = { [weak self] in self?.focusPanel() }
+        environment.requestKeyboardFocus = { [weak self] in
+            self?.focusPanel()
+            // The palette/composer is inserted by the same published state
+            // change that requested focus. Repeat on the next run-loop turn so
+            // its TextField exists before SwiftUI resolves @FocusState.
+            DispatchQueue.main.async { self?.focusPanel() }
+        }
     }
 
     func show(on screen: NSScreen) {
@@ -60,8 +66,16 @@ final class NotchWindowController {
 
     private func focusPanel() {
         guard let panel else { return }
-        panel.makeKeyAndOrderFront(nil)
+        // A nonactivating panel normally avoids stealing keyboard input. A
+        // global shortcut is an explicit request to type here, so temporarily
+        // allow it to become key without activating Bondex as a whole.
+        panel.becomesKeyOnlyIfNeeded = false
+        panel.orderFrontRegardless()
+        panel.makeKey()
         if let hostingView { panel.makeFirstResponder(hostingView) }
+        DispatchQueue.main.async { [weak panel] in
+            panel?.becomesKeyOnlyIfNeeded = true
+        }
     }
 
     private func startKeyboardMonitoring() {
@@ -69,6 +83,31 @@ final class NotchWindowController {
             [weak self] event in
             guard let self, self.panel?.isKeyWindow == true,
                   self.environment.notch.state.isExpanded else { return event }
+
+            if self.environment.commandPalette.isPresented {
+                switch event.keyCode {
+                case 53: // Escape
+                    self.environment.commandPalette.dismiss()
+                    return nil
+                case 125: // Down arrow
+                    self.environment.commandPalette.moveSelection(
+                        by: 1,
+                        resultCount: self.environment.commandPaletteResults.count
+                    )
+                    return nil
+                case 126: // Up arrow
+                    self.environment.commandPalette.moveSelection(
+                        by: -1,
+                        resultCount: self.environment.commandPaletteResults.count
+                    )
+                    return nil
+                case 36, 76: // Return or keypad Enter
+                    self.environment.executeSelectedCommand()
+                    return nil
+                default:
+                    return event
+                }
+            }
 
             switch event.keyCode {
             case 53: // Escape

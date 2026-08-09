@@ -359,6 +359,14 @@ private struct GeneralSettings: View {
                         || !settings.preferences.quickCaptureHotKeyEnabled
                 )
 
+                Toggle("Command Palette shortcut", isOn: binding(\.commandPaletteHotKeyEnabled))
+                Picker("Command Palette", selection: binding(\.commandPaletteShortcut)) {
+                    ForEach(CommandPaletteShortcut.allCases) { shortcut in
+                        Text(shortcut.displayName).tag(shortcut)
+                    }
+                }
+                .disabled(!settings.preferences.commandPaletteHotKeyEnabled)
+
                 Toggle(
                     "Announce important updates with VoiceOver",
                     isOn: binding(\.announceImportantUpdates)
@@ -372,7 +380,10 @@ private struct GeneralSettings: View {
                         .frame(width: 40, alignment: .trailing)
                 }
 
-                Text("Escape closes the panel; Left and Right Arrow switch tabs.")
+                Text("""
+                Escape closes the panel; Left and Right Arrow switch tabs. In the Command Palette, \
+                use Up and Down Arrow to navigate and Return to run a command.
+                """)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

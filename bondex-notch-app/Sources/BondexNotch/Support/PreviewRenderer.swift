@@ -261,6 +261,13 @@ enum PreviewRenderer {
         environment.notch.tab = .home
         if !render(environment, named: "expanded-customized", into: directory) { failures += 1 }
 
+        environment.settings.preferences.panelWidth = 520
+        environment.commandPalette.present()
+        if !render(environment, named: "expanded-command-palette", into: directory) {
+            failures += 1
+        }
+        environment.commandPalette.dismiss()
+
         // Settings has a separate window and visual language. Render several
         // pages so the glass sidebar, page hierarchy, form density, and longest
         // content are protected by the same visual regression workflow.

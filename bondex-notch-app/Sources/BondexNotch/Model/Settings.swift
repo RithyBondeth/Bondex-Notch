@@ -68,6 +68,8 @@ struct Preferences: Codable, Equatable {
     var globalShortcut: GlobalShortcut = .controlOptionSpace
     var quickCaptureHotKeyEnabled = true
     var quickCaptureShortcut: QuickCaptureShortcut = .controlOptionC
+    var commandPaletteHotKeyEnabled = true
+    var commandPaletteShortcut: CommandPaletteShortcut = .controlOptionP
     var announceImportantUpdates = true
 
     var downloadsFolderBookmark: Data?

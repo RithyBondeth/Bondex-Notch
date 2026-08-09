@@ -46,6 +46,14 @@ final class MenuBarController: NSObject {
         toggle.target = self
         menu.addItem(toggle)
 
+        let palette = NSMenuItem(
+            title: "Command Palette…",
+            action: #selector(openCommandPalette),
+            keyEquivalent: ""
+        )
+        palette.target = self
+        menu.addItem(palette)
+
         if environment.settings.preferences.quickCaptureEnabled {
             let capture = NSMenuItem(
                 title: "Quick Capture…",
@@ -118,6 +126,10 @@ final class MenuBarController: NSObject {
 
     @objc private func openSettings() {
         onOpenSettings()
+    }
+
+    @objc private func openCommandPalette() {
+        environment.presentCommandPalette()
     }
 
     @objc private func openQuickCapture() {

@@ -14,11 +14,13 @@ struct ExpandedView: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var notch: NotchViewModel
     @ObservedObject private var settings: SettingsStore
+    @ObservedObject private var commandPalette: CommandPaletteService
 
     init(environment: AppEnvironment) {
         self.environment = environment
         self.notch = environment.notch
         self.settings = environment.settings
+        self.commandPalette = environment.commandPalette
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -29,24 +31,29 @@ struct ExpandedView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            header
-            // A system `Divider` renders as a light separator tuned for a light
-            // window; on a near-black panel it reads as a bright scratch.
-            Rectangle()
-                .fill(LinearGradient(
-                    colors: [.clear, Theme.hairline, .clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                ))
-                .frame(height: 1)
-            widget
-                .frame(maxWidth: .infinity)
-                // nil height means "as tall as the content" — that is what makes
-                // the panel itself size to what it is showing.
-                .frame(height: notch.tab.widgetHeight)
-                // Swapping tabs is a content change, so it gets the content
-                // curve rather than the panel's.
-                .animation(Motion.content(settings.motion), value: notch.tab)
+            if commandPalette.isPresented {
+                CommandPaletteView(environment: environment)
+                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
+            } else {
+                header
+                // A system `Divider` renders as a light separator tuned for a light
+                // window; on a near-black panel it reads as a bright scratch.
+                Rectangle()
+                    .fill(LinearGradient(
+                        colors: [.clear, Theme.hairline, .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ))
+                    .frame(height: 1)
+                widget
+                    .frame(maxWidth: .infinity)
+                    // nil height means "as tall as the content" — that is what makes
+                    // the panel itself size to what it is showing.
+                    .frame(height: notch.tab.widgetHeight)
+                    // Swapping tabs is a content change, so it gets the content
+                    // curve rather than the panel's.
+                    .animation(Motion.content(settings.motion), value: notch.tab)
+            }
         }
         .padding(.top, topInset)
         .padding(.horizontal, Theme.contentPadding)
@@ -91,6 +98,12 @@ struct ExpandedView: View {
                     .help(environment.privacyActivity.state.accessibilityValue)
                     .transition(.scale.combined(with: .opacity))
             }
+
+            NotchButton(systemImage: "magnifyingglass", size: 10, tint: Theme.secondaryText) {
+                environment.presentCommandPalette()
+            }
+            .help("Command Palette (\(settings.preferences.commandPaletteShortcut.displayName))")
+            .accessibilityLabel("Open Command Palette")
 
             NotchButton(systemImage: "xmark", size: 10, tint: Theme.secondaryText) {
                 notch.collapse()
