@@ -266,6 +266,19 @@ Once open, Left and Right Arrow cycle tabs and Escape closes the panel. Keyboard
 focused tab chips and controls get a visible outline. The hardware-HUD display
 time is also configurable.
 
+### Custom shortcuts
+
+The Shortcuts tab holds up to eight user-defined quick actions. An action can
+open a selected macOS application, run an Apple Shortcut by name, or enable and
+disable a Bondex widget. Actions can be renamed and reordered in Settings, and
+application tiles keep both the bundle identifier and selected path so they
+survive ordinary app moves while retaining a fallback.
+
+Apple Shortcuts are launched with `/usr/bin/shortcuts` and a structured argument
+array; user-provided names are never evaluated as shell text. Application actions
+use Launch Services, widget actions mutate only their corresponding preference,
+and every tile exposes its purpose to VoiceOver.
+
 ### Focus timer and meetings
 
 Home includes a restart-safe focus timer with start, pause, resume, and cancel

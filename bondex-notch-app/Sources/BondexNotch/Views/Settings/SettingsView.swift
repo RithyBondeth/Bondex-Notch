@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
 
@@ -18,6 +19,9 @@ struct SettingsView: View {
 
             WidgetSettings(environment: environment, settings: settings)
                 .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
+
+            ShortcutSettings(settings: settings)
+                .tabItem { Label("Shortcuts", systemImage: "bolt.square") }
 
             AppearanceSettings(settings: settings)
                 .tabItem { Label("Appearance", systemImage: "paintbrush") }
@@ -173,6 +177,7 @@ private struct WidgetSettings: View {
                 Toggle("Activity feed", isOn: binding(\.activityFeedEnabled))
                 Toggle("Clipboard history", isOn: binding(\.clipboardHistoryEnabled))
                 Toggle("Quick Capture", isOn: binding(\.quickCaptureEnabled))
+                Toggle("Custom shortcuts", isOn: binding(\.customShortcutsEnabled))
             }
 
             Section("Pro") {
@@ -337,6 +342,188 @@ private struct WidgetSettings: View {
     private func copyLiveCommands() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(liveCommands, forType: .string)
+    }
+}
+
+// MARK: - Custom shortcuts
+
+private struct ShortcutSettings: View {
+    @ObservedObject var settings: SettingsStore
+
+    @State private var shortcutName = ""
+    @State private var selectedWidget: NotchTab = .system
+
+    private var actions: [CustomAction] { settings.preferences.customActions }
+    private var canAdd: Bool { actions.count < 8 }
+    private var toggleableTabs: [NotchTab] {
+        NotchTab.allCases.filter { $0 != .home && $0 != .shortcuts }
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                if actions.isEmpty {
+                    Text("No actions yet. Add an application, Apple Shortcut, or widget toggle below.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                        actionRow(action, at: index)
+                    }
+                }
+            } header: {
+                Text("Quick actions")
+            } footer: {
+                Text("Up to eight actions appear as compact tiles in the Shortcuts tab.")
+                    .font(.caption)
+            }
+
+            Section("Open an application") {
+                Button("Choose Application…") { chooseApplication() }
+                    .disabled(!canAdd)
+                Text("The app is resolved by bundle identifier first, so moving it does not break the action.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Run an Apple Shortcut") {
+                TextField("Exact Shortcut name", text: $shortcutName)
+                Button("Add Apple Shortcut") { addAppleShortcut() }
+                    .disabled(
+                        !canAdd
+                            || shortcutName.trimmingCharacters(
+                                in: .whitespacesAndNewlines
+                            ).isEmpty
+                    )
+                Text("Runs with the macOS shortcuts command using the saved name as a single argument.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Toggle a widget") {
+                Picker("Widget", selection: $selectedWidget) {
+                    ForEach(toggleableTabs) { tab in
+                        Label(tab.title, systemImage: tab.systemImage).tag(tab)
+                    }
+                }
+                Button("Add Widget Toggle") { addWidgetToggle() }
+                    .disabled(!canAdd)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func actionRow(_ action: CustomAction, at index: Int) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: action.systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(settings.effectiveAccentColor)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                TextField("Action name", text: titleBinding(for: action.id))
+                    .textFieldStyle(.plain)
+                    .font(.body.weight(.medium))
+                Text(action.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                moveAction(at: index, by: -1)
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == 0)
+            .help("Move up")
+
+            Button {
+                moveAction(at: index, by: 1)
+            } label: {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == actions.count - 1)
+            .help("Move down")
+
+            Button(role: .destructive) {
+                removeAction(action.id)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .help("Remove action")
+        }
+    }
+
+    private func titleBinding(for id: UUID) -> Binding<String> {
+        Binding(
+            get: { actions.first(where: { $0.id == id })?.title ?? "" },
+            set: { value in
+                var next = actions
+                guard let index = next.firstIndex(where: { $0.id == id }) else { return }
+                next[index].title = String(value.prefix(40))
+                settings.preferences.customActions = next
+            }
+        )
+    }
+
+    private func chooseApplication() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose an application"
+        panel.prompt = "Add Action"
+        panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
+        panel.allowedContentTypes = [.application]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let bundle = Bundle(url: url)
+        let name = bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? url.deletingPathExtension().lastPathComponent
+        add(CustomAction(
+            title: name,
+            target: .application(
+                bundleIdentifier: bundle?.bundleIdentifier,
+                path: url.path
+            )
+        ))
+    }
+
+    private func addAppleShortcut() {
+        let name = shortcutName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        add(CustomAction(title: name, target: .appleShortcut(name: name)))
+        shortcutName = ""
+    }
+
+    private func addWidgetToggle() {
+        add(CustomAction(
+            title: selectedWidget.title,
+            target: .toggleWidget(selectedWidget)
+        ))
+    }
+
+    private func add(_ action: CustomAction) {
+        guard canAdd, !actions.contains(where: { $0.target == action.target }) else { return }
+        settings.preferences.customActions.append(action)
+    }
+
+    private func removeAction(_ id: UUID) {
+        settings.preferences.customActions.removeAll { $0.id == id }
+    }
+
+    private func moveAction(at index: Int, by offset: Int) {
+        let destination = index + offset
+        guard actions.indices.contains(index), actions.indices.contains(destination) else { return }
+        var next = actions
+        next.swapAt(index, destination)
+        settings.preferences.customActions = next
     }
 }
 

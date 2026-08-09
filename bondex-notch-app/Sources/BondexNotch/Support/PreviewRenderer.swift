@@ -331,6 +331,27 @@ enum PreviewRenderer {
             environment.settings.preferences.licenseKey = key
         }
 
+        environment.settings.preferences.customActions = [
+            CustomAction(
+                title: "Calculator",
+                target: .application(
+                    bundleIdentifier: "com.apple.calculator",
+                    path: "/System/Applications/Calculator.app"
+                )
+            ),
+            CustomAction(
+                title: "Start my day",
+                target: .appleShortcut(name: "Start my day")
+            ),
+            CustomAction(title: "System", target: .toggleWidget(.system)),
+            CustomAction(title: "Clipboard", target: .toggleWidget(.clipboard)),
+            CustomAction(title: "Music", target: .toggleWidget(.music)),
+            CustomAction(
+                title: "Capture",
+                target: .toggleWidget(.capture)
+            )
+        ]
+
         environment.deviceBatteries.stop()
         environment.deviceBatteries.seedForPreview([
             DeviceBattery(
