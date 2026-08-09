@@ -20,11 +20,7 @@ final class MenuBarController: NSObject {
 
     func install() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(
-            systemSymbolName: "rectangle.topthird.inset.filled",
-            accessibilityDescription: "Bondex Notch"
-        )
-        item.button?.image?.isTemplate = true
+        item.button?.image = BondexLogoMark.menuBarImage()
         item.menu = makeMenu()
         statusItem = item
 

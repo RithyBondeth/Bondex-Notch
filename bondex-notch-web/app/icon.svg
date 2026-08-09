@@ -1,4 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="22" fill="#06070E"/>
-  <rect x="28" y="18" width="44" height="20" rx="9" fill="#3CC1F6"/>
+  <defs>
+    <linearGradient id="tile" x1="12" y1="8" x2="88" y2="94" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10162A"/>
+      <stop offset="1" stop-color="#05060B"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="8" y1="8" x2="48" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3CC1F6"/>
+      <stop offset="1" stop-color="#22A8ED"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="8" y1="58" x2="58" y2="94" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2369DF"/>
+      <stop offset="1" stop-color="#184CC7"/>
+    </linearGradient>
+    <linearGradient id="white" x1="54" y1="8" x2="92" y2="94" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E7EDFA"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#tile)"/>
+  <g transform="translate(18 18) scale(.64)">
+    <path fill="url(#cyan)" d="M15 6h25c0 6.7 3.3 10 10 10v23c0 6.6-5.4 12-12 12H15C8.4 51 3 45.6 3 39V18C3 11.4 8.4 6 15 6Z"/>
+    <path fill="url(#blue)" d="M15 56h20.5c4.3 0 8 2.3 10 6l15 27.5c1.8 3.3-.7 6.5-4.5 6.5H15C8.4 96 3 90.6 3 84V68c0-6.6 5.4-12 12-12Z"/>
+    <path fill="url(#white)" d="M70 6h13c7.7 0 14 6.3 14 14v62c0 7.7-6.3 14-14 14h-4.5c-4.6 0-8.8-2.6-10.9-6.7L53.7 62A32.4 32.4 0 0 1 50 47.1V22c0-3.3 2.7-6 6-6h4c6.7 0 10-3.3 10-10Z"/>
+  </g>
 </svg>

@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import BrandMark from '@/components/BrandMark';
 
 export default function Footer() {
   const contacts = [
@@ -37,7 +38,7 @@ export default function Footer() {
       <div className="wrap footer__inner">
         <div className="footer__intro">
           <span className="brand">
-            <span className="brand__mark" aria-hidden="true" />
+            <BrandMark />
             <span className="brand__name">Bondex&nbsp;Notch</span>
           </span>
           <p>

@@ -11,6 +11,16 @@
 
 set -euo pipefail
 
+# Foundation Models and App Intents require plugins shipped with full Xcode.
+# Prefer the standard Xcode install when the machine is currently pointed at
+# the standalone Command Line Tools, while respecting an explicit override.
+if [[ -z "${DEVELOPER_DIR:-}" && -d "/Applications/Xcode.app/Contents/Developer" ]]; then
+  ACTIVE_DEVELOPER_ROOT="$(xcode-select -p 2>/dev/null || true)"
+  if [[ "$ACTIVE_DEVELOPER_ROOT" == "/Library/Developer/CommandLineTools" ]]; then
+    export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+  fi
+fi
+
 CONFIG="${1:-release}"
 ARCH_ARGS=()
 for arg in "$@"; do
@@ -52,6 +62,7 @@ mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 
 cp "$EXECUTABLE" "$BUNDLE/Contents/MacOS/BondexNotch"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$BUNDLE/Contents/Resources/AppIcon.icns"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
 echo "==> Extracting App Intents metadata"

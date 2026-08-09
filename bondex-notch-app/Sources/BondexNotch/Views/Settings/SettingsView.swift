@@ -89,20 +89,7 @@ struct SettingsView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(LinearGradient(
-                            colors: [
-                                settings.effectiveAccentColor.opacity(0.9),
-                                settings.effectiveAccentColor.opacity(0.45)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                    Image(systemName: "macbook")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
+                BondexLogoMark()
                 .frame(width: 36, height: 36)
                 .shadow(color: settings.effectiveAccentColor.opacity(0.28), radius: 10, y: 4)
 
