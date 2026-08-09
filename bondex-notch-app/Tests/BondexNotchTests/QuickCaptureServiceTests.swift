@@ -109,6 +109,49 @@ final class QuickCaptureServiceTests: XCTestCase {
         XCTAssertEqual(link.detail, "Link")
     }
 
+    func testEnhancementIsPersistedAndIncludedInSearch() throws {
+        let service = makeService()
+        service.draft = "Discuss the release checklist with Alex tomorrow."
+        service.applyEnhancement(CaptureEnhancement(
+            title: "Release checklist",
+            summary: "Plan the release with Alex.",
+            actionItems: ["Meet Alex tomorrow"],
+            tags: ["launch", "planning"]
+        ))
+
+        XCTAssertTrue(service.saveDraft())
+        let saved = try XCTUnwrap(service.items.first)
+        XCTAssertEqual(saved.title, "Release checklist")
+        XCTAssertEqual(saved.detail, "Plan the release with Alex.")
+        XCTAssertTrue(saved.matches("planning"))
+        XCTAssertEqual(makeService().items.first?.enhancement, saved.enhancement)
+    }
+
+    func testEditingDraftDropsAStaleEnhancement() {
+        let service = makeService()
+        service.draft = "Original"
+        service.applyEnhancement(CaptureEnhancement(
+            title: "Original title",
+            summary: "Summary",
+            actionItems: [],
+            tags: []
+        ))
+
+        service.draft = "Changed"
+
+        XCTAssertNil(service.draftEnhancement)
+    }
+
+    func testIntentCaptureDoesNotOverwriteComposerDraft() {
+        let service = makeService()
+        service.draft = "Still writing"
+
+        XCTAssertTrue(service.capture("Created with Siri"))
+
+        XCTAssertEqual(service.draft, "Still writing")
+        XCTAssertEqual(service.items.first?.text, "Created with Siri")
+    }
+
     func testGlobalHotKeyIDsRouteToSeparateActions() {
         XCTAssertEqual(GlobalHotKeyService.action(forHotKeyID: 1), .panel)
         XCTAssertEqual(GlobalHotKeyService.action(forHotKeyID: 2), .quickCapture)

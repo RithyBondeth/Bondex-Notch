@@ -70,9 +70,12 @@ final class NotchWindowController {
         // global shortcut is an explicit request to type here, so temporarily
         // allow it to become key without activating Bondex as a whole.
         panel.becomesKeyOnlyIfNeeded = false
-        panel.orderFrontRegardless()
-        panel.makeKey()
-        if let hostingView { panel.makeFirstResponder(hostingView) }
+        panel.makeKeyAndOrderFront(nil)
+        // Do not install the hosting view as first responder here. The
+        // Command Palette and Quick Capture use SwiftUI FocusState to select
+        // their actual TextField on the next run-loop turn; making the hosting
+        // view first responder afterwards steals that focus, especially when
+        // the Settings window was previously key.
         DispatchQueue.main.async { [weak panel] in
             panel?.becomesKeyOnlyIfNeeded = true
         }

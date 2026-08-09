@@ -12,10 +12,19 @@
 set -euo pipefail
 
 CONFIG="${1:-release}"
-UNIVERSAL=""
+ARCH_ARGS=()
 for arg in "$@"; do
-  [[ "$arg" == "--universal" ]] && UNIVERSAL="--arch arm64 --arch x86_64"
+  if [[ "$arg" == "--universal" ]]; then
+    ARCH_ARGS=(--arch arm64 --arch x86_64)
+  fi
 done
+
+# The Darwin build system emits the Swift constant-value files required by the
+# App Intents metadata extractor. Supplying the host architecture selects it
+# even for a non-universal local build.
+if [[ ${#ARCH_ARGS[@]} -eq 0 ]]; then
+  ARCH_ARGS=(--arch "$(uname -m)")
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Bondex Notch"
@@ -24,10 +33,12 @@ BUNDLE="$ROOT/build/$APP_NAME.app"
 cd "$ROOT"
 
 echo "==> Building ($CONFIG)"
-# shellcheck disable=SC2086
-swift build -c "$CONFIG" $UNIVERSAL
+# The Xcode build system runs Swift's constant-value emission pass, which the
+# App Intents metadata processor consumes below. SwiftPM's native build system
+# does not currently emit those files for a single-architecture executable.
+swift build -c "$CONFIG" --build-system xcode "${ARCH_ARGS[@]}"
 
-BIN_PATH="$(swift build -c "$CONFIG" $UNIVERSAL --show-bin-path)"
+BIN_PATH="$(swift build -c "$CONFIG" --build-system xcode "${ARCH_ARGS[@]}" --show-bin-path)"
 EXECUTABLE="$BIN_PATH/BondexNotch"
 
 if [[ ! -f "$EXECUTABLE" ]]; then
@@ -42,6 +53,58 @@ mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$EXECUTABLE" "$BUNDLE/Contents/MacOS/BondexNotch"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
+
+echo "==> Extracting App Intents metadata"
+CONFIG_DIR="$(tr '[:lower:]' '[:upper:]' <<< "${CONFIG:0:1}")${CONFIG:1}"
+INTERMEDIATES="$ROOT/.build/apple/Intermediates.noindex/BondexNotch.build/$CONFIG_DIR/BondexNotch.build"
+if [[ ! -d "$INTERMEDIATES/Objects-normal" ]]; then
+  echo "error: App Intents build intermediates were not produced" >&2
+  exit 1
+fi
+SWIFT_FILE_LIST="$(find "$INTERMEDIATES/Objects-normal" -name 'BondexNotch.SwiftFileList' -print -quit)"
+if [[ -z "$SWIFT_FILE_LIST" ]]; then
+  echo "error: App Intents source metadata was not produced" >&2
+  exit 1
+fi
+
+OBJECTS_DIR="$(dirname "$SWIFT_FILE_LIST")"
+METADATA_TEMP="$(mktemp -d "${TMPDIR:-/tmp}/bondex-app-intents.XXXXXX")"
+trap 'rm -rf "$METADATA_TEMP"' EXIT
+find "$OBJECTS_DIR" -name '*.swiftconstvalues' -print | sort \
+  > "$METADATA_TEMP/const-values.txt"
+if [[ ! -s "$METADATA_TEMP/const-values.txt" ]]; then
+  echo "error: App Intents constant-value metadata was not produced" >&2
+  exit 1
+fi
+
+DEVELOPER_ROOT="${DEVELOPER_DIR:-$(xcode-select -p)}"
+PROCESSOR="$DEVELOPER_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor"
+XCODE_BUILD="$(DEVELOPER_DIR="$DEVELOPER_ROOT" xcodebuild -version | awk 'NR == 2 { print $3 }')"
+SDK_ROOT="$(DEVELOPER_DIR="$DEVELOPER_ROOT" xcrun --sdk macosx --show-sdk-path)"
+METADATA_ARCH="$(basename "$OBJECTS_DIR")"
+
+"$PROCESSOR" \
+  --output "$BUNDLE/Contents/Resources" \
+  --toolchain-dir "$DEVELOPER_ROOT/Toolchains/XcodeDefault.xctoolchain" \
+  --module-name BondexNotch \
+  --sdk-root "$SDK_ROOT" \
+  --xcode-version "$XCODE_BUILD" \
+  --platform-family macOS \
+  --deployment-target 14.0 \
+  --target-triple "$METADATA_ARCH-apple-macos14.0" \
+  --source-file-list "$SWIFT_FILE_LIST" \
+  --swift-const-vals-list "$METADATA_TEMP/const-values.txt" \
+  --metadata-file-list "$INTERMEDIATES/BondexNotch.DependencyMetadataFileList" \
+  --static-metadata-file-list "$INTERMEDIATES/BondexNotch.DependencyStaticMetadataFileList" \
+  --stringsdata-file "$OBJECTS_DIR/BondexAppIntents.stringsdata" \
+  --deployment-aware-processing \
+  --force \
+  --quiet-warnings
+
+if [[ ! -f "$BUNDLE/Contents/Resources/Metadata.appintents/extract.actionsdata" ]]; then
+  echo "error: App Intents metadata extraction did not produce actions" >&2
+  exit 1
+fi
 
 # Ad-hoc signature. Enough for local runs and for TCC to remember grants for
 # this build; replace with a Developer ID identity before distributing, or the

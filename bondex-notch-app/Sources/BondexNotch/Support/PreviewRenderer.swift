@@ -100,6 +100,21 @@ enum PreviewRenderer {
         }
         environment.liveActivities.seedForPreview([])
 
+        // A deterministic stand-in for the on-device model keeps the compact
+        // enhancement chip reviewable on machines without Apple Intelligence.
+        environment.quickCapture.draft = "Review the release checklist with Alex tomorrow."
+        environment.quickCapture.applyEnhancement(CaptureEnhancement(
+            title: "Review release checklist",
+            summary: "Coordinate the final release review with Alex.",
+            actionItems: ["Meet Alex tomorrow"],
+            tags: ["release", "planning"]
+        ))
+        environment.notch.tab = .capture
+        if !render(environment, named: "expanded-capture-intelligence", into: directory) {
+            failures += 1
+        }
+        environment.quickCapture.cancelDraft()
+
         environment.notch.collapse()
         if !render(environment, named: "collapsed", into: directory) { failures += 1 }
 
@@ -245,6 +260,21 @@ enum PreviewRenderer {
         })
         if !render(environment, named: "agent-marks", into: directory) { failures += 1 }
 
+        // Smart Profiles override the visible widgets and appearance without
+        // rewriting the underlying setup. The Work profile also exercises the
+        // compact active-profile mark in the expanded header.
+        environment.settings.preferences.selectedProfileID = NotchProfile.defaults.first {
+            $0.name == "Work"
+        }?.id
+        environment.settings.preferences.smartProfileMode = .manual
+        environment.smartProfiles.refresh()
+        environment.notch.tab = .home
+        if !render(environment, named: "expanded-profile-work", into: directory) {
+            failures += 1
+        }
+        environment.smartProfiles.turnOff()
+        environment.smartProfiles.refresh()
+
         // One deliberately opinionated setup exercises every appearance value
         // together: wide tinted panel, custom colour, softer chrome, and the
         // largest supported curves. Defaults alone cannot catch clipping at the
@@ -271,7 +301,7 @@ enum PreviewRenderer {
         // Settings has a separate window and visual language. Render several
         // pages so the glass sidebar, page hierarchy, form density, and longest
         // content are protected by the same visual regression workflow.
-        for page in [SettingsPage.general, .widgets, .appearance] {
+        for page in [SettingsPage.general, .widgets, .profiles, .appearance] {
             if !renderSettings(environment, page: page, into: directory) {
                 failures += 1
             }

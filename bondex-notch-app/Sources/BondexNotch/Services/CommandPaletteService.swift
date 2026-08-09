@@ -10,6 +10,9 @@ struct CommandPaletteCommand: Identifiable, Equatable {
         case capture(UUID)
         case shelf(UUID)
         case showWidget(NotchTab)
+        case activateProfile(UUID)
+        case automaticProfiles
+        case disableProfiles
         case openSettings(SettingsPage)
     }
 

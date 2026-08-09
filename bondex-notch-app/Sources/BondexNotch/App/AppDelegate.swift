@@ -1,4 +1,5 @@
 import AppKit
+import AppIntents
 import Combine
 import SwiftUI
 
@@ -26,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let environment = AppEnvironment(screen: screen)
         self.environment = environment
+        AppDependencyManager.shared.add(dependency: environment)
         environment.requestSettingsPage = { [weak self] page in
             self?.showSettings(page: page)
         }
@@ -47,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
 
         environment.start()
+        BondexNotchShortcuts.updateAppShortcutParameters()
         Log.app.info("Bondex Notch launched")
     }
 
@@ -69,7 +72,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let settingsWindow {
             if let page {
-                settingsHosting?.rootView = SettingsView(environment: environment, initialPage: page)
+                // Replacing only `rootView` with another SettingsView lets
+                // SwiftUI preserve the existing view's @State, so commands
+                // such as "Open Profiles settings" can leave the old page
+                // selected. A fresh host gives the requested page a fresh
+                // navigation state while all settings themselves remain
+                // persisted in the shared environment.
+                let hosting = NSHostingController(
+                    rootView: SettingsView(environment: environment, initialPage: page)
+                )
+                settingsWindow.contentViewController = hosting
+                settingsHosting = hosting
             }
             settingsWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
