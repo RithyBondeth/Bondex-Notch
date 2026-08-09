@@ -101,6 +101,8 @@ export default function MotionEffects() {
         const y = pointerY / window.innerHeight;
         root.style.setProperty('--field-x', `${(x - 0.5) * -18}px`);
         root.style.setProperty('--field-y', `${(y - 0.5) * -12}px`);
+        root.style.setProperty('--aurora-x', `${(x - 0.5) * 28}px`);
+        root.style.setProperty('--aurora-y', `${(y - 0.5) * 20}px`);
         root.style.setProperty('--spot-x', `${x * 100}%`);
         root.style.setProperty('--spot-y', `${y * 100}%`);
       };
