@@ -7,7 +7,7 @@ export default function Features() {
         <div className="slab">
           <header className="slab__head">
             <p className="label">The complete toolkit</p>
-            <h2 className="title">Ten small features. One much calmer desktop.</h2>
+            <h2 className="title">Everything your notch can do. One calmer desktop.</h2>
             <p className="lede">
               Every part of Bondex answers a question you&apos;d otherwise open an
               app to answer. Keep the widgets you need, reorder them, and switch

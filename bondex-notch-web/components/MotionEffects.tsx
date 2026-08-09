@@ -39,7 +39,7 @@ export default function MotionEffects() {
 
     document.querySelectorAll<HTMLElement>('.story').forEach((story, index) => {
       const copy = story.querySelector<HTMLElement>('.story__copy');
-      const visual = story.querySelector<HTMLElement>('.product-shot, .settings-shot');
+      const visual = story.querySelector<HTMLElement>('.product-shot, .settings-shot, .app-preview-board');
       const copyDirection = index % 2 === 0 ? '-34px' : '34px';
 
       if (copy) {
@@ -116,7 +116,7 @@ export default function MotionEffects() {
       });
 
       document
-        .querySelectorAll<HTMLElement>('.product-shot, .settings-shot, .plan--featured')
+        .querySelectorAll<HTMLElement>('.product-shot:not(.real-product), .settings-shot, .plan--featured')
         .forEach((element) => {
           element.dataset.motionTilt = '';
           const move = (event: PointerEvent) => {

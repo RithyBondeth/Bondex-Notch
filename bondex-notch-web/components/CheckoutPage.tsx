@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import BrandMark from '@/components/BrandMark';
 import {
   CreditCardForm,
   type CardState,
@@ -21,7 +23,7 @@ export default function CheckoutPage() {
 
       <div className="wrap checkout-wrap">
         <header className="checkout-header">
-          <a className="checkout-back" href="/">← Back to Bondex Notch</a>
+          <Link className="checkout-back" href="/">← Back to Bondex Notch</Link>
           <span className="checkout-step">Secure checkout · One-time license</span>
         </header>
 
@@ -37,7 +39,7 @@ export default function CheckoutPage() {
         <div className="checkout-layout">
           <aside className="order-card" aria-label="Order summary">
             <div className="order-card__product">
-              <span className="brand__mark" aria-hidden="true" />
+              <BrandMark />
               <span>
                 <small>Lifetime license</small>
                 <strong>Bondex Notch Pro</strong>

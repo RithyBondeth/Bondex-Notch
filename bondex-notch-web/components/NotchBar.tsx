@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import BrandMark from '@/components/BrandMark';
 
 const links = [
   { href: '/#showcase', label: 'Tour' },
@@ -27,10 +29,10 @@ export default function NotchBar() {
   return (
     <header className={`notchbar${stuck ? ' is-stuck' : ''}`}>
       <div className="notchbar__body">
-        <a className="brand" href="/" aria-label="Bondex Notch home">
-          <span className="brand__mark" aria-hidden="true" />
+        <Link className="brand" href="/" aria-label="Bondex Notch home">
+          <BrandMark />
           <span className="brand__name">Bondex&nbsp;Notch</span>
-        </a>
+        </Link>
         <span className="notchbar__lens" aria-hidden="true" />
         <nav className="notchbar__links" aria-label="Primary">
           {links.map(({ href, label }) => (
@@ -39,9 +41,9 @@ export default function NotchBar() {
             </a>
           ))}
         </nav>
-        <a className="btn btn--small" href="/#contact">
+        <Link className="btn btn--small" href="/#contact">
           Contact
-        </a>
+        </Link>
       </div>
     </header>
   );
