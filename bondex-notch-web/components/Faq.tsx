@@ -45,6 +45,29 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     ),
   },
   {
+    q: 'How private are Quick Capture and clipboard history?',
+    a: (
+      <>
+        Captures stay on your Mac. Clipboard history is session-only, is never
+        written to disk, and ignores content marked concealed or transient by the
+        source app. You can pause it whenever you like. Capture enhancement is a
+        separate, user-triggered action that uses on-device Apple Intelligence on
+        supported macOS 26 Macs; ordinary capture never requires it.
+      </>
+    ),
+  },
+  {
+    q: 'Can I automate Bondex?',
+    a: (
+      <>
+        Yes. Bondex exposes App Intents to Apple Shortcuts for switching profiles,
+        changing automatic profile mode, creating a quick capture, starting a focus
+        timer and showing a widget. You can also assign global keyboard shortcuts to
+        the panel, Quick Capture and command palette.
+      </>
+    ),
+  },
+  {
     q: "Does it show my other apps' notifications?",
     a: (
       <>
@@ -72,10 +95,12 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     q: 'What permissions does it ask for?',
     a: (
       <>
-        Three, all optional and all requested only when the relevant widget is
-        on. <b>Automation</b> for Music and Spotify, <b>Files and Folders</b> to
-        watch Downloads, and <b>Notifications</b> if you want Bondex to post its
-        own alerts. Nothing leaves your Mac.
+        Up to four, all optional and requested only for the relevant feature:
+        <b> Automation</b> for Music and Spotify, <b>Files and Folders</b> to
+        watch Downloads, <b>Notifications</b> for Bondex alerts, and
+        <b> Calendar</b> for upcoming meetings. Privacy indicators do not need
+        camera or microphone permission and never record either source. Nothing
+        leaves your Mac.
       </>
     ),
   },

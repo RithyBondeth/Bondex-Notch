@@ -15,9 +15,9 @@ export default function Hero() {
         </h1>
 
         <p className="hero__lede">
-          Music, downloads, system health, coding agents and live tasks — all in
-          the one place your eyes already pass. Bondex appears when it matters
-          and melts back into your Mac when it doesn&apos;t.
+          Capture thoughts, run focus sessions, join meetings, control music and
+          follow agents, downloads and system health — all where your eyes already
+          pass. Bondex appears when it matters and melts back when it doesn&apos;t.
         </p>
 
         <div className="actions">
@@ -35,9 +35,9 @@ export default function Hero() {
 
         <div className="hero__signals" aria-label="Highlights">
           <span><i className="pulse-dot" /> Agent activity</span>
-          <span>♫ Music &amp; browser audio</span>
-          <span>↓ Live downloads</span>
-          <span>⌁ CPU, memory &amp; network</span>
+          <span>✎ Quick Capture</span>
+          <span>◷ Focus &amp; meetings</span>
+          <span>⌕ Command palette</span>
         </div>
 
         <NotchDemo />

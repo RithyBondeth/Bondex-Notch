@@ -56,14 +56,14 @@ enum PreviewRenderer {
         // player are part of what these shots exist to review, and on a machine
         // with nothing playing they would all render as the empty state.
         let playing = NowPlaying(
-            source: .dia,
-            title: "BIGEGOAT vs AURORA! GOTF Watch Party Day 5",
-            artist: "Mirko",
-            album: "YouTube",
+            source: .spotify,
+            title: "Blinding Lights",
+            artist: "The Weeknd",
+            album: "After Hours",
             isPlaying: true,
-            duration: 7_235,
-            position: 2_884,
-            artwork: sampleVideoArtwork()
+            duration: 200,
+            position: 78,
+            artwork: sampleSpotifyArtwork()
         )
 
         var failures = 0
@@ -129,7 +129,7 @@ enum PreviewRenderer {
         // must stay the narrow artwork-and-equaliser strip, never flash the title
         // as a banner first.
         environment.events.post(NotchEvent(
-            kind: .music, title: "Weightless", subtitle: "Marconi Union"
+            kind: .music, title: "Blinding Lights", subtitle: "The Weeknd · Spotify"
         ))
         if !render(environment, named: "peek-playing", into: directory) { failures += 1 }
 
@@ -312,22 +312,27 @@ enum PreviewRenderer {
 
     // MARK: Rendering
 
-    /// A wide, high-contrast stand-in that exercises browser artwork cropping
-    /// and makes overflow obvious in generated UI previews.
-    private static func sampleVideoArtwork() -> NSImage {
-        NSImage(size: NSSize(width: 320, height: 180), flipped: false) { rect in
-            NSColor(calibratedRed: 0.82, green: 0.10, blue: 0.18, alpha: 1).setFill()
+    /// Deterministic square album art for the Spotify playback sample.
+    private static func sampleSpotifyArtwork() -> NSImage {
+        if let resourceURL = Bundle.main.resourceURL?
+            .appendingPathComponent("PreviewAssets/after-hours.jpg"),
+           let image = NSImage(contentsOf: resourceURL) {
+            return image
+        }
+
+        return NSImage(size: NSSize(width: 320, height: 320), flipped: false) { rect in
+            NSColor(calibratedRed: 0.62, green: 0.035, blue: 0.055, alpha: 1).setFill()
             rect.fill()
 
-            NSColor(calibratedWhite: 0.06, alpha: 0.9).setFill()
-            NSRect(x: 0, y: 0, width: rect.width * 0.4, height: rect.height).fill()
+            NSColor(calibratedWhite: 0.025, alpha: 0.94).setFill()
+            NSRect(x: 0, y: 0, width: rect.width, height: rect.height * 0.48).fill()
 
             let attributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 34, weight: .heavy),
+                .font: NSFont.systemFont(ofSize: 54, weight: .heavy),
                 .foregroundColor: NSColor.white
             ]
-            NSString(string: "LIVE").draw(
-                at: NSPoint(x: rect.width * 0.08, y: rect.height * 0.36),
+            NSString(string: "AFTER\nHOURS").draw(
+                at: NSPoint(x: rect.width * 0.08, y: rect.height * 0.53),
                 withAttributes: attributes
             )
             return true
@@ -508,7 +513,7 @@ enum PreviewRenderer {
             kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
         ))
         environment.events.post(NotchEvent(
-            kind: .music, title: "Weightless", subtitle: "Marconi Union"
+            kind: .music, title: "Blinding Lights", subtitle: "The Weeknd · Spotify"
         ))
         environment.events.post(NotchEvent(
             kind: .system, title: "Low Battery", subtitle: "14% remaining"

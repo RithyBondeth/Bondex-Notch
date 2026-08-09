@@ -6,6 +6,12 @@ export type FeatureIcon =
   | 'music'
   | 'browser'
   | 'agent'
+  | 'capture'
+  | 'clipboard'
+  | 'shortcuts'
+  | 'focus'
+  | 'profiles'
+  | 'privacy'
   | 'live'
   | 'files'
   | 'system'
@@ -46,6 +52,45 @@ export const features: Feature[] = [
       'working, what it is doing, and how long it has been running.',
   },
   {
+    icon: 'capture',
+    title: 'Quick Capture',
+    body:
+      'Save a thought or link without leaving your current app. Search, pin and ' +
+      'copy captures later, with optional user-triggered on-device Apple Intelligence ' +
+      'enhancement on supported macOS 26 Macs.',
+  },
+  {
+    icon: 'clipboard',
+    title: 'Clipboard history',
+    body:
+      'Keep text, links and images from this session close at hand. Pause capture, ' +
+      'search or pin an item; concealed and transient clipboard content is ignored ' +
+      'and history is never written to disk.',
+  },
+  {
+    icon: 'shortcuts',
+    title: 'Actions and shortcuts',
+    body:
+      'Build a personal action grid for opening apps, running Apple Shortcuts and ' +
+      'showing the widget you need. Global shortcuts can open the panel, Capture or ' +
+      'the command palette.',
+  },
+  {
+    icon: 'focus',
+    title: 'Focus and meetings',
+    body:
+      'Run a restart-safe focus timer from 1 to 180 minutes, and optionally see the ' +
+      'next calendar event with a countdown and one-click Zoom, Meet, Teams or Webex link.',
+  },
+  {
+    icon: 'profiles',
+    title: 'Smart profiles',
+    body:
+      'Switch the notch for Work, Meeting, Media or Gaming — manually or with rules ' +
+      'for the active app, time, power source, connected displays and meetings. The ' +
+      'command palette puts every action in one search.',
+  },
+  {
     icon: 'live',
     title: 'Custom live activities',
     body:
@@ -64,8 +109,16 @@ export const features: Feature[] = [
     icon: 'system',
     title: 'System',
     body:
-      'CPU load, memory pressure, battery level and time remaining, and real ' +
-      'network throughput — sampled straight from the kernel, not estimated.',
+      'CPU load, memory pressure, battery and real network throughput — plus connected ' +
+      'headphone, keyboard, mouse and trackpad batteries when macOS exposes them.',
+  },
+  {
+    icon: 'privacy',
+    title: 'Hardware HUD + privacy',
+    body:
+      'See volume, display brightness, keyboard brightness and battery changes beside ' +
+      'the notch. Camera and microphone activity indicators work without recording or ' +
+      'asking for camera or microphone access.',
   },
   {
     icon: 'bell',
@@ -94,10 +147,11 @@ export const features: Feature[] = [
   },
   {
     icon: 'bolt',
-    title: 'Genuinely light',
+    title: 'Native automation',
     body:
-      'Swift and SwiftUI throughout, no Electron and no web view. Widgets you ' +
-      'switch off stop their background service instead of continuing unseen.',
+      'Use App Intents in Apple Shortcuts to switch profiles, capture a thought, start ' +
+      'a focus timer, show a widget or change automatic profile mode — all in a native ' +
+      'Swift and SwiftUI app with no Electron or web view.',
   },
 ];
 
@@ -129,8 +183,8 @@ export const panelStates: PanelState[] = [
     id: 'peek',
     title: 'Peek',
     body:
-      'When something is live — a track playing, an agent working, or a build ' +
-      'running — a thin strip grows beside the notch. Never over it.',
+      'When something needs context — a track, agent, focus timer, meeting, hardware ' +
+      'change or privacy signal — a thin strip grows beside the notch. Never over it.',
     width: 128,
     height: 16,
     radius: 6,
@@ -172,8 +226,12 @@ export const plans: Plan[] = [
       'Music and supported browser playback',
       'Agent activity for Codex, Claude, Gemini, Ollama and custom agents',
       'Custom live activities from scripts and Shortcuts',
-      'System widget — CPU, memory, battery, network',
-      'Activity feed',
+      'Quick Capture and session-only clipboard history',
+      'Focus timer and optional upcoming meetings',
+      'Custom actions, command palette and Apple Shortcuts actions',
+      'Smart profiles with automatic rules',
+      'System metrics, connected-device batteries and hardware HUD',
+      'Privacy indicators and activity feed',
       'Hover, peek and expand behaviour',
       'Graphite theme',
     ],

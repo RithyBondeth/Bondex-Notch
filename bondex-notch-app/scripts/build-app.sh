@@ -63,6 +63,7 @@ mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$EXECUTABLE" "$BUNDLE/Contents/MacOS/BondexNotch"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$BUNDLE/Contents/Resources/AppIcon.icns"
+cp -R "$ROOT/Resources/PreviewAssets" "$BUNDLE/Contents/Resources/PreviewAssets"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
 echo "==> Extracting App Intents metadata"

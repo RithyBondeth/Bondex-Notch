@@ -1,6 +1,7 @@
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 
-export type TabId = 'home' | 'music' | 'system' | 'live' | 'files' | 'activity' | 'shelf';
+export type TabId = 'home' | 'capture' | 'shortcuts' | 'music' | 'system' | 'live' | 'files' | 'activity' | 'clipboard' | 'shelf';
 
 interface Tab {
   id: TabId;
@@ -22,6 +23,18 @@ export const tabs: Tab[] = [
         <rect x="9" y="9" width="5" height="5" rx="1.4" />
       </svg>
     ),
+  },
+  {
+    id: 'capture',
+    label: 'Capture',
+    iconOnly: true,
+    icon: <span className="tab-glyph" aria-hidden="true">✎</span>,
+  },
+  {
+    id: 'shortcuts',
+    label: 'Shortcuts',
+    iconOnly: true,
+    icon: <span className="tab-glyph" aria-hidden="true">▦</span>,
   },
   {
     id: 'music',
@@ -72,6 +85,12 @@ export const tabs: Tab[] = [
         <path d="M8 1.8a4 4 0 0 0-4 4v2.6L2.7 11h10.6L12 8.4V5.8a4 4 0 0 0-4-4zM6.4 12a1.6 1.6 0 0 0 3.2 0z" />
       </svg>
     ),
+  },
+  {
+    id: 'clipboard',
+    label: 'Clipboard',
+    iconOnly: true,
+    icon: <span className="tab-glyph" aria-hidden="true">▤</span>,
   },
   {
     id: 'shelf',
@@ -173,6 +192,18 @@ export default function PanelViews({
         </div>
       </div>
 
+      <div className={view('capture')} data-view="capture">
+        <div className="mock-list__head"><span>Quick Capture</span><em>On this Mac</em></div>
+        <div className="mock-compose"><span>Review the launch checklist at 3 PM</span><b>Save</b></div>
+        <div className="mock-capture-note"><i>✦</i><span><b>Enhance on device</b><em>User-triggered on supported macOS 26 Macs</em></span></div>
+        <div className="row row--slim"><span className="dot dot--mauve" /><span className="row__text"><b>https://bondex.app/launch</b><em>Link · pinned</em></span><span className="row__time">Copy</span></div>
+      </div>
+
+      <div className={view('shortcuts')} data-view="shortcuts">
+        <div className="mock-list__head"><span>My actions</span><em>Apps + Apple Shortcuts</em></div>
+        <div className="mock-actions"><div><i>⌘</i><b>Open Xcode</b></div><div><i>▶</i><b>Daily setup</b></div><div><i>◷</i><b>Start focus</b></div><div><i>⌕</i><b>Commands</b></div></div>
+      </div>
+
       <div className={view('live')} data-view="live">
         <div className="mock-list__head"><span>Live activities</span><em>1 running</em></div>
         <div className="row mock-live-row">
@@ -189,16 +220,16 @@ export default function PanelViews({
 
       <div className={view('music')} data-view="music">
         <div className="player">
-          <span className="player__art" aria-hidden="true" />
+          <span className="player__art" aria-hidden="true"><Image src="/album-art/after-hours.jpg" alt="" width={76} height={76} /></span>
           <div className="player__meta">
-            <b>Weightless</b>
-            <em>Marconi Union — Ambient Transmissions</em>
+            <b>Blinding Lights</b>
+            <em>The Weeknd — After Hours · Spotify</em>
             <span className="bar">
               <i style={{ width: '38%' }} />
             </span>
             <span className="times">
-              <span>3:12</span>
-              <span>8:09</span>
+              <span>1:18</span>
+              <span>3:20</span>
             </span>
           </div>
         </div>
@@ -234,8 +265,8 @@ export default function PanelViews({
         <div className="row row--slim">
           <span className="dot dot--mauve" aria-hidden="true" />
           <span className="row__text">
-            <b>Weightless</b>
-            <em>Marconi Union</em>
+            <b>Blinding Lights</b>
+            <em>The Weeknd · Spotify</em>
           </span>
           <span className="row__time">4:11 PM</span>
         </div>
@@ -257,6 +288,14 @@ export default function PanelViews({
           <div><span className="mock-file mock-file--code">TSX</span><em>NotchDemo.tsx</em></div>
           <div className="mock-shelf__drop"><b>＋</b><em>Drop files here</em></div>
         </div>
+      </div>
+
+      <div className={view('clipboard')} data-view="clipboard">
+        <div className="mock-list__head"><span>Clipboard · this session</span><em>Pause</em></div>
+        <div className="mock-search">⌕ &nbsp; Search clipboard…</div>
+        <div className="row row--slim"><span className="dot dot--azure" /><span className="row__text"><b>Ship the quiet details.</b><em>Text · pinned</em></span><span className="row__time">Copy</span></div>
+        <div className="row row--slim"><span className="dot dot--mauve" /><span className="row__text"><b>Launch artwork.png</b><em>Image · 6m</em></span><span className="row__time">Copy</span></div>
+        <small className="mock-memory">Memory only · concealed and transient content is ignored</small>
       </div>
     </div>
   );

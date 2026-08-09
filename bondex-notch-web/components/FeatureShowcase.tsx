@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import AgentPlayground from './AgentPlayground';
 
 const trustItems = [
@@ -5,8 +6,27 @@ const trustItems = [
   ['Spotify', 'Native playback'],
   ['Safari + Chrome', 'Browser audio'],
   ['Codex + Claude', 'Agent activity'],
-  ['Shortcuts + scripts', 'Live activities'],
+  ['Quick Capture', 'Notes + links'],
+  ['Shortcuts + scripts', 'Actions + activities'],
 ];
+
+type AppPreviewProps = {
+  src: string;
+  alt: string;
+  label: string;
+  width: number;
+  height: number;
+  className?: string;
+};
+
+function AppPreview({ src, alt, label, width, height, className = '' }: AppPreviewProps) {
+  return (
+    <figure className={`app-preview ${className}`.trim()}>
+      <figcaption><span className="app-preview__live" />{label}</figcaption>
+      <Image src={src} alt={alt} width={width} height={height} sizes="(max-width: 900px) 86vw, 540px" />
+    </figure>
+  );
+}
 
 export default function FeatureShowcase() {
   return (
@@ -41,7 +61,7 @@ export default function FeatureShowcase() {
                 so parallel work never becomes mystery work.
               </p>
               <ul className="story__points">
-                <li>Explore the same seven tabs as the real Mac panel</li>
+                <li>Explore the same ten tabs as the real Mac panel</li>
                 <li>Signal agents, run builds and simulate downloads</li>
                 <li>Control music, change accents and drop files onto Shelf</li>
               </ul>
@@ -66,22 +86,21 @@ export default function FeatureShowcase() {
               </ul>
             </div>
 
-            <div className="product-shot product-shot--media" role="img" aria-label="Bondex music player and system monitor mockup">
-              <span className="shot-notch" />
-              <div className="shot-panel shot-panel--wide">
-                <div className="music-mock">
-                  <span className="album-art"><i>W</i></span>
-                  <span className="music-copy"><b>Weightless</b><small>Marconi Union</small><span className="progress"><i style={{ width: '38%' }} /></span></span>
-                  <span className="transport"><i>‹‹</i><b>Ⅱ</b><i>››</i></span>
-                </div>
-                <div className="metric-grid">
-                  <div><span className="metric-ring" style={{ '--value': '23%' } as React.CSSProperties}><b>23%</b></span><small>CPU</small></div>
-                  <div><span className="metric-ring metric-ring--warm" style={{ '--value': '77%' } as React.CSSProperties}><b>77%</b></span><small>Memory</small></div>
-                  <div><span className="metric-ring metric-ring--ok" style={{ '--value': '100%' } as React.CSSProperties}><b>⚡</b></span><small>Battery</small></div>
-                  <div className="network-metric"><b><i>↓</i> 3.2 MB/s</b><b><i>↑</i> 118 KB/s</b><small>Network</small></div>
-                </div>
-              </div>
-              <span className="shot-caption">Useful information, without another window.</span>
+            <div className="app-preview-board app-preview-board--media">
+              <AppPreview
+                src="/app-previews/music.png"
+                alt="The real Bondex Notch Spotify player with playback controls"
+                label="Spotify player · rendered by the Mac app"
+                width={1120}
+                height={560}
+              />
+              <AppPreview
+                src="/app-previews/system.png"
+                alt="The real Bondex Notch system panel with CPU, memory, battery, network and device batteries"
+                label="System panel · rendered by the Mac app"
+                width={1120}
+                height={620}
+              />
             </div>
           </article>
 
@@ -101,29 +120,99 @@ export default function FeatureShowcase() {
               </ul>
             </div>
 
-            <div className="product-shot product-shot--files" role="img" aria-label="Bondex download tracker and drop shelf mockup">
-              <span className="shot-notch" />
-              <div className="shot-panel">
-                <div className="download-row">
-                  <span className="file-icon">ZIP</span>
-                  <span><b>Xcode_26.xip</b><small>4.1 GB · 22.4 MB/s</small><span className="progress"><i style={{ width: '64%' }} /></span></span>
-                  <strong>64%</strong>
-                </div>
-                <div className="shelf-label"><span>Drop shelf</span><small>3 items</small></div>
-                <div className="shelf-grid">
-                  <div><span className="doc-icon doc-icon--blue">FIG</span><small>Mobile flows.fig</small></div>
-                  <div><span className="doc-icon doc-icon--pink">PNG</span><small>Hero artwork.png</small></div>
-                  <div><span className="doc-icon doc-icon--gold">PDF</span><small>Launch brief.pdf</small></div>
-                  <div className="shelf-drop"><b>＋</b><small>Drop here</small></div>
-                </div>
+            <div className="app-preview-board app-preview-board--files">
+              <AppPreview
+                src="/app-previews/files.png"
+                alt="The real Bondex Notch Files panel in its empty state"
+                label="Files · real empty state"
+                width={1120}
+                height={560}
+              />
+              <AppPreview
+                src="/app-previews/shelf.png"
+                alt="The real Bondex Notch Shelf panel holding a folder"
+                label="Shelf · real drag-and-drop state"
+                width={1120}
+                height={560}
+              />
+            </div>
+          </article>
+
+          <article className="story story--productivity">
+            <div className="story__copy">
+              <p className="label">04 · Capture + act</p>
+              <h3>Catch the thought. Find the clipboard. Move on.</h3>
+              <p>
+                Quick Capture saves notes and links above the app you are already
+                using. Session-only clipboard history, a personal shortcut grid and
+                one searchable command palette keep routine actions within reach.
+              </p>
+              <ul className="story__points">
+                <li>Search, pin and copy captures without changing windows</li>
+                <li>Clipboard text, links and images stay memory-only</li>
+                <li>Open apps, run Apple Shortcuts or jump to any widget</li>
+              </ul>
+            </div>
+
+            <div className="app-preview-board app-preview-board--workflow">
+              <AppPreview
+                className="app-preview--primary"
+                src="/app-previews/capture.png"
+                alt="The real Bondex Notch Quick Capture panel with two saved captures"
+                label="Quick Capture · rendered by the Mac app"
+                width={1120}
+                height={560}
+              />
+              <div className="app-preview-board__pair">
+                <AppPreview
+                  src="/app-previews/shortcuts.png"
+                  alt="The real Bondex Notch Shortcuts grid"
+                  label="Shortcuts"
+                  width={1120}
+                  height={560}
+                />
+                <AppPreview
+                  src="/app-previews/clipboard.png"
+                  alt="The real Bondex Notch Clipboard history panel"
+                  label="Clipboard"
+                  width={1120}
+                  height={560}
+                />
               </div>
-              <span className="shot-caption">A tiny shelf that follows your focus.</span>
+            </div>
+          </article>
+
+          <article className="story story--context">
+            <div className="story__copy">
+              <p className="label">05 · Context aware</p>
+              <h3>The right notch for the moment you are in.</h3>
+              <p>
+                Smart profiles can react to apps, time, power, displays and meetings.
+                Focus, calendar and system signals then surface only the context that
+                helps — without reading notifications or recording your camera or mic.
+              </p>
+              <ul className="story__points">
+                <li>Work, Meeting, Media and Gaming presets with automatic rules</li>
+                <li>Restart-safe focus timer and one-click meeting links</li>
+                <li>Hardware HUD, privacy signals and connected-device batteries</li>
+              </ul>
+            </div>
+
+            <div className="app-preview-board app-preview-board--context">
+              <AppPreview
+                src="/app-previews/productivity.png"
+                alt="The real Bondex Notch Home panel showing focus, a meeting, coding agents and media"
+                label="Productivity Home · real app state"
+                width={1120}
+                height={820}
+              />
+              <p className="app-preview-board__note"><span>Focus</span><span>Meeting</span><span>Agents</span><span>Media</span></p>
             </div>
           </article>
 
           <article className="story story--personalize">
             <div className="story__copy">
-              <p className="label">04 · Made for your Mac</p>
+              <p className="label">06 · Made for your Mac</p>
               <h3>Shape the notch around the way you work.</h3>
               <p>
                 Choose what appears, put tabs in your preferred order, and tune the
@@ -137,20 +226,14 @@ export default function FeatureShowcase() {
               </ul>
             </div>
 
-            <div className="settings-shot" role="img" aria-label="Bondex appearance customization mockup">
-              <div className="settings-sidebar">
-                <b>Bondex Notch</b>
-                <span>General</span><span>Widgets</span><span className="is-selected">Appearance</span><span>Permissions</span>
-              </div>
-              <div className="settings-main">
-                <span className="settings-title">Appearance</span>
-                <div className="setting-line"><span>Panel material<small>Accent tinted</small></span><i className="select-mock">Tinted⌄</i></div>
-                <div className="setting-block"><span>Accent</span><div className="swatches"><i className="swatch is-active" /><i className="swatch" /><i className="swatch" /><i className="swatch" /></div></div>
-                <div className="setting-line"><span>Panel width</span><i className="slider-mock"><b style={{ width: '68%' }} /></i><strong>560</strong></div>
-                <div className="setting-line"><span>Corner curve</span><i className="slider-mock"><b style={{ width: '46%' }} /></i><strong>22</strong></div>
-                <div className="setting-line"><span>Animation speed</span><i className="slider-mock"><b style={{ width: '78%' }} /></i><strong>Fast</strong></div>
-                <div className="setting-preview"><span className="setting-notch" /><small>Live preview</small></div>
-              </div>
+            <div className="app-preview-board app-preview-board--settings">
+              <AppPreview
+                src="/app-previews/settings-appearance.png"
+                alt="The real Bondex Notch Appearance settings window"
+                label="Appearance settings · rendered by the Mac app"
+                width={1400}
+                height={997}
+              />
             </div>
           </article>
         </div>

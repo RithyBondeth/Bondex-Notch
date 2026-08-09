@@ -28,7 +28,7 @@ const ubuntuMono = Ubuntu_Mono({
 const title = "Bondex Notch — Your Mac's notch, finally useful";
 const description =
   'A native macOS utility that turns the notch into a live view of your ' +
-  'music, coding agents, live tasks, downloads, system status and files. ' +
+  'captures, focus sessions, meetings, music, coding agents, live tasks and system status. ' +
   'Built in Swift. No Electron, no web view.';
 
 export const metadata: Metadata = {
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     title,
     description:
       'A native macOS utility that turns the notch into a live view of your ' +
-      'music, agents, live tasks, downloads, system status and files.',
+      'captures, focus sessions, meetings, music, agents and system status.',
     images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Bondex Notch on a Mac display' }],
   },
   twitter: {
