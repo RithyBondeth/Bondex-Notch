@@ -156,6 +156,14 @@ enum PreviewRenderer {
             environment.settings.preferences.licenseKey = key
         }
 
+        // Point the Dev tab at whatever repository the renderer was run from, so
+        // the shot shows a real working copy. Run it from somewhere that is not a
+        // repository and it renders that state instead, which is equally worth
+        // reviewing — both are states a user will actually see.
+        let workingDirectory = FileManager.default.currentDirectoryPath
+        environment.settings.preferences.devProjectPath = workingDirectory
+        environment.dev.start(path: workingDirectory)
+
         // Something recognisable on the shelf. Falls back to nothing if the
         // machine has no files in these locations.
         let candidates = [

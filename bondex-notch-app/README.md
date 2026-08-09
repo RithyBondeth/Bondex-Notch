@@ -92,6 +92,42 @@ whenever the height was raised enough to fix Home. Tabs that scroll opt out with
 `NotchTab.widgetHeight`, because a panel that resized as feed items arrived and
 aged out would be worse than one that stays put.
 
+### Dev status
+
+The Dev tab reports one Git working copy: branch, drift from its upstream, what
+is uncommitted, and the last commit. Read-only by design — the panel opens on
+hover, and a stray click that staged or discarded something would be
+indefensible.
+
+`DevProjectService` **watches `.git` rather than polling**. Git touches that
+directory for every operation that could change any of this — commit, checkout,
+index write, a fetch moving a remote ref — so the dispatch source fires exactly
+when there is something new and never in between. The one thing it misses is an
+edit to a tracked file, which changes the file and not the repository; the widget
+calls `refresh()` when the panel opens, which is the only moment anyone is
+looking. Bursts are coalesced, because one `git commit` rewrites four files.
+
+Three things about running another process are load-bearing:
+
+- **Git is located explicitly**, never invoked as `/usr/bin/git`. On a Mac
+  without the Command Line Tools that path is a stub that pops the developer
+  tools installer — an unprompted system modal from a menu bar app. Homebrew, the
+  CLT and Xcode locations are checked for a real binary; if none is there the
+  widget says "Git not found" and stays quiet.
+- **Every call has a deadline**, armed before anything reads. A repository on a
+  stalled network mount blocks in the filesystem, not in Git, so there is nothing
+  to interrupt from the inside — the process is terminated, which is also what
+  unblocks the read.
+- **stderr is drained on its own queue.** Reading the two pipes in sequence
+  deadlocks whenever the second fills first, which `git status` on a large
+  repository will do.
+
+Status is parsed from `--porcelain=v2 --branch`: v1 would need three more
+invocations for the branch, upstream and ahead/behind counts that v2 reports in
+the same call, and v2's format is documented as machine-readable where v1's is
+explicitly not. Mid-operation state (merge, rebase, cherry-pick) is read from the
+marker files in `.git`, because no porcelain command reports it.
+
 ## What macOS does and does not allow
 
 Two features in the original proposal cannot be built as literally described.

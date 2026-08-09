@@ -15,6 +15,14 @@ struct Preferences: Codable, Equatable {
     var fileActivityEnabled = true
     var activityFeedEnabled = true
     var shelfEnabled = true
+    var devWidgetEnabled = true
+
+    /// Absolute path of the Git working copy the Dev tab reports on.
+    ///
+    /// A plain path, not a security-scoped bookmark: the app is not sandboxed, so
+    /// a path is all that is needed to reach the folder again. Sandboxing it later
+    /// is the change that makes a bookmark necessary.
+    var devProjectPath: String = ""
 
     /// Expand when the pointer rests on the notch, versus requiring a click.
     var expandOnHover = true

@@ -20,6 +20,7 @@ enum LicenseTier: String, Codable {
 enum ProFeature: String, CaseIterable, Identifiable {
     case fileActivity
     case shelf
+    case devTools
     case customThemes
 
     var id: String { rawValue }
@@ -28,6 +29,7 @@ enum ProFeature: String, CaseIterable, Identifiable {
         switch self {
         case .fileActivity: return "File Activity"
         case .shelf: return "Drop Shelf"
+        case .devTools: return "Dev Status"
         case .customThemes: return "Custom Themes"
         }
     }
