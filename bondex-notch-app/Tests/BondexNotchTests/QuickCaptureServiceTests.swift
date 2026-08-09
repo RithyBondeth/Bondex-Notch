@@ -112,6 +112,7 @@ final class QuickCaptureServiceTests: XCTestCase {
     func testGlobalHotKeyIDsRouteToSeparateActions() {
         XCTAssertEqual(GlobalHotKeyService.action(forHotKeyID: 1), .panel)
         XCTAssertEqual(GlobalHotKeyService.action(forHotKeyID: 2), .quickCapture)
+        XCTAssertEqual(GlobalHotKeyService.action(forHotKeyID: 3), .commandPalette)
         XCTAssertNil(GlobalHotKeyService.action(forHotKeyID: 99))
     }
 

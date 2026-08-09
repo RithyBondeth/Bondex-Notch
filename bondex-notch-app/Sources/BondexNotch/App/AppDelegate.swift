@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: NotchWindowController?
     private var menuBar: MenuBarController?
     private var settingsWindow: NSWindow?
+    private var settingsHosting: NSHostingController<SettingsView>?
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let environment = AppEnvironment(screen: screen)
         self.environment = environment
+        environment.requestSettingsPage = { [weak self] page in
+            self?.showSettings(page: page)
+        }
 
         let windowController = NotchWindowController(environment: environment)
         windowController.show(on: screen)
@@ -60,16 +64,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Settings
 
-    private func showSettings() {
+    private func showSettings(page: SettingsPage? = nil) {
         guard let environment else { return }
 
         if let settingsWindow {
+            if let page {
+                settingsHosting?.rootView = SettingsView(environment: environment, initialPage: page)
+            }
             settingsWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
-        let view = SettingsView(environment: environment)
+        let view = SettingsView(environment: environment, initialPage: page ?? .general)
         let hosting = NSHostingController(rootView: view)
 
         let window = NSWindow(contentViewController: hosting)
@@ -94,5 +101,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         settingsWindow = window
+        settingsHosting = hosting
     }
 }

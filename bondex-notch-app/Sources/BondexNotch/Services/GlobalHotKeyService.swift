@@ -65,6 +65,38 @@ enum QuickCaptureShortcut: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+enum CommandPaletteShortcut: String, CaseIterable, Codable, Identifiable {
+    case controlOptionP
+    case commandShiftP
+    case controlOptionReturn
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .controlOptionP: return "⌃⌥ P"
+        case .commandShiftP: return "⇧⌘ P"
+        case .controlOptionReturn: return "⌃⌥ Return"
+        }
+    }
+
+    fileprivate var keyCode: UInt32 {
+        switch self {
+        case .controlOptionP, .commandShiftP: return UInt32(kVK_ANSI_P)
+        case .controlOptionReturn: return UInt32(kVK_Return)
+        }
+    }
+
+    fileprivate var modifiers: UInt32 {
+        switch self {
+        case .controlOptionP, .controlOptionReturn:
+            return UInt32(controlKey | optionKey)
+        case .commandShiftP:
+            return UInt32(cmdKey | shiftKey)
+        }
+    }
+}
+
 /// Registers a system-wide shortcut without Input Monitoring permission.
 /// Carbon's hot-key API remains the appropriate macOS API for a background
 /// menu-bar agent because it registers one explicit chord rather than reading
@@ -74,17 +106,20 @@ final class GlobalHotKeyService {
     enum Action: Equatable {
         case panel
         case quickCapture
+        case commandPalette
     }
 
     var onPress: (() -> Void)?
     var onQuickCapture: (() -> Void)?
+    var onCommandPalette: (() -> Void)?
 
     private var hotKeys: [EventHotKeyRef] = []
     private var eventHandler: EventHandlerRef?
 
     func start(
         shortcut: GlobalShortcut?,
-        quickCaptureShortcut: QuickCaptureShortcut? = nil
+        quickCaptureShortcut: QuickCaptureShortcut? = nil,
+        commandPaletteShortcut: CommandPaletteShortcut? = nil
     ) {
         stop()
 
@@ -120,6 +155,14 @@ final class GlobalHotKeyService {
                 modifiers: quickCaptureShortcut.modifiers,
                 id: Self.quickCaptureHotKeyID,
                 name: "Quick Capture"
+            )
+        }
+        if let commandPaletteShortcut {
+            register(
+                keyCode: commandPaletteShortcut.keyCode,
+                modifiers: commandPaletteShortcut.modifiers,
+                id: Self.commandPaletteHotKeyID,
+                name: "Command Palette"
             )
         }
 
@@ -158,6 +201,7 @@ final class GlobalHotKeyService {
         switch Self.action(forHotKeyID: id) {
         case .panel: onPress?()
         case .quickCapture: onQuickCapture?()
+        case .commandPalette: onCommandPalette?()
         case nil: break
         }
     }
@@ -166,6 +210,7 @@ final class GlobalHotKeyService {
         switch id {
         case panelHotKeyID: return .panel
         case quickCaptureHotKeyID: return .quickCapture
+        case commandPaletteHotKeyID: return .commandPalette
         default: return nil
         }
     }
@@ -173,6 +218,7 @@ final class GlobalHotKeyService {
     private static let signature: OSType = 0x424E4458 // "BNDX"
     private static let panelHotKeyID: UInt32 = 1
     private static let quickCaptureHotKeyID: UInt32 = 2
+    private static let commandPaletteHotKeyID: UInt32 = 3
 
     private static let eventCallback: EventHandlerUPP = { _, event, userData in
         guard let event, let userData else { return OSStatus(eventNotHandledErr) }

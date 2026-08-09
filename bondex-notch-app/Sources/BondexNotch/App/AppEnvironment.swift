@@ -18,6 +18,7 @@ final class AppEnvironment: ObservableObject {
     let globalHotKey: GlobalHotKeyService
     let accessibilityAnnouncements: AccessibilityAnnouncementService
     let quickCapture: QuickCaptureService
+    let commandPalette: CommandPaletteService
     let customActions: CustomActionService
     let files: FileActivityService
     let clipboard: ClipboardHistoryService
@@ -30,6 +31,7 @@ final class AppEnvironment: ObservableObject {
     /// Installed by the window controller so a global shortcut can make the
     /// nonactivating panel keyboard-operable without activating the whole app.
     var requestKeyboardFocus: (() -> Void)?
+    var requestSettingsPage: ((SettingsPage) -> Void)?
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -51,6 +53,7 @@ final class AppEnvironment: ObservableObject {
         self.globalHotKey = GlobalHotKeyService()
         self.accessibilityAnnouncements = AccessibilityAnnouncementService()
         self.quickCapture = QuickCaptureService(defaults: defaults)
+        self.commandPalette = CommandPaletteService()
         self.customActions = CustomActionService()
         self.files = FileActivityService(events: events)
         self.clipboard = ClipboardHistoryService()
@@ -67,17 +70,23 @@ final class AppEnvironment: ObservableObject {
         globalHotKey.onPress = { [weak self] in
             guard let self else { return }
             let isOpening = !self.notch.state.isExpanded
+            if !isOpening { self.commandPalette.dismiss() }
             self.notch.toggle()
             if isOpening { self.requestKeyboardFocus?() }
         }
 
         globalHotKey.onQuickCapture = { [weak self] in
             guard let self else { return }
+            self.commandPalette.dismiss()
             self.quickCapture.begin()
             self.notch.tab = .capture
             self.notch.setPinned(true)
             self.notch.expand()
             self.requestKeyboardFocus?()
+        }
+
+        globalHotKey.onCommandPalette = { [weak self] in
+            self?.presentCommandPalette()
         }
 
         systemHUD.onPresentation = { [weak self] presentation in
@@ -234,11 +243,16 @@ final class AppEnvironment: ObservableObject {
 
         let captureHotKeyEnabled = preferences.quickCaptureEnabled
             && preferences.quickCaptureHotKeyEnabled
-        if preferences.globalHotKeyEnabled || captureHotKeyEnabled {
+        if preferences.globalHotKeyEnabled
+            || captureHotKeyEnabled
+            || preferences.commandPaletteHotKeyEnabled {
             globalHotKey.start(
                 shortcut: preferences.globalHotKeyEnabled ? preferences.globalShortcut : nil,
                 quickCaptureShortcut: captureHotKeyEnabled
                     ? preferences.quickCaptureShortcut
+                    : nil,
+                commandPaletteShortcut: preferences.commandPaletteHotKeyEnabled
+                    ? preferences.commandPaletteShortcut
                     : nil
             )
         } else {
@@ -297,6 +311,211 @@ final class AppEnvironment: ObservableObject {
             case .shelf: return settings.preferences.shelfEnabled
             }
         }
+    }
+
+    var commandPaletteResults: [CommandPaletteCommand] {
+        CommandPaletteCommand.search(commandPalette.query, in: commandPaletteCommands)
+    }
+
+    func presentCommandPalette() {
+        commandPalette.present()
+        notch.setPinned(true)
+        notch.expand()
+        requestKeyboardFocus?()
+    }
+
+    func executeSelectedCommand() {
+        let results = commandPaletteResults
+        guard results.indices.contains(commandPalette.selectedIndex) else { return }
+        execute(results[commandPalette.selectedIndex])
+    }
+
+    func execute(_ command: CommandPaletteCommand) {
+        switch command.action {
+        case .createCapture:
+            commandPalette.dismiss()
+            quickCapture.begin()
+            notch.tab = .capture
+            notch.setPinned(true)
+            notch.expand()
+            requestKeyboardFocus?()
+
+        case .toggleFocus:
+            if focusTimer.snapshot.isRunning {
+                focusTimer.pause()
+            } else if focusTimer.snapshot.isActive {
+                focusTimer.resume()
+            } else {
+                focusTimer.start(minutes: settings.preferences.defaultFocusMinutes)
+            }
+            commandPalette.dismiss()
+
+        case let .customAction(id):
+            guard let action = settings.preferences.customActions.first(where: { $0.id == id }) else {
+                return
+            }
+            customActions.perform(action, toggleWidget: toggleWidget)
+            commandPalette.dismiss()
+
+        case let .clipboard(id):
+            guard let item = clipboard.items.first(where: { $0.id == id }) else { return }
+            clipboard.copy(item)
+            accessibilityAnnouncements.announce("Copied clipboard item")
+            commandPalette.dismiss()
+            notch.collapse()
+
+        case let .capture(id):
+            guard let item = quickCapture.items.first(where: { $0.id == id }) else { return }
+            quickCapture.copy(item)
+            accessibilityAnnouncements.announce("Copied quick capture")
+            commandPalette.dismiss()
+            notch.collapse()
+
+        case let .shelf(id):
+            guard let item = shelf.items.first(where: { $0.id == id }) else { return }
+            shelf.reveal(item)
+            commandPalette.dismiss()
+            notch.collapse()
+
+        case let .showWidget(tab):
+            notch.tab = tab
+            commandPalette.dismiss()
+
+        case let .openSettings(page):
+            commandPalette.dismiss()
+            notch.collapse()
+            requestSettingsPage?(page)
+        }
+    }
+
+    private var commandPaletteCommands: [CommandPaletteCommand] {
+        var commands: [CommandPaletteCommand] = []
+
+        if settings.preferences.quickCaptureEnabled {
+            commands.append(CommandPaletteCommand(
+                id: "capture-new",
+                title: "Create quick capture",
+                subtitle: "Save a note or link",
+                systemImage: "square.and.pencil",
+                category: "Action",
+                keywords: ["new", "note", "write", "save"],
+                priority: 0,
+                action: .createCapture
+            ))
+        }
+
+        if settings.preferences.focusTimerEnabled {
+            let focusTitle: String
+            let focusSubtitle: String
+            if focusTimer.snapshot.isRunning {
+                focusTitle = "Pause focus timer"
+                focusSubtitle = focusTimer.snapshot.timeString + " remaining"
+            } else if focusTimer.snapshot.isActive {
+                focusTitle = "Resume focus timer"
+                focusSubtitle = focusTimer.snapshot.timeString + " remaining"
+            } else {
+                focusTitle = "Start focus timer"
+                focusSubtitle = "Focus for \(settings.preferences.defaultFocusMinutes) minutes"
+            }
+            commands.append(CommandPaletteCommand(
+                id: "focus-toggle",
+                title: focusTitle,
+                subtitle: focusSubtitle,
+                systemImage: "timer",
+                category: "Action",
+                keywords: ["pomodoro", "work", "pause", "resume"],
+                priority: 1,
+                action: .toggleFocus
+            ))
+        }
+
+        if settings.preferences.customShortcutsEnabled {
+            commands += settings.preferences.customActions.enumerated().map { index, action in
+                CommandPaletteCommand(
+                    id: "action-\(action.id.uuidString)",
+                    title: action.title,
+                    subtitle: action.subtitle,
+                    systemImage: action.systemImage,
+                    category: "Shortcut",
+                    keywords: ["app", "shortcut", "run", "open", "toggle"],
+                    priority: 10 + index,
+                    action: .customAction(action.id)
+                )
+            }
+        }
+
+        commands += availableTabs.enumerated().map { index, tab in
+            CommandPaletteCommand(
+                id: "widget-\(tab.rawValue)",
+                title: "Show \(tab.title)",
+                subtitle: "Switch to the \(tab.title) widget",
+                systemImage: tab.systemImage,
+                category: "Widget",
+                keywords: [tab.rawValue, "tab", "open", "switch"],
+                priority: 30 + index,
+                action: .showWidget(tab)
+            )
+        }
+
+        if settings.preferences.clipboardHistoryEnabled {
+            commands += clipboard.items.enumerated().map { index, item in
+                CommandPaletteCommand(
+                    id: "clipboard-\(item.id.uuidString)",
+                    title: item.title,
+                    subtitle: "Copy from Clipboard · \(item.detail)",
+                    systemImage: item.systemImage,
+                    category: "Clipboard",
+                    keywords: ["paste", "copy", "history"],
+                    priority: 50 + index,
+                    action: .clipboard(item.id)
+                )
+            }
+        }
+
+        if settings.preferences.quickCaptureEnabled {
+            commands += quickCapture.items.enumerated().map { index, item in
+                CommandPaletteCommand(
+                    id: "capture-\(item.id.uuidString)",
+                    title: item.title,
+                    subtitle: "Copy from Quick Capture · \(item.detail)",
+                    systemImage: item.isLink ? "link" : "note.text",
+                    category: "Capture",
+                    keywords: ["note", "saved", "copy"],
+                    priority: 60 + index,
+                    action: .capture(item.id)
+                )
+            }
+        }
+
+        if settings.preferences.shelfEnabled, settings.isUnlocked(.shelf) {
+            commands += shelf.items.enumerated().map { index, item in
+                CommandPaletteCommand(
+                    id: "shelf-\(item.id.uuidString)",
+                    title: item.name,
+                    subtitle: "Reveal shelf item in Finder",
+                    systemImage: "doc.fill",
+                    category: "Shelf",
+                    keywords: ["file", "finder", "reveal"],
+                    priority: 70 + index,
+                    action: .shelf(item.id)
+                )
+            }
+        }
+
+        commands += SettingsPage.allCases.enumerated().map { index, page in
+            CommandPaletteCommand(
+                id: "settings-\(page.rawValue)",
+                title: "Open \(page.title) settings",
+                subtitle: page.subtitle,
+                systemImage: page.systemImage,
+                category: "Settings",
+                keywords: ["preferences", page.rawValue],
+                priority: 90 + index,
+                action: .openSettings(page)
+            )
+        }
+
+        return commands
     }
 
     /// Returns the widget's new enabled state, or nil for tabs that are not
