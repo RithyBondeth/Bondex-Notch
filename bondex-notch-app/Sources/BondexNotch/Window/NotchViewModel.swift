@@ -22,6 +22,8 @@ final class NotchViewModel: ObservableObject {
     private var closeWorkItem: DispatchWorkItem?
     private var openWorkItem: DispatchWorkItem?
     private var bannerWorkItem: DispatchWorkItem?
+    private var dragPasteboardChangeCount = -1
+    private var dragPasteboardHasFiles = false
     private var cancellables = Set<AnyCancellable>()
 
     private let settings: SettingsStore
@@ -116,6 +118,16 @@ final class NotchViewModel: ObservableObject {
         let liveRect = geometry.hoverRect(ofSize: contentSize, isExpanded: state.isExpanded)
         let triggerRect = geometry.hoverRect(for: .collapsed)
 
+        // A file on its way to the shelf opens the panel early and from much
+        // further out, so there is something visible to aim at. Pointer events
+        // keep arriving throughout a drag, which is what makes this possible.
+        if !state.isExpanded,
+           geometry.dropCatchRect().contains(location),
+           isFileDragInFlight {
+            openForDrop()
+            return
+        }
+
         if state.isExpanded {
             if liveRect.contains(location) {
                 cancelPendingClose()
@@ -179,6 +191,46 @@ final class NotchViewModel: ObservableObject {
     func dragEntered() {
         isDropTargeted = true
         guard settings.isUnlocked(.shelf), settings.preferences.shelfEnabled else { return }
+        tab = .shelf
+        expand()
+    }
+
+    // MARK: Drag catching
+
+    /// Whether a file drag is currently in flight anywhere on screen.
+    ///
+    /// There is no public "is a drag happening" API, but the drag pasteboard
+    /// carries the payload while one is, and its change count makes the check
+    /// cheap enough to run on pointer moves — reading the items themselves on
+    /// every event would not be.
+    ///
+    /// The pasteboard keeps its contents after a drag finishes, so this can read
+    /// true when nothing is being dragged. That is harmless here: the only
+    /// consequence is that the notch opens from a little further away, which is
+    /// what hovering it does anyway.
+    var isFileDragInFlight: Bool {
+        let pasteboard = NSPasteboard(name: .drag)
+        if pasteboard.changeCount != dragPasteboardChangeCount {
+            dragPasteboardChangeCount = pasteboard.changeCount
+            dragPasteboardHasFiles = pasteboard.canReadObject(
+                forClasses: [NSURL.self],
+                options: [.urlReadingFileURLsOnly: true]
+            )
+        }
+        // A drag session owns the mouse button, so it reports *no* button pressed —
+        // which is exactly what separates a live drag from someone holding the
+        // button down over the menu bar after some earlier drag left the
+        // pasteboard populated. Without this, an ordinary click near the notch
+        // would be swallowed by the enlarged drop zone.
+        return dragPasteboardHasFiles && NSEvent.pressedMouseButtons == 0
+    }
+
+    /// Opens straight onto the shelf, with no dwell — a drag is already a clear
+    /// statement of intent, and waiting would just make the target arrive late.
+    private func openForDrop() {
+        guard settings.isUnlocked(.shelf), settings.preferences.shelfEnabled else { return }
+        cancelPendingClose()
+        guard state != .expanded else { return }
         tab = .shelf
         expand()
     }

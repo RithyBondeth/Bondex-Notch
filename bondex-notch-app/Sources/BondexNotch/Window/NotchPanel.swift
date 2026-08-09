@@ -52,6 +52,18 @@ final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
     /// controller and re-read on every hit test, so it always matches state.
     var hitRegionProvider: () -> CGRect = { .zero }
 
+    /// Enlarged region to accept while a file drag is in flight, or `.zero` when
+    /// none is.
+    ///
+    /// macOS decides whether a window is a drop target **when the drag enters
+    /// it**, by hit testing. The collapsed panel hit-tests to the notch and
+    /// nothing else, so a drag crossing the rest of this window was ruled out
+    /// before the panel had any chance to open itself — and then kept being
+    /// ignored for the rest of that drag, even once the panel had expanded right
+    /// under the pointer. Accepting the wider zone up front is what makes the
+    /// window a candidate at all; the panel opening is what makes it visible.
+    var dropCatchRegionProvider: () -> CGRect = { .zero }
+
     required init(rootView: Content) {
         super.init(rootView: rootView)
     }
@@ -62,6 +74,9 @@ final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
+        if dropCatchRegionProvider().contains(point) {
+            return super.hitTest(point)
+        }
         guard hitRegionProvider().contains(point) else { return nil }
         return super.hitTest(point)
     }

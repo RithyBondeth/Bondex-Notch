@@ -30,6 +30,12 @@ final class NotchWindowController {
         hosting.hitRegionProvider = { [weak self] in
             self?.environment.notch.hitRect ?? .zero
         }
+        hosting.dropCatchRegionProvider = { [weak self] in
+            guard let notch = self?.environment.notch, notch.isFileDragInFlight else {
+                return .zero
+            }
+            return notch.geometry.dropCatchHitRect()
+        }
 
         panel.contentView = hosting
         panel.setFrame(frame, display: true)
