@@ -261,6 +261,15 @@ enum PreviewRenderer {
         environment.notch.tab = .home
         if !render(environment, named: "expanded-customized", into: directory) { failures += 1 }
 
+        // Settings has a separate window and visual language. Render several
+        // pages so the glass sidebar, page hierarchy, form density, and longest
+        // content are protected by the same visual regression workflow.
+        for page in [SettingsPage.general, .widgets, .appearance] {
+            if !renderSettings(environment, page: page, into: directory) {
+                failures += 1
+            }
+        }
+
         return failures == 0 ? 0 : 1
     }
 
@@ -313,6 +322,45 @@ enum PreviewRenderer {
         }
 
         let url = directory.appendingPathComponent("\(name).png")
+        do {
+            try png.write(to: url)
+            print("rendered \(url.path)")
+            return true
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return false
+        }
+    }
+
+    private static func renderSettings(
+        _ environment: AppEnvironment,
+        page: SettingsPage,
+        into directory: URL
+    ) -> Bool {
+        let size = NSSize(width: 800, height: 570)
+        let hosting = NSHostingView(rootView:
+            SettingsView(environment: environment, initialPage: page)
+                .frame(width: size.width, height: size.height)
+        )
+        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.appearance = NSAppearance(named: .darkAqua)
+        hosting.layoutSubtreeIfNeeded()
+
+        guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+            FileHandle.standardError.write(Data(
+                "error: could not render settings-\(page.rawValue)\n".utf8
+            ))
+            return false
+        }
+        hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            FileHandle.standardError.write(Data(
+                "error: could not encode settings-\(page.rawValue)\n".utf8
+            ))
+            return false
+        }
+
+        let url = directory.appendingPathComponent("settings-\(page.rawValue).png")
         do {
             try png.write(to: url)
             print("rendered \(url.path)")

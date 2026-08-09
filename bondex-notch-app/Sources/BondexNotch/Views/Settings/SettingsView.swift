@@ -2,37 +2,292 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum SettingsPage: String, CaseIterable, Identifiable {
+    case general
+    case widgets
+    case shortcuts
+    case appearance
+    case license
+    case permissions
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .widgets: return "Widgets"
+        case .shortcuts: return "Shortcuts"
+        case .appearance: return "Appearance"
+        case .license: return "License"
+        case .permissions: return "Permissions"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .general: return "Interaction, keyboard, and accessibility"
+        case .widgets: return "Choose what appears in your notch"
+        case .shortcuts: return "Build your personal quick-action grid"
+        case .appearance: return "Shape, colour, material, and motion"
+        case .license: return "Manage your Bondex Notch plan"
+        case .permissions: return "Review access used by integrations"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: return "slider.horizontal.3"
+        case .widgets: return "square.grid.2x2.fill"
+        case .shortcuts: return "bolt.square.fill"
+        case .appearance: return "paintbrush.pointed.fill"
+        case .license: return "key.fill"
+        case .permissions: return "lock.shield.fill"
+        }
+    }
+}
+
 struct SettingsView: View {
 
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var settings: SettingsStore
+    @State private var selection: SettingsPage
 
-    init(environment: AppEnvironment) {
+    init(environment: AppEnvironment, initialPage: SettingsPage = .general) {
         self.environment = environment
         self.settings = environment.settings
+        self._selection = State(initialValue: initialPage)
     }
 
     var body: some View {
-        TabView {
-            GeneralSettings(settings: settings)
-                .tabItem { Label("General", systemImage: "gearshape") }
+        ZStack {
+            SettingsGlassBackdrop(accent: settings.effectiveAccentColor)
 
-            WidgetSettings(environment: environment, settings: settings)
-                .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
+            HStack(spacing: 0) {
+                sidebar
+                    .frame(width: 190)
 
-            ShortcutSettings(settings: settings)
-                .tabItem { Label("Shortcuts", systemImage: "bolt.square") }
+                Rectangle()
+                    .fill(Color.white.opacity(0.09))
+                    .frame(width: 0.7)
 
-            AppearanceSettings(settings: settings)
-                .tabItem { Label("Appearance", systemImage: "paintbrush") }
-
-            LicenseSettings(settings: settings)
-                .tabItem { Label("License", systemImage: "key") }
-
-            PermissionsSettings(environment: environment)
-                .tabItem { Label("Permissions", systemImage: "lock.shield") }
+                VStack(alignment: .leading, spacing: 0) {
+                    pageHeader
+                    pageContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
         }
-        .frame(width: 600, height: 470)
+        .tint(settings.effectiveAccentColor)
+        .frame(minWidth: 720, idealWidth: 800, minHeight: 520, idealHeight: 570)
+        .preferredColorScheme(.dark)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [
+                                settings.effectiveAccentColor.opacity(0.9),
+                                settings.effectiveAccentColor.opacity(0.45)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                    Image(systemName: "macbook")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 36, height: 36)
+                .shadow(color: settings.effectiveAccentColor.opacity(0.28), radius: 10, y: 4)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Bondex Notch")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Settings")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 17)
+            .padding(.bottom, 18)
+
+            VStack(spacing: 5) {
+                ForEach(SettingsPage.allCases) { page in
+                    SettingsSidebarButton(
+                        page: page,
+                        isSelected: selection == page,
+                        accent: settings.effectiveAccentColor
+                    ) {
+                        withAnimation(.easeOut(duration: 0.16)) { selection = page }
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+
+            Spacer()
+
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(settings.tier == .pro ? Color.green : Color.white.opacity(0.35))
+                    .frame(width: 6, height: 6)
+                Text(settings.tier == .pro ? "Pro active" : "Free plan")
+                    .font(.system(size: 10, weight: .semibold))
+                Spacer()
+                Text(Bundle.main.shortVersion)
+                    .font(.system(size: 9, weight: .medium).monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+        }
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .trailing) {
+            LinearGradient(
+                colors: [.clear, Color.white.opacity(0.045)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: 36)
+            .allowsHitTesting(false)
+        }
+    }
+
+    private var pageHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(selection.title)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text(selection.subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: selection.systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(settings.effectiveAccentColor)
+                .frame(width: 38, height: 38)
+                .background(.thinMaterial, in: RoundedRectangle(
+                    cornerRadius: 12, style: .continuous
+                ))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(settings.effectiveAccentColor.opacity(0.2), lineWidth: 0.8)
+                )
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
+        .padding(.bottom, 13)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var pageContent: some View {
+        switch selection {
+        case .general:
+            GeneralSettings(settings: settings)
+        case .widgets:
+            WidgetSettings(environment: environment, settings: settings)
+        case .shortcuts:
+            ShortcutSettings(settings: settings)
+        case .appearance:
+            AppearanceSettings(settings: settings)
+        case .license:
+            LicenseSettings(settings: settings)
+        case .permissions:
+            PermissionsSettings(environment: environment)
+        }
+    }
+}
+
+private struct SettingsSidebarButton: View {
+    let page: SettingsPage
+    let isSelected: Bool
+    let accent: Color
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: page.systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isSelected ? accent : Color.secondary)
+                    .frame(width: 18)
+                Text(page.title)
+                    .font(.system(size: 11.5, weight: isSelected ? .semibold : .medium))
+                Spacer()
+            }
+            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+            .padding(.horizontal, 11)
+            .frame(height: 36)
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(
+                        isSelected
+                            ? AnyShapeStyle(.thinMaterial)
+                            : AnyShapeStyle(Color.white.opacity(hovering ? 0.055 : 0))
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? accent.opacity(0.2) : Color.clear,
+                        lineWidth: 0.75
+                    )
+            }
+            .shadow(color: isSelected ? accent.opacity(0.08) : .clear, radius: 8, y: 3)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private struct SettingsGlassBackdrop: View {
+    let accent: Color
+
+    var body: some View {
+        ZStack {
+            Color(red: 0.055, green: 0.06, blue: 0.075)
+            RadialGradient(
+                colors: [accent.opacity(0.13), accent.opacity(0.035), .clear],
+                center: .topTrailing,
+                startRadius: 0,
+                endRadius: 430
+            )
+            RadialGradient(
+                colors: [Color.blue.opacity(0.055), .clear],
+                center: .bottomLeading,
+                startRadius: 0,
+                endRadius: 360
+            )
+            Rectangle().fill(.ultraThinMaterial).opacity(0.48)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+private extension View {
+    func modernSettingsForm() -> some View {
+        self
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .controlSize(.regular)
+    }
+}
+
+private extension Bundle {
+    var shortVersion: String {
+        object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
 }
 
@@ -122,7 +377,7 @@ private struct GeneralSettings: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
+        .modernSettingsForm()
     }
 
     private func binding<T>(_ keyPath: WritableKeyPath<Preferences, T>) -> Binding<T> {
@@ -293,7 +548,7 @@ private struct WidgetSettings: View {
                     .font(.caption)
             }
         }
-        .formStyle(.grouped)
+        .modernSettingsForm()
     }
 
     private var downloadsPath: String {
@@ -410,7 +665,7 @@ private struct ShortcutSettings: View {
                     .disabled(!canAdd)
             }
         }
-        .formStyle(.grouped)
+        .modernSettingsForm()
     }
 
     private func actionRow(_ action: CustomAction, at index: Int) -> some View {
@@ -634,7 +889,7 @@ private struct AppearanceSettings: View {
                 Button("Reset appearance") { settings.resetAppearance() }
             }
         }
-        .formStyle(.grouped)
+        .modernSettingsForm()
     }
 
     private var customAccent: Binding<Color> {
@@ -716,7 +971,7 @@ private struct LicenseSettings: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .modernSettingsForm()
         .onAppear { draftKey = settings.preferences.licenseKey }
     }
 
@@ -805,7 +1060,7 @@ private struct PermissionsSettings: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
+        .modernSettingsForm()
     }
 
     private func permissionRow(
