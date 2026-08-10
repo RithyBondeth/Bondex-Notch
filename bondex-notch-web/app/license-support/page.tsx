@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LegalPage from '@/components/LegalPage';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/public-config';
 
 export const metadata: Metadata = {
   title: 'Licence Support — Bondex Notch',
@@ -16,12 +17,12 @@ export default function LicenseSupportPage() {
       intro="Help with the 24-hour trial, activating a purchased licence, moving to another Mac, and resolving an invalid key."
     >
       <section className="legal-callout">
-        <h2>Production licences are not on sale yet</h2>
+        <h2>Payment and licence status</h2>
         <p>
-          The website checkout is currently a preview and does not charge a card
-          or issue a production licence. Until sales open, never send real card
-          details through the preview or to support. Early-access questions are
-          welcome by email.
+          When paid checkout is enabled, Stripe handles the payment and provides
+          the receipt. Keep the receipt and order reference for licence support.
+          If the checkout button says setup is still in progress, paid sales are
+          not yet open. Never send card details or account passwords to support.
         </p>
       </section>
 
@@ -38,7 +39,7 @@ export default function LicenseSupportPage() {
       <section>
         <h2>Activate a licence</h2>
         <ol>
-          <li>Copy the complete licence key from your future purchase confirmation.</li>
+          <li>Copy the complete licence key from your purchase confirmation.</li>
           <li>Open Bondex Notch → Settings → License.</li>
           <li>Paste the key into the License key field and choose Apply.</li>
           <li>Confirm that the status changes to Licensed with full access.</li>
@@ -79,8 +80,8 @@ export default function LicenseSupportPage() {
         <h2>Contact licence support</h2>
         <p>
           Email{' '}
-          <a href="mailto:rithybondeth999@gmail.com?subject=Bondex%20Notch%20licence%20support">
-            rithybondeth999@gmail.com
+          <a href={supportMailto('Bondex Notch licence support')}>
+            {SUPPORT_EMAIL}
           </a>{' '}
           with the subject “Bondex Notch licence support.” Include the order
           number and technical details, but never include card details or account

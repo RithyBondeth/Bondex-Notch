@@ -232,7 +232,7 @@ private struct TrialExpiredView: View {
             }
 
             HStack(spacing: 8) {
-                Link(destination: URL(string: "https://bondex-notch.bondeth.site/checkout/")!) {
+                Link(destination: AppConfiguration.checkoutURL) {
                     Label("Purchase", systemImage: "cart.fill")
                         .frame(minWidth: 104)
                 }

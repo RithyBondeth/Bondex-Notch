@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LegalPage from '@/components/LegalPage';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/public-config';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Bondex Notch',
@@ -20,8 +21,8 @@ export default function PrivacyPage() {
         <p>
           Bondex Notch is independently developed and operated by Rithy Bondeth
           in Cambodia. Privacy questions and requests can be sent to{' '}
-          <a href="mailto:rithybondeth999@gmail.com?subject=Bondex%20Notch%20privacy">
-            rithybondeth999@gmail.com
+          <a href={supportMailto('Bondex Notch privacy')}>
+            {SUPPORT_EMAIL}
           </a>
           .
         </p>
@@ -40,14 +41,14 @@ export default function PrivacyPage() {
       </section>
 
       <section className="legal-callout">
-        <h2>3. Checkout preview</h2>
+        <h2>3. Stripe Checkout</h2>
         <p>
-          The current checkout is a product preview. Card fields are validated
-          inside your browser and are not transmitted to Bondex, stored, or used
-          to charge a card. No purchase is completed and no production licence is
-          issued through that preview. When payments open, this policy and the
-          checkout will identify the payment provider before you submit payment.
-          Bondex does not intend to store full card numbers or security codes.
+          When paid checkout is available, Bondex sends you to a Stripe-hosted
+          payment page. Stripe receives and processes your card details, billing
+          information, email address, payment status, and fraud-prevention data
+          under its own privacy terms. Bondex receives transaction identifiers,
+          contact details, the amount and status needed to fulfil the purchase,
+          but does not receive or store full card numbers or security codes.
         </p>
       </section>
 

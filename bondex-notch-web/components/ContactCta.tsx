@@ -1,8 +1,8 @@
-const contactEmail = 'rithybondeth999@gmail.com';
+import { supportMailto } from '@/lib/public-config';
 
 export default function ContactCta() {
-  const earlyAccess = `mailto:${contactEmail}?subject=Bondex%20Notch%20early%20access`;
-  const generalQuestion = `mailto:${contactEmail}?subject=Question%20about%20Bondex%20Notch`;
+  const earlyAccess = supportMailto('Bondex Notch early access');
+  const generalQuestion = supportMailto('Question about Bondex Notch');
 
   return (
     <section id="contact" className="section section--cta">

@@ -62,6 +62,12 @@ mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 
 cp "$EXECUTABLE" "$BUNDLE/Contents/MacOS/BondexNotch"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
+CHECKOUT_URL="${BONDEX_CHECKOUT_URL:-https://bondex-notch.bondeth.site/checkout/}"
+if [[ ! "$CHECKOUT_URL" =~ ^https?:// ]]; then
+  echo "error: BONDEX_CHECKOUT_URL must begin with http:// or https://" >&2
+  exit 1
+fi
+plutil -replace BondexCheckoutURL -string "$CHECKOUT_URL" "$BUNDLE/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$BUNDLE/Contents/Resources/AppIcon.icns"
 cp -R "$ROOT/Resources/PreviewAssets" "$BUNDLE/Contents/Resources/PreviewAssets"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"

@@ -6,7 +6,7 @@ Dynamic Island-style surface — and the site that sells it.
 | Directory | What it is |
 |---|---|
 | [`bondex-notch-app`](bondex-notch-app/) | The macOS app. Swift 6, SwiftUI, AppKit, no dependencies. |
-| [`bondex-notch-web`](bondex-notch-web/) | The marketing site. Next.js 16, React 19, TypeScript, static export. |
+| [`bondex-notch-web`](bondex-notch-web/) | The marketing and Stripe Checkout site. Next.js 16, React 19, TypeScript, deployed on Vercel. |
 | [`docs`](docs/) | Original project proposal. |
 
 ## Quick start
@@ -33,3 +33,14 @@ points worth knowing up front, both covered in detail in
 
 Requires macOS 14 or later and Xcode 16+ to build. The universal release runs
 natively on both Apple Silicon and Intel Macs.
+
+## Environment configuration
+
+- `bondex-notch-web/.env.example` lists every public and server-only value used
+  by the website and Stripe Checkout. Copy it to `.env.local` for local work;
+  configure production values in Vercel and never commit real secrets.
+- `bondex-notch-app/.env.example` lists the build-time checkout URL consumed by
+  `scripts/build-app.sh`. Export it in the shell before assembling the app.
+
+The Stripe-hosted flow does not need a publishable browser key because card
+collection happens on Stripe rather than inside Bondex.

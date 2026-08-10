@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import LegalPage from '@/components/LegalPage';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/public-config';
 
 export const metadata: Metadata = {
   title: 'Terms of Use — Bondex Notch',
@@ -23,21 +24,22 @@ export default function TermsPage() {
           terms. Bondex Notch is independently developed and operated by Rithy
           Bondeth in Cambodia. If you do not agree, do not use the software.
           Questions can be sent to{' '}
-          <a href="mailto:rithybondeth999@gmail.com?subject=Bondex%20Notch%20terms">
-            rithybondeth999@gmail.com
+          <a href={supportMailto('Bondex Notch terms')}>
+            {SUPPORT_EMAIL}
           </a>
           .
         </p>
       </section>
 
       <section className="legal-callout">
-        <h2>2. Current sales status</h2>
+        <h2>2. Purchases and payment</h2>
         <p>
-          The checkout currently shown on this website is a preview and does not
-          process payments or issue a production licence. A purchase agreement is
-          formed only when an enabled checkout accepts payment and sends you an
-          order confirmation. The final price, taxes, licence scope, and payment
-          provider will be shown before purchase.
+          When paid checkout is available, payments are processed on Stripe&apos;s
+          hosted checkout. A purchase agreement is formed only when Stripe
+          accepts payment and provides an order confirmation. The final price,
+          taxes, licence scope, and payment method are shown before purchase. If
+          the checkout button says setup is still in progress, paid sales are not
+          yet open.
         </p>
       </section>
 

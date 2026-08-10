@@ -152,8 +152,7 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func openPurchase() {
-        guard let url = URL(string: "https://bondex-notch.bondeth.site/checkout/") else { return }
-        NSWorkspace.shared.open(url)
+        NSWorkspace.shared.open(AppConfiguration.checkoutURL)
     }
 
     @objc private func openCommandPalette() {

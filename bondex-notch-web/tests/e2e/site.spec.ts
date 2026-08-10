@@ -18,6 +18,27 @@ const securityHeaders = new Map(
   globalHeaders?.map(({ key, value }) => [key.toLowerCase(), value]),
 );
 
+test('environment templates cover web secrets and app build configuration', () => {
+  const webEnvironment = readFileSync(resolve(process.cwd(), '.env.example'), 'utf8');
+  for (const name of [
+    'NEXT_PUBLIC_SITE_URL',
+    'NEXT_PUBLIC_SUPPORT_EMAIL',
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'STRIPE_PRICE_ID',
+    'STRIPE_AUTOMATIC_TAX',
+  ]) {
+    expect(webEnvironment).toContain(`${name}=`);
+  }
+
+  const appEnvironment = readFileSync(
+    resolve(process.cwd(), '../bondex-notch-app/.env.example'),
+    'utf8',
+  );
+  expect(appEnvironment).toContain('BONDEX_CHECKOUT_URL=');
+  expect(appEnvironment).toContain('DEVELOPER_DIR=');
+});
+
 test('Vercel applies the required security headers to every route', () => {
   expect(securityHeaders.get('x-content-type-options')).toBe('nosniff');
   expect(securityHeaders.get('referrer-policy')).toBe(
@@ -84,33 +105,43 @@ for (const route of policyRoutes) {
   });
 }
 
-test('checkout validates locally without sending a payment request', async ({ page }) => {
-  const nonReadRequests: string[] = [];
-  page.on('request', (request) => {
-    if (!['GET', 'HEAD'].includes(request.method())) {
-      nonReadRequests.push(`${request.method()} ${request.url()}`);
-    }
-  });
-
+test('checkout delegates card collection to Stripe', async ({ page }) => {
   await page.goto('/checkout/');
-  await page
-    .getByRole('textbox', { name: 'Card number', exact: true })
-    .fill('4242 4242 4242 4242');
-  await page.getByLabel('Name on card').fill('Bondex Tester');
-  await page.getByLabel('Expiration month').selectOption('12');
+  await expect(page.getByRole('heading', { name: "Pay on Stripe's secure page." })).toBeVisible();
+  await expect(page.getByLabel('Card number')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Checkout setup in progress' })).toBeDisabled();
+  await expect(page.getByText('Bondex never receives or stores your card number.')).toBeVisible();
+});
 
-  const yearSelect = page.getByLabel('Expiration year');
-  const lastYear = await yearSelect.locator('option').last().getAttribute('value');
-  expect(lastYear).toBeTruthy();
-  await yearSelect.selectOption(lastYear!);
-  await page.getByLabel('Security code').fill('123');
+test('checkout API fails closed when Stripe secrets are absent', async ({ request }) => {
+  const response = await request.post('/api/stripe/checkout');
+  expect(response.status()).toBe(503);
+  expect(response.headers()['cache-control']).toBe('no-store');
+  await expect(response.json()).resolves.toEqual({
+    error: 'Checkout is being configured. Please try again later.',
+  });
+});
 
-  const submit = page.getByRole('button', { name: 'Review $14.99 payment' });
-  await expect(submit).toBeEnabled();
-  await submit.click();
+test('checkout API rejects cross-origin session creation', async ({ request }) => {
+  const response = await request.post('/api/stripe/checkout', {
+    headers: { Origin: 'https://attacker.example' },
+  });
+  expect(response.status()).toBe(403);
+});
 
-  await expect(page.getByRole('status')).toContainText('Payment details look valid');
-  expect(nonReadRequests).toEqual([]);
+test('webhook fails closed when its signing secret is absent', async ({ request }) => {
+  const response = await request.post('/api/stripe/webhook', {
+    data: '{}',
+    headers: { 'Stripe-Signature': 'invalid' },
+  });
+  expect(response.status()).toBe(503);
+});
+
+test('success page does not trust an invalid session identifier', async ({ page }) => {
+  await page.goto('/checkout/success/?session_id=not-a-session');
+  await expect(
+    page.getByRole('heading', { name: 'We could not confirm that payment.' }),
+  ).toBeVisible();
 });
 
 test('legal pages do not overflow a phone viewport', async ({ page }) => {

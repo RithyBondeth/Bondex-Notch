@@ -1,4 +1,6 @@
-export const SITE_URL = 'https://bondex-notch.bondeth.site';
+import { SITE_URL } from '@/lib/public-config';
+
+export { SITE_URL };
 export const SITE_NAME = 'Bondex Notch';
 export const SITE_TITLE = "Bondex Notch — Your Mac's notch, finally useful";
 export const SITE_DESCRIPTION =

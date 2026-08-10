@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LegalPage from '@/components/LegalPage';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/public-config';
 
 export const metadata: Metadata = {
   title: 'Refund Policy — Bondex Notch',
@@ -16,12 +17,12 @@ export default function RefundsPage() {
       intro="The complete app is available during a free 24-hour trial so you can check compatibility before buying. When paid sales open, the policy below will apply."
     >
       <section className="legal-callout">
-        <h2>Sales are not open yet</h2>
+        <h2>Stripe purchase record</h2>
         <p>
-          The current checkout is a preview. It does not charge cards or issue
-          production licences, so there are currently no website purchases to
-          refund. This page states the policy that will apply when payment
-          processing is enabled.
+          When paid sales are enabled, Stripe processes the transaction and
+          provides the receipt. Keep that receipt and order reference. If the
+          checkout button says setup is still in progress, no payment can be
+          submitted through the website.
         </p>
       </section>
 
@@ -30,8 +31,8 @@ export default function RefundsPage() {
         <p>
           You may request a refund within 14 calendar days after the original
           purchase date. Email{' '}
-          <a href="mailto:rithybondeth999@gmail.com?subject=Bondex%20Notch%20refund%20request">
-            rithybondeth999@gmail.com
+          <a href={supportMailto('Bondex Notch refund request')}>
+            {SUPPORT_EMAIL}
           </a>{' '}
           from the address used for purchase and include your order number. You
           do not need to publish your licence key or card details.

@@ -3,17 +3,38 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import BrandMark from '@/components/BrandMark';
-import {
-  CreditCardForm,
-  type CardState,
-  type CardValidity,
-} from '@/components/ui/credit-card-form';
 
-export default function CheckoutPage() {
-  const [reviewReady, setReviewReady] = useState(false);
+type CheckoutPageProps = {
+  stripeConfigured: boolean;
+};
 
-  const handleSubmit = (_state: CardState, validity: CardValidity) => {
-    if (validity.allValid) setReviewReady(true);
+export default function CheckoutPage({ stripeConfigured }: CheckoutPageProps) {
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [error, setError] = useState<string>();
+
+  const startCheckout = async () => {
+    if (!stripeConfigured || isRedirecting) return;
+    setIsRedirecting(true);
+    setError(undefined);
+
+    try {
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
+      });
+      const data = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'Unable to start checkout.');
+      }
+      window.location.assign(data.url);
+    } catch (checkoutError) {
+      setError(
+        checkoutError instanceof Error
+          ? checkoutError.message
+          : 'Unable to start checkout.',
+      );
+      setIsRedirecting(false);
+    }
   };
 
   return (
@@ -69,27 +90,50 @@ export default function CheckoutPage() {
 
           <div className="checkout-payment">
             <div className="checkout-payment__heading">
-              <span>Payment details</span>
-              <span><i aria-hidden="true">◇</i> Local validation</span>
+              <span>Secure payment</span>
+              <span><i aria-hidden="true">◆</i> Powered by Stripe</span>
             </div>
 
-            <CreditCardForm
-              maskMiddle
-              ring1="#3cc1f6"
-              ring2="#9a7cff"
-              submitLabel="Review $14.99 payment"
-              onSubmit={handleSubmit}
-            />
-
-            {reviewReady && (
-              <div className="checkout-notice" role="status">
-                <span aria-hidden="true">✓</span>
+            <div className="stripe-checkout-card">
+              <span className="stripe-checkout-card__mark" aria-hidden="true">S</span>
+              <div>
+                <p className="label">Stripe Checkout</p>
+                <h2>Pay on Stripe&apos;s secure page.</h2>
                 <p>
-                  <strong>Payment details look valid.</strong>
-                  A payment provider still needs to be connected before this page can charge a card.
+                  Bondex never receives or stores your card number. Stripe handles
+                  payment details, authentication, and the payment receipt.
                 </p>
               </div>
-            )}
+            </div>
+
+            <ul className="stripe-checkout-facts" aria-label="Checkout details">
+              <li><span>Total</span><strong>$14.99 USD</strong></li>
+              <li><span>Billing</span><strong>One-time</strong></li>
+              <li><span>Access</span><strong>Lifetime licence</strong></li>
+            </ul>
+
+            <button
+              className="payment-submit stripe-checkout-submit"
+              type="button"
+              onClick={startCheckout}
+              disabled={!stripeConfigured || isRedirecting}
+            >
+              <span>
+                {!stripeConfigured
+                  ? 'Checkout setup in progress'
+                  : isRedirecting
+                    ? 'Opening Stripe…'
+                    : 'Continue to Stripe · $14.99'}
+              </span>
+              <i aria-hidden="true">→</i>
+            </button>
+
+            {error && <p className="stripe-checkout-error" role="alert">{error}</p>}
+
+            <p className="payment-form__privacy stripe-checkout-privacy">
+              <span aria-hidden="true">◆</span>
+              You will review the final amount before paying on Stripe.
+            </p>
           </div>
         </div>
 

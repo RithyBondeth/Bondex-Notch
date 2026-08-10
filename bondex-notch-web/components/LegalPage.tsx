@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { supportMailto } from '@/lib/public-config';
 
 const legalLinks = [
   { href: '/privacy/', label: 'Privacy' },
@@ -50,7 +51,7 @@ export default function LegalPage({
           </nav>
           <p>
             Need a human? Email{' '}
-            <a href="mailto:rithybondeth999@gmail.com?subject=Bondex%20Notch%20support">
+            <a href={supportMailto('Bondex Notch support')}>
               Bondex support
             </a>
             .

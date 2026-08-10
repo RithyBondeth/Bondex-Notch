@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import BrandMark from '@/components/BrandMark';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/public-config';
 
 export default function Footer() {
   const contacts = [
@@ -29,8 +30,8 @@ export default function Footer() {
       service: 'email',
       icon: '/social-icons/gmail.svg',
       label: 'Email',
-      value: 'rithybondeth999@gmail.com',
-      href: 'mailto:rithybondeth999@gmail.com?subject=Question%20about%20Bondex%20Notch',
+      value: SUPPORT_EMAIL,
+      href: supportMailto('Question about Bondex Notch'),
     },
   ];
 

@@ -2,6 +2,15 @@ import AppKit
 import XCTest
 @testable import BondexNotch
 
+final class AppConfigurationTests: XCTestCase {
+    func testCheckoutURLHasProductionFallback() {
+        XCTAssertEqual(
+            AppConfiguration.checkoutURL.absoluteString,
+            "https://bondex-notch.bondeth.site/checkout/"
+        )
+    }
+}
+
 final class LicenseValidatorTests: XCTestCase {
 
     func testGeneratedKeysValidate() {

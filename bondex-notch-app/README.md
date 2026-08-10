@@ -419,6 +419,12 @@ Generate a test key:
 LicenseValidator.makeKey(payload: "BEEF1234")   // BNDX-BEEF-1234-…
 ```
 
+All Purchase actions read `BondexCheckoutURL` from the assembled app bundle.
+`scripts/build-app.sh` writes it from `BONDEX_CHECKOUT_URL`, with the production
+checkout as the safe default. Use `bondex-notch-app/.env.example` as a reference;
+the build script reads exported shell variables and does not automatically load
+an `.env` file.
+
 ## Keeping it cheap
 
 This is an agent that runs all day, so two costs are load-bearing and easy to

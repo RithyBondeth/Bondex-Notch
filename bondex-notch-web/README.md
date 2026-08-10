@@ -1,6 +1,7 @@
 # Bondex Notch — marketing site
 
-Next.js 16 (App Router, React 19, TypeScript), built as a fully static export.
+Next.js 16 (App Router, React 19, TypeScript), with Vercel server routes for
+Stripe Checkout session creation and signed webhook verification.
 
 ```
 app/layout.tsx      metadata, fonts, the wallpaper and the notch bar
@@ -23,7 +24,7 @@ Then open <http://localhost:4173>.
 npm run build
 ```
 
-Writes plain files to `out/`. `npm start` serves that production export locally.
+`npm start` serves the production build locally after `npm run build`.
 
 ## Quality gates
 
@@ -39,9 +40,9 @@ npm test
 ```
 
 The Playwright suite checks the landing page, every legal/support route,
-canonical metadata, narrow-screen legal layout, and the checkout preview. The
-checkout test also verifies that submitting locally validated fields does not
-make a payment request.
+canonical metadata, narrow-screen legal layout, and the Stripe handoff. It also
+verifies that Checkout fails closed when credentials are absent and rejects
+cross-origin session creation.
 
 `.github/workflows/web-ci.yml` runs these checks for web pull requests and every
 push to `main`. A high-severity dependency advisory fails CI.
@@ -52,16 +53,41 @@ Vercel is the only production hosting path for this site. The Vercel project
 must use `bondex-notch-web` as its **Root Directory** and the repository default
 branch (`main`) as its production branch. Pull requests receive Preview
 deployments; merges to `main` produce Production deployments. `vercel.json`
-keeps framework detection explicit, and the Next.js static export requires no
-runtime service or application secrets.
+keeps framework detection explicit. Stripe secrets are stored only in Vercel
+environment variables and are never exposed with a `NEXT_PUBLIC_` prefix.
 
 `vercel.json` also applies the production security boundary to every route:
 Content Security Policy, MIME sniffing protection, a strict cross-origin
 referrer policy, a restrictive browser Permissions Policy, and framing
-protection. The static export uses Next.js inline bootstrap scripts and inline
-component styles, so CSP permits inline scripts and styles but does not permit
+protection. Next.js uses inline bootstrap scripts and inline component styles,
+so CSP permits inline scripts and styles but does not permit
 `eval`, third-party script origins, arbitrary network connections, plugins, or
 framing.
+
+## Stripe Checkout setup
+
+The checkout uses Stripe's hosted payment page, so Bondex never handles raw
+card details. Copy `.env.example` to `.env.local` for test mode and configure
+the corresponding public and sensitive values in Vercel. Stripe secrets must
+remain server-only:
+
+- `NEXT_PUBLIC_SITE_URL` — the canonical site origin, without a path;
+- `NEXT_PUBLIC_SUPPORT_EMAIL` — the public address used by support and legal links;
+- `STRIPE_SECRET_KEY` — the test or live secret key;
+- `STRIPE_PRICE_ID` — an active, one-time USD 14.99 Price for the lifetime licence;
+- `STRIPE_WEBHOOK_SECRET` — signing secret for the production webhook endpoint;
+- `STRIPE_AUTOMATIC_TAX` — enable only after Stripe Tax and the product tax code are configured.
+
+Register `https://bondex-notch.bondeth.site/api/stripe/webhook` in Stripe and
+subscribe it to `checkout.session.completed` and
+`checkout.session.async_payment_succeeded`. Configure the Terms and Privacy
+URLs in Stripe Checkout because the session requires terms acceptance.
+
+The webhook verifies Stripe&apos;s signature against the raw request body and marks
+the Checkout Session as payment-verified idempotently. It does **not yet issue
+the app&apos;s signed licence or email a download**. Keep Stripe in test mode until
+secure licence fulfilment, the signed/notarised DMG, recovery delivery, and a
+complete refund test are ready.
 
 If a production deployment is unhealthy:
 

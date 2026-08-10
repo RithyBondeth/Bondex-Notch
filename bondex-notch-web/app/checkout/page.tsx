@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import CheckoutPage from '@/components/CheckoutPage';
+import { isStripeConfigured } from '@/lib/stripe';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Checkout — Bondex Notch',
@@ -18,5 +21,5 @@ export const metadata: Metadata = {
 };
 
 export default function Checkout() {
-  return <CheckoutPage />;
+  return <CheckoutPage stripeConfigured={isStripeConfigured()} />;
 }

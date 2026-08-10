@@ -951,7 +951,7 @@ private struct LicenseSettings: View {
             Section {
                 Link(
                     "Purchase Bondex Notch",
-                    destination: URL(string: "https://bondex-notch.bondeth.site/checkout/")!
+                    destination: AppConfiguration.checkoutURL
                 )
                 Text("The 24-hour trial includes the complete app. One licence keeps every feature unlocked after it ends.")
                     .font(.caption)
