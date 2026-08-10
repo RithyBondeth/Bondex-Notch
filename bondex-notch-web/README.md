@@ -55,6 +55,14 @@ deployments; merges to `main` produce Production deployments. `vercel.json`
 keeps framework detection explicit, and the Next.js static export requires no
 runtime service or application secrets.
 
+`vercel.json` also applies the production security boundary to every route:
+Content Security Policy, MIME sniffing protection, a strict cross-origin
+referrer policy, a restrictive browser Permissions Policy, and framing
+protection. The static export uses Next.js inline bootstrap scripts and inline
+component styles, so CSP permits inline scripts and styles but does not permit
+`eval`, third-party script origins, arbitrary network connections, plugins, or
+framing.
+
 If a production deployment is unhealthy:
 
 1. Verify the problem on the production domain.

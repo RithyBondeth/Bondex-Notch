@@ -1,4 +1,40 @@
 import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+type HeaderDefinition = { key: string; value: string };
+
+const vercelConfig = JSON.parse(
+  readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8'),
+) as {
+  headers?: Array<{ source: string; headers: HeaderDefinition[] }>;
+};
+
+const globalHeaders = vercelConfig.headers?.find(
+  ({ source }) => source === '/(.*)',
+)?.headers;
+
+const securityHeaders = new Map(
+  globalHeaders?.map(({ key, value }) => [key.toLowerCase(), value]),
+);
+
+test('Vercel applies the required security headers to every route', () => {
+  expect(securityHeaders.get('x-content-type-options')).toBe('nosniff');
+  expect(securityHeaders.get('referrer-policy')).toBe(
+    'strict-origin-when-cross-origin',
+  );
+  expect(securityHeaders.get('permissions-policy')).toContain('camera=()');
+  expect(securityHeaders.get('permissions-policy')).toContain('microphone=()');
+  expect(securityHeaders.get('permissions-policy')).toContain('payment=()');
+
+  const csp = securityHeaders.get('content-security-policy');
+  expect(csp).toContain("default-src 'self'");
+  expect(csp).toContain("object-src 'none'");
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain("base-uri 'self'");
+  expect(csp).toContain("form-action 'self'");
+  expect(csp).not.toContain("'unsafe-eval'");
+});
 
 test('landing page exposes the release and policy paths', async ({ page }) => {
   await page.goto('/');
