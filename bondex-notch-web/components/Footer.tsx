@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import BrandMark from '@/components/BrandMark';
 
 export default function Footer() {
@@ -55,6 +56,11 @@ export default function Footer() {
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
+          <b className="footer__nav-subtitle">Legal &amp; support</b>
+          <Link href="/privacy/">Privacy</Link>
+          <Link href="/terms/">Terms</Link>
+          <Link href="/refunds/">Refunds</Link>
+          <Link href="/license-support/">Licence support</Link>
         </nav>
 
         <div className="footer__contacts">
@@ -87,8 +93,10 @@ export default function Footer() {
       </div>
 
       <div className="wrap footer__bottom">
-        <p className="footer__legal">Built with Swift and SwiftUI.</p>
-        <p className="footer__legal">Not affiliated with Apple Inc.</p>
+        <p className="footer__legal">© 2026 Bondex Notch · Built with Swift and SwiftUI.</p>
+        <p className="footer__legal">
+          <Link href="/privacy/">Privacy</Link> · <Link href="/terms/">Terms</Link> · Not affiliated with Apple Inc.
+        </p>
       </div>
     </footer>
   );

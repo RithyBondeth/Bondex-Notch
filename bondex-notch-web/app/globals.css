@@ -3677,7 +3677,9 @@ button.real-empty { cursor:pointer; }
   font-family: var(--mono);
   font-size: 9px;
 }
-.checkout-footer span + span::before { content: "·"; margin-right: 20px; color: rgba(255,255,255,.32); }
+.checkout-footer a { color: var(--on-field-3); transition: color .16s var(--ease); }
+.checkout-footer a:hover { color: var(--on-field); }
+.checkout-footer a + a::before { content: "·"; margin-right: 20px; color: rgba(255,255,255,.32); }
 
 @media (max-width: 1080px) {
   .checkout-layout { grid-template-columns: 1fr; }
@@ -3718,8 +3720,128 @@ button.real-empty { cursor:pointer; }
   .payment-card__number { font-size: 14px; }
   .payment-field-row { grid-template-columns: 1fr; }
   .checkout-footer { align-items: center; flex-direction: column; gap: 7px; }
-  .checkout-footer span + span::before { display: none; }
+  .checkout-footer a + a::before { display: none; }
 }
+
+/* ── Legal and support pages ───────────────────────────── */
+
+.legal-page { padding-bottom: 90px; }
+.legal-hero {
+  padding: 172px 0 78px;
+  color: var(--on-field);
+  text-align: center;
+}
+.legal-hero h1 {
+  margin-top: 13px;
+  color: #fff;
+  font-size: clamp(46px, 7vw, 78px);
+  font-weight: 700;
+  letter-spacing: -.055em;
+  line-height: .95;
+}
+.legal-hero p:not(.label) {
+  max-width: 710px;
+  margin: 22px auto 0;
+  color: var(--on-field-2);
+  font-size: clamp(16px, 2vw, 19px);
+  line-height: 1.65;
+}
+.legal-hero > .wrap > span {
+  display: inline-block;
+  margin-top: 21px;
+  color: var(--on-field-3);
+  font: 500 10px/1.4 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.legal-shell {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 760px);
+  justify-content: center;
+  align-items: start;
+  gap: clamp(30px, 5vw, 68px);
+}
+.legal-sidebar {
+  position: sticky;
+  top: 112px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 17px;
+  background: rgba(7,12,26,.82);
+  box-shadow: 0 26px 64px -44px rgba(0,0,0,.95), inset 0 1px rgba(255,255,255,.06);
+  backdrop-filter: blur(18px);
+}
+.legal-sidebar > b { color: var(--ink); font-size: 11px; letter-spacing: .02em; }
+.legal-sidebar nav { display: flex; flex-direction: column; gap: 5px; margin-top: 13px; }
+.legal-sidebar nav a {
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: var(--ink-3);
+  font-size: 12px;
+  transition: color .16s var(--ease), background .16s var(--ease), transform .16s var(--ease);
+}
+.legal-sidebar nav a:hover { color: var(--ink); background: rgba(255,255,255,.055); transform: translateX(2px); }
+.legal-sidebar nav a[aria-current="page"] {
+  color: #fff;
+  background: rgba(60,193,246,.12);
+  box-shadow: inset 2px 0 var(--azure);
+}
+.legal-sidebar > p {
+  margin-top: 17px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  color: var(--ink-3);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+.legal-sidebar > p a { color: var(--azure); }
+.legal-article {
+  padding: clamp(28px, 5vw, 54px);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 25px;
+  background:
+    radial-gradient(circle at 86% 0, rgba(60,193,246,.11), transparent 30%),
+    rgba(6,10,22,.91);
+  box-shadow: 0 36px 90px -52px rgba(0,0,0,.98), inset 0 1px rgba(255,255,255,.07);
+}
+.legal-article section + section {
+  margin-top: 34px;
+  padding-top: 34px;
+  border-top: 1px solid rgba(255,255,255,.09);
+}
+.legal-article h2 {
+  color: #fff;
+  font-size: clamp(18px, 2.2vw, 23px);
+  font-weight: 650;
+  letter-spacing: -.025em;
+}
+.legal-article p,
+.legal-article li { color: var(--ink-2); font-size: 14px; line-height: 1.75; }
+.legal-article h2 + p,
+.legal-article h2 + ul,
+.legal-article h2 + ol { margin-top: 12px; }
+.legal-article p + p,
+.legal-article p + ul,
+.legal-article p + ol,
+.legal-article ul + p,
+.legal-article ol + p { margin-top: 12px; }
+.legal-article ul,
+.legal-article ol { padding-left: 21px; }
+.legal-article li + li { margin-top: 7px; }
+.legal-article a {
+  color: var(--azure);
+  text-decoration: underline;
+  text-decoration-color: rgba(60,193,246,.35);
+  text-underline-offset: 3px;
+}
+.legal-article a:hover { color: #8cddff; text-decoration-color: currentColor; }
+.legal-callout {
+  padding: 22px !important;
+  border: 1px solid rgba(60,193,246,.24) !important;
+  border-radius: 16px;
+  background: rgba(60,193,246,.065);
+}
+.legal-article section + .legal-callout { margin-top: 34px; }
 
 /* ── Footer ────────────────────────────────────────────── */
 
@@ -3778,6 +3900,7 @@ button.real-empty { cursor:pointer; }
   transition: color .16s var(--ease), transform .16s var(--ease);
 }
 .footer__nav a:hover { color: var(--ink); transform: translateX(2px); }
+.footer__nav-subtitle { margin-top: 14px !important; }
 
 .footer__contacts-head {
   margin-bottom: 12px;
@@ -3839,6 +3962,8 @@ button.real-empty { cursor:pointer; }
   border-top: 1px solid rgba(255,255,255,.08);
 }
 .footer__legal { font-size: 13.5px; color: var(--ink-3); }
+.footer__bottom a { color: var(--ink-2); transition: color .16s var(--ease); }
+.footer__bottom a:hover { color: var(--ink); }
 
 /* ── Cohesive visual polish ───────────────────────────────
    A luminous black-glass layer unifies the marketing page without changing
@@ -4405,6 +4530,10 @@ html[data-motion-ready="true"] .state.is-visible .mini {
   .real-controls > span:first-child { display: none; }
   .footer__inner { grid-template-columns: minmax(0,1fr) 150px; }
   .footer__contacts { grid-column: 1 / -1; }
+  .legal-shell { grid-template-columns: 1fr; max-width: 800px; }
+  .legal-sidebar { position: static; }
+  .legal-sidebar nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .legal-sidebar nav a { text-align: center; }
 }
 
 @media (max-width: 560px) {
@@ -4473,6 +4602,11 @@ html[data-motion-ready="true"] .state.is-visible .mini {
   .footer__contacts { grid-column: auto; }
   .footer__contact-grid { grid-template-columns: 1fr; }
   .footer__bottom { flex-direction: column; gap: 5px; }
+  .legal-hero { padding: 128px 0 52px; }
+  .legal-hero h1 { font-size: 44px; }
+  .legal-sidebar nav { grid-template-columns: 1fr 1fr; }
+  .legal-article { padding: 24px 18px; border-radius: 19px; }
+  .legal-article p, .legal-article li { font-size: 13px; }
 }
 
 @media (max-width: 480px) {

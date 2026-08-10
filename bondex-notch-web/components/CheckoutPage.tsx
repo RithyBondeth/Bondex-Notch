@@ -94,9 +94,10 @@ export default function CheckoutPage() {
         </div>
 
         <footer className="checkout-footer">
-          <span>Private by design</span>
-          <span>One-time license</span>
-          <span>Built for macOS 14+</span>
+          <Link href="/privacy/">Privacy</Link>
+          <Link href="/terms/">Terms</Link>
+          <Link href="/refunds/">Refunds</Link>
+          <Link href="/license-support/">Licence support</Link>
         </footer>
       </div>
     </main>

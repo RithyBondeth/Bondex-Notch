@@ -23,11 +23,50 @@ Then open <http://localhost:4173>.
 npm run build
 ```
 
-Writes plain files to `out/`. Deploy by copying that directory to any static
-host — no server, no runtime, nothing to configure, the same deploy story the
-site had before the migration. `npm start` serves the export locally.
+Writes plain files to `out/`. `npm start` serves that production export locally.
 
-`npm run lint` and `npm run typecheck` both run clean.
+## Quality gates
+
+Run the same checks as CI before opening a pull request:
+
+```bash
+npm run audit
+npm run lint
+npm run typecheck
+npm run build
+npx playwright install chromium # first local run only
+npm test
+```
+
+The Playwright suite checks the landing page, every legal/support route,
+canonical metadata, narrow-screen legal layout, and the checkout preview. The
+checkout test also verifies that submitting locally validated fields does not
+make a payment request.
+
+`.github/workflows/web-ci.yml` runs these checks for web pull requests and every
+push to `main`. A high-severity dependency advisory fails CI.
+
+## Deployment and rollback
+
+Vercel is the only production hosting path for this site. The Vercel project
+must use `bondex-notch-web` as its **Root Directory** and the repository default
+branch (`main`) as its production branch. Pull requests receive Preview
+deployments; merges to `main` produce Production deployments. `vercel.json`
+keeps framework detection explicit, and the Next.js static export requires no
+runtime service or application secrets.
+
+If a production deployment is unhealthy:
+
+1. Verify the problem on the production domain.
+2. In Vercel, open **Deployments**, select **Instant Rollback**, and restore the
+   previous healthy production deployment. From a linked CLI, `vercel rollback`
+   performs the same immediate rollback.
+3. Verify the production domain again, then fix the source on a pull request so
+   `main` matches the restored behavior.
+
+Vercel documents both the [monorepo Root Directory
+setting](https://vercel.com/docs/monorepos) and the [production rollback
+workflow](https://vercel.com/docs/deployments/rollback-production-deployment).
 
 ## The idea
 
@@ -127,8 +166,3 @@ first interaction, and never starts under `prefers-reduced-motion`.
   Confirm the final price before publishing.
 - The "Genuinely light" card deliberately does not quote a memory figure. Add
   one only once it has been measured on a release build.
-- `npm audit` reports high-severity libvips advisories against `sharp`, which
-  Next pulls in as an optional dependency for image optimisation. Nothing here
-  uses `next/image` and the export is static, so `sharp` never runs — but the
-  advisory will keep showing until Next ships a bumped version. Do not let
-  `npm audit fix --force` "fix" it: it downgrades Next to 9.x.
