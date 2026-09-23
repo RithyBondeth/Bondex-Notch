@@ -18,5 +18,8 @@ DerivedData/
 # Offscreen previews from --render-previews
 previews/
 
+# Temporary files
+tmp/
+
 # Machine-local Claude Code settings (launch.json is shared on purpose)
 .claude/settings.local.json

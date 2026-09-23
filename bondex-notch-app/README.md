@@ -17,6 +17,12 @@ That produces `build/Bondex Notch.app`. Open it:
 open "build/Bondex Notch.app"
 ```
 
+To package a distributable disk image (`.dmg`) with a drag-and-drop Applications shortcut:
+
+```bash
+./scripts/build-dmg.sh
+```
+
 The app is an agent (`LSUIElement`), so there is no Dock icon. It lives in the
 notch and in the menu bar; use the menu bar item for Settings and Quit.
 
