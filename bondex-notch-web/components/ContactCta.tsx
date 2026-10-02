@@ -9,8 +9,8 @@ export default function ContactCta() {
         <p className="label label--light">Available now</p>
         <h2 className="title title--light title--xl">Want Bondex on your Mac?</h2>
         <p className="lede lede--light">
-          Download Bondex Notch and use the complete app free for 14 days. For
-          licensing, product questions, or feedback, the message goes directly
+          Bondex Notch is free and open source. For bug reports, product
+          questions, or feedback, the message goes directly
           to the team building it.
         </p>
         <div className="actions actions--center">
@@ -21,7 +21,7 @@ export default function ContactCta() {
             Contact us
           </a>
         </div>
-        <p className="meta">Direct reply · 14-day full trial · No account required</p>
+        <p className="meta">Direct reply · Free and open source · No account required</p>
       </div>
     </section>
   );

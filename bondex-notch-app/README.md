@@ -51,7 +51,7 @@ bundle identifier.
 Sources/BondexNotch/
   App/         Entry point, delegate, composition root, menu bar
   Window/      NSPanel, geometry, pointer tracking, panel state machine
-  Model/       Preferences, licensing, events, state enums
+  Model/       Preferences, events, state enums
   Services/    Now playing, system metrics, file activity, shelf, notifications
   Views/       Notch silhouette, collapsed/peek/expanded, widgets, settings
   Support/     Theme, motion, logging, offscreen preview renderer
@@ -487,27 +487,10 @@ All four are optional and requested only when the relevant widget is enabled.
 Ad-hoc signatures change on every rebuild, so macOS treats each build as a new
 app and re-prompts. Sign with a stable Developer ID identity to keep grants.
 
-## Licensing
+## License
 
-Bondex Notch has one complete feature set. The 14-day trial begins on first
-launch; when it expires, product services and actions stop and the app exposes
-only purchase and licence activation. A valid licence unlocks the complete app.
-
-`LicenseValidator` is a **format and checksum check, not DRM**. Before shipping
-paid builds, replace it with a server-signed receipt. StoreKit is unnecessary
-for direct website distribution.
-
-Generate a test key:
-
-```swift
-LicenseValidator.makeKey(payload: "BEEF1234")   // BNDX-BEEF-1234-…
-```
-
-All Purchase actions read `BondexCheckoutURL` from the assembled app bundle.
-`scripts/build-app.sh` writes it from `BONDEX_CHECKOUT_URL`, with the production
-checkout as the safe default. Use `bondex-notch-app/.env.example` as a reference;
-the build script reads exported shell variables and does not automatically load
-an `.env` file.
+Bondex Notch is free and open source under the [MIT License](../LICENSE).
+Every feature is available with no trial, account, or licence key.
 
 ## Keeping it cheap
 
@@ -537,7 +520,7 @@ renders every state to PNG without a display:
 "build/Bondex Notch.app/Contents/MacOS/BondexNotch" --render-previews ./previews
 ```
 
-It runs against a throwaway `UserDefaults` domain with a test licence and never
+It runs against a throwaway `UserDefaults` domain and never
 touches real preferences. Two caveats, both
 `ImageRenderer` limitations rather than app behaviour: `.onDrop` cannot be
 rasterised, and `ScrollView` renders empty — `NotchRootView` and
@@ -558,7 +541,7 @@ rasterised, and `ScrollView` renders empty — `NotchRootView` and
   a stale tile until it is removed.
 - Preferences are `UserDefaults`-backed. The proposal called for Core Data /
   SQLite; nothing yet stores enough history to need it.
-- Tests cover the file watcher, licensing, the event feed, geometry and
+- Tests cover the file watcher, the event feed, geometry and
   formatting. The AppleScript bridge and the mach/IOKit samplers are exercised
   only by running the app — neither is practical to fake without first putting
   a protocol in front of it.

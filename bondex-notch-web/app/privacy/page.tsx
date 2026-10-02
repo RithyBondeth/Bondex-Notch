@@ -40,22 +40,10 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <section className="legal-callout">
-        <h2>3. Stripe Checkout</h2>
-        <p>
-          At checkout, Bondex sends you to a Stripe-hosted
-          payment page. Stripe receives and processes your card details, billing
-          information, email address, payment status, and fraud-prevention data
-          under its own privacy terms. Bondex receives transaction identifiers,
-          contact details, the amount and status needed to fulfil the purchase,
-          but does not receive or store full card numbers or security codes.
-        </p>
-      </section>
-
       <section>
-        <h2>4. Information inside the Mac app</h2>
+        <h2>3. Information inside the Mac app</h2>
         <p>
-          Preferences, Quick Captures, licence state, shelf references, and
+          Preferences, Quick Captures, shelf references, and
           integration settings are stored locally on your Mac. Clipboard history
           is session-only, remains in memory, and ignores content marked concealed
           or transient by the source application. Bondex does not operate a cloud
@@ -77,34 +65,32 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2>5. Messages and support</h2>
+        <h2>4. Messages and support</h2>
         <p>
           If you contact us by email, Instagram, Telegram, or WhatsApp, we receive
           the information you choose to send and the account details exposed by
-          that service. We use it to answer your request, provide support, manage
-          a purchase or refund, prevent abuse, and keep necessary business
+          that service. We use it to answer your request, provide support, prevent abuse, and keep necessary business
           records. Those communication services apply their own privacy terms.
         </p>
       </section>
 
       <section>
-        <h2>6. Sharing, sale, and retention</h2>
+        <h2>5. Sharing, sale, and retention</h2>
         <p>
           We do not sell personal information. We may share limited information
-          with service providers that host the site, process future payments, or
-          help deliver support; when legally required; or to protect users and the
-          service. Support and transaction records are kept only as long as
+          with service providers that host the site or help deliver support; when legally required; or to protect users and the
+          service. Support records are kept only as long as
           reasonably needed for those purposes, legal obligations, disputes, and
           fraud prevention.
         </p>
       </section>
 
       <section>
-        <h2>7. Your choices and rights</h2>
+        <h2>6. Your choices and rights</h2>
         <p>
           You can disable optional app permissions in macOS System Settings and
           remove local app data by deleting it from the app or your Mac. You may
-          email us to ask what contact or transaction information we hold about
+          email us to ask what contact information we hold about
           you, request a correction or deletion, or object to a use of that
           information. We may need to verify your request and may retain records
           when the law requires it. Rights provided by applicable law remain
@@ -113,12 +99,12 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2>8. Security, children, and changes</h2>
+        <h2>7. Security, children, and changes</h2>
         <p>
           We use reasonable safeguards, but no storage or transmission method is
           completely secure. Bondex is a general-audience productivity utility
           and is not directed to children under 13. We may update this policy as
-          payments, hosting, or app features change. The date above will change
+          hosting or app features change. The date above will change
           when a revision takes effect.
         </p>
       </section>

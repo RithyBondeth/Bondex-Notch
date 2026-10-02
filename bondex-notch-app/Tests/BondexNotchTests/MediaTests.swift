@@ -511,7 +511,6 @@ final class PreferencesDecodingTests: XCTestCase {
         original.rimStrength = 0.4
         original.shadowStrength = 0.2
         original.widgetOrder = [.home, .activity, .music, .system, .live, .shelf, .files]
-        original.licenseKey = "BNDX-BEEF-1234-0000"
 
         let data = try JSONEncoder().encode(original)
         XCTAssertEqual(SettingsStore.decode(data), original)

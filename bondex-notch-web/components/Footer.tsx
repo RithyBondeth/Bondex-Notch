@@ -45,7 +45,7 @@ export default function Footer() {
           </span>
           <p>
             A calmer control center for macOS, built privately in Cambodia.
-            Questions, licence help, and feedback are always welcome.
+            Questions, bug reports, and feedback are always welcome.
           </p>
           <span className="footer__availability"><i /> Available for direct messages</span>
         </div>
@@ -55,13 +55,12 @@ export default function Footer() {
           <a href="#showcase">Product tour</a>
           <a href="#efficiency">Performance</a>
           <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
+          <a href="#pricing">Open source</a>
           <a href="#faq">FAQ</a>
           <b className="footer__nav-subtitle">Legal &amp; support</b>
           <Link href="/privacy/">Privacy</Link>
           <Link href="/terms/">Terms</Link>
-          <Link href="/refunds/">Refunds</Link>
-          <Link href="/license-support/">Licence support</Link>
+          <a href="https://github.com/RithyBondeth/Bondex-Notch">Source code</a>
         </nav>
 
         <div className="footer__contacts">

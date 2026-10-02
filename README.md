@@ -1,12 +1,12 @@
 # Bondex Notch
 
-A native macOS productivity utility that turns the display notch into a live,
-Dynamic Island-style surface — and the site that sells it.
+A free, open-source macOS utility that turns the display notch into a live,
+Dynamic Island-style surface — and the site that hosts it.
 
 | Directory | What it is |
 |---|---|
 | [`bondex-notch-app`](bondex-notch-app/) | The macOS app. Swift 6, SwiftUI, AppKit, no dependencies. |
-| [`bondex-notch-web`](bondex-notch-web/) | The marketing and Stripe Checkout site. Next.js 16, React 19, TypeScript, deployed on Vercel. |
+| [`bondex-notch-web`](bondex-notch-web/) | The website and download page. Next.js 16, React 19, TypeScript, deployed on Vercel. |
 | [`docs`](docs/) | Original project proposal. |
 
 ## Quick start
@@ -36,11 +36,11 @@ natively on both Apple Silicon and Intel Macs.
 
 ## Environment configuration
 
-- `bondex-notch-web/.env.example` lists every public and server-only value used
-  by the website and Stripe Checkout. Copy it to `.env.local` for local work;
-  configure production values in Vercel and never commit real secrets.
-- `bondex-notch-app/.env.example` lists the build-time checkout URL consumed by
-  `scripts/build-app.sh`. Export it in the shell before assembling the app.
+- `bondex-notch-web/.env.example` lists the public values used by the website.
+  Copy it to `.env.local` for local work and set production values in Vercel.
+- `bondex-notch-app/.env.example` lists the optional Xcode override used by
+  `scripts/build-app.sh`.
 
-The Stripe-hosted flow does not need a publishable browser key because card
-collection happens on Stripe rather than inside Bondex.
+## License
+
+Bondex Notch is free and open source under the [MIT License](LICENSE).

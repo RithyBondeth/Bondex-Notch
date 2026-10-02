@@ -80,7 +80,7 @@ export default function DownloadPage() {
 
         <div className="actions actions--center" style={{ marginTop: '16px' }}>
           <Link className="btn btn--ghost" href="/">Return to Homepage</Link>
-          <Link className="btn btn--ghost" href="/license-support/">Licence Support</Link>
+          <a className="btn btn--ghost" href="https://github.com/RithyBondeth/Bondex-Notch">Source on GitHub</a>
         </div>
       </div>
     </main>

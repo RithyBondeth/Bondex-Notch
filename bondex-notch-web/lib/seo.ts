@@ -32,14 +32,15 @@ export const softwareApplicationJsonLd = {
   ],
   offers: {
     '@type': 'Offer',
-    price: '14.99',
+    price: '0',
     priceCurrency: 'USD',
-    description: 'One-time lifetime licence after a full 14-day trial',
+    description: 'Free and open source under the MIT License',
     url: `${SITE_URL}/#pricing`,
   },
   featureList: [
     'Music and browser playback controls',
     'Coding agent activity',
+    'Claude Code and Codex usage, limits and spend',
     'Quick Capture and clipboard history',
     'Focus timer and upcoming meetings',
     'Smart profiles and custom live activities',
