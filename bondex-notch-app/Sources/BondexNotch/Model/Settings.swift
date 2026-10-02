@@ -86,28 +86,22 @@ struct Preferences: Codable, Equatable {
 
     var downloadsFolderBookmark: Data?
     var launchAtLogin = false
-
-    var licenseKey: String = ""
+    var showNotchOnExternalDisplays = true
 }
 
 @MainActor
 final class SettingsStore: ObservableObject {
     private static let defaultsKey = "com.bondex.notch.preferences"
-    private static let trialStartedAtKey = "com.bondex.notch.trial.started-at"
-    static let trialDuration: TimeInterval = 24 * 60 * 60
 
     @Published var preferences: Preferences {
         didSet {
             guard preferences != oldValue else { return }
             persist()
-            refreshLicenseAccess()
             if preferences.launchAtLogin != oldValue.launchAtLogin, !isRevertingLoginItem {
                 applyLaunchAtLogin(preferences.launchAtLogin)
             }
         }
     }
-
-    @Published private(set) var licenseAccess: LicenseAccessState
 
     /// Surfaced in Settings when macOS refuses to register the login item
     /// (common for ad-hoc signed local builds).
@@ -115,43 +109,15 @@ final class SettingsStore: ObservableObject {
     @Published private(set) var activeProfile: NotchProfile?
 
     private let defaults: UserDefaults
-    private let now: () -> Date
-    let trialStartedAt: Date
     /// Guards the write-back that undoes a failed login-item registration, so
     /// the revert does not re-enter `applyLaunchAtLogin` and clear the error.
     private var isRevertingLoginItem = false
 
-    init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.now = now
         let loadedPreferences = defaults.data(forKey: Self.defaultsKey)
             .flatMap(Self.decode) ?? Preferences()
         preferences = loadedPreferences
-
-        let currentDate = now()
-        if let storedStart = defaults.object(forKey: Self.trialStartedAtKey) as? Date {
-            trialStartedAt = storedStart
-        } else {
-            trialStartedAt = currentDate
-            defaults.set(currentDate, forKey: Self.trialStartedAtKey)
-        }
-
-        if LicenseValidator.validate(loadedPreferences.licenseKey) {
-            licenseAccess = .licensed
-        } else {
-            let expiry = trialStartedAt.addingTimeInterval(Self.trialDuration)
-            licenseAccess = currentDate < expiry ? .trial(expiresAt: expiry) : .expired
-        }
-
-        // Keep a running app honest when the trial reaches its deadline. The
-        // task captures the store weakly, so it naturally ends with the store.
-        Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(30))
-                guard let self else { return }
-                self.refreshLicenseAccess()
-            }
-        }
     }
 
     /// Decodes a stored blob, tolerating one written by a different version.
@@ -176,50 +142,6 @@ final class SettingsStore: ObservableObject {
             return nil
         }
         return try? JSONDecoder().decode(Preferences.self, from: mergedData)
-    }
-
-    var canUseApp: Bool { licenseAccess.canUseApp }
-
-    var trialExpiresAt: Date {
-        trialStartedAt.addingTimeInterval(Self.trialDuration)
-    }
-
-    var trialTimeRemaining: TimeInterval {
-        max(0, trialExpiresAt.timeIntervalSince(now()))
-    }
-
-    var licenseStatusDetail: String {
-        switch licenseAccess {
-        case .licensed:
-            return "Full access"
-        case .expired:
-            return "Purchase a licence to continue"
-        case .trial:
-            let remaining = Int(ceil(trialTimeRemaining / 60))
-            let hours = remaining / 60
-            let minutes = remaining % 60
-            if hours > 0 { return "\(hours)h \(minutes)m remaining" }
-            return "\(minutes)m remaining"
-        }
-    }
-
-    func refreshLicenseAccess() {
-        let next: LicenseAccessState
-        if LicenseValidator.validate(preferences.licenseKey) {
-            next = .licensed
-        } else if now() < trialExpiresAt {
-            next = .trial(expiresAt: trialExpiresAt)
-        } else {
-            next = .expired
-        }
-
-        if next == licenseAccess {
-            // Remaining-time labels still need to tick while the enum case and
-            // fixed expiry date remain equal.
-            objectWillChange.send()
-        } else {
-            licenseAccess = next
-        }
     }
 
     var effectiveAccent: Theme.Accent {

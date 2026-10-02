@@ -1,4 +1,5 @@
 import NotchDemo from './NotchDemo';
+import { GITHUB_REPO_URL } from '@/lib/public-config';
 
 export default function Hero() {
   return (
@@ -21,16 +22,16 @@ export default function Hero() {
         </p>
 
         <div className="actions">
-          <a className="btn" href="#contact">
-            Request early access
+          <a className="btn" href="/download/">
+            Download for Mac
           </a>
-          <a className="btn btn--ghost" href="#how">
-            See how it works
+          <a className="btn btn--ghost" href={GITHUB_REPO_URL}>
+            View source on GitHub
           </a>
         </div>
 
         <p className="meta">
-          macOS 14+ · Full 24-hour trial · No account · Everything stays on your Mac
+          macOS 14+ · Free and open source · No account required · Everything stays on your Mac
         </p>
 
         <div className="hero__signals" aria-label="Highlights">

@@ -18,24 +18,18 @@ const securityHeaders = new Map(
   globalHeaders?.map(({ key, value }) => [key.toLowerCase(), value]),
 );
 
-test('environment templates cover web secrets and app build configuration', () => {
+test('environment templates cover web and app build configuration', () => {
   const webEnvironment = readFileSync(resolve(process.cwd(), '.env.example'), 'utf8');
-  for (const name of [
-    'NEXT_PUBLIC_SITE_URL',
-    'NEXT_PUBLIC_SUPPORT_EMAIL',
-    'STRIPE_SECRET_KEY',
-    'STRIPE_WEBHOOK_SECRET',
-    'STRIPE_PRICE_ID',
-    'STRIPE_AUTOMATIC_TAX',
-  ]) {
+  for (const name of ['NEXT_PUBLIC_SITE_URL', 'NEXT_PUBLIC_SUPPORT_EMAIL']) {
     expect(webEnvironment).toContain(`${name}=`);
   }
+  expect(webEnvironment).not.toContain('STRIPE_');
 
   const appEnvironment = readFileSync(
     resolve(process.cwd(), '../bondex-notch-app/.env.example'),
     'utf8',
   );
-  expect(appEnvironment).toContain('BONDEX_CHECKOUT_URL=');
+  expect(appEnvironment).not.toContain('BONDEX_CHECKOUT_URL');
   expect(appEnvironment).toContain('DEVELOPER_DIR=');
 });
 
@@ -74,21 +68,20 @@ test('landing page exposes the release and policy paths', async ({ page }) => {
     'href',
     '/terms/',
   );
-  await expect(footer.getByRole('link', { name: 'Refunds' })).toHaveAttribute(
+  await expect(footer.getByRole('link', { name: 'Source code' })).toHaveAttribute(
     'href',
-    '/refunds/',
+    'https://github.com/RithyBondeth/Bondex-Notch',
   );
-  await expect(footer.getByRole('link', { name: 'Licence support' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Download for Mac' }).first()).toHaveAttribute(
     'href',
-    '/license-support/',
+    '/download/',
   );
+  await expect(page.getByText('$14.99')).toHaveCount(0);
 });
 
 const policyRoutes = [
   { path: '/privacy/', title: 'Privacy Policy' },
   { path: '/terms/', title: 'Terms of Use' },
-  { path: '/refunds/', title: 'Refund Policy' },
-  { path: '/license-support/', title: 'Licence Support' },
 ];
 
 for (const route of policyRoutes) {
@@ -100,48 +93,18 @@ for (const route of policyRoutes) {
       'href',
       `https://bondex-notch.bondeth.site${route.path}`,
     );
-    await expect(page.locator('.legal-sidebar nav a')).toHaveCount(4);
+    await expect(page.locator('.legal-sidebar nav a')).toHaveCount(2);
     await expect(page.locator('.legal-article section').first()).toBeVisible();
   });
 }
 
-test('checkout delegates card collection to Stripe', async ({ page }) => {
-  await page.goto('/checkout/');
-  await expect(page.getByRole('heading', { name: "Pay on Stripe's secure page." })).toBeVisible();
-  await expect(page.getByLabel('Card number')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Checkout setup in progress' })).toBeDisabled();
-  await expect(page.getByText('Bondex never receives or stores your card number.')).toBeVisible();
-});
-
-test('checkout API fails closed when Stripe secrets are absent', async ({ request }) => {
-  const response = await request.post('/api/stripe/checkout');
-  expect(response.status()).toBe(503);
-  expect(response.headers()['cache-control']).toBe('no-store');
-  await expect(response.json()).resolves.toEqual({
-    error: 'Checkout is being configured. Please try again later.',
-  });
-});
-
-test('checkout API rejects cross-origin session creation', async ({ request }) => {
-  const response = await request.post('/api/stripe/checkout', {
-    headers: { Origin: 'https://attacker.example' },
-  });
-  expect(response.status()).toBe(403);
-});
-
-test('webhook fails closed when its signing secret is absent', async ({ request }) => {
-  const response = await request.post('/api/stripe/webhook', {
-    data: '{}',
-    headers: { 'Stripe-Signature': 'invalid' },
-  });
-  expect(response.status()).toBe(503);
-});
-
-test('success page does not trust an invalid session identifier', async ({ page }) => {
-  await page.goto('/checkout/success/?session_id=not-a-session');
-  await expect(
-    page.getByRole('heading', { name: 'We could not confirm that payment.' }),
-  ).toBeVisible();
+test('paid checkout routes are gone', async ({ request }) => {
+  for (const path of ['/checkout/', '/refunds/', '/license-support/']) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(404);
+  }
+  const api = await request.post('/api/stripe/checkout');
+  expect(api.status()).toBe(404);
 });
 
 test('legal pages do not overflow a phone viewport', async ({ page }) => {

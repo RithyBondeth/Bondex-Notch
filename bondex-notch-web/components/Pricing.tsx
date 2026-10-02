@@ -1,4 +1,5 @@
 import { plans } from '@/content/site';
+import { GITHUB_REPO_URL } from '@/lib/public-config';
 
 export default function Pricing() {
   return (
@@ -6,11 +7,11 @@ export default function Pricing() {
       <div className="wrap">
         <div className="slab">
           <header className="slab__head">
-            <p className="label">Pricing</p>
-            <h2 className="title">Try everything. Then pay once.</h2>
+            <p className="label">Open source</p>
+            <h2 className="title">Free and open source.</h2>
             <p className="lede">
-              Your first 24 hours include the complete app—no locked features.
-              Purchase one licence to keep using Bondex Notch afterward.
+              Every feature, free for everyone under the MIT License. Read the
+              code, build it yourself, or download the ready-made app.
             </p>
           </header>
 
@@ -42,6 +43,15 @@ export default function Pricing() {
                     {plan.cta.label}
                   </a>
                 )}
+                <div style={{ marginTop: '10px' }}>
+                  <a
+                    className="btn btn--block btn--ghost"
+                    href={GITHUB_REPO_URL}
+                    style={{ fontSize: '13px', padding: '10px 16px' }}
+                  >
+                    View source on GitHub
+                  </a>
+                </div>
                 {plan.unavailable && (
                   <span className="plan__soon">{plan.unavailable}</span>
                 )}

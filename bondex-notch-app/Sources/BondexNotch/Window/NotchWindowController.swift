@@ -171,6 +171,13 @@ final class NotchWindowController {
             .debounce(for: .milliseconds(250), scheduler: RunLoop.main)
             .sink { [weak self] _ in self?.repositionForCurrentScreen() }
             .store(in: &cancellables)
+
+        environment.settings.$preferences
+            .map(\.showNotchOnExternalDisplays)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.repositionForCurrentScreen() }
+            .store(in: &cancellables)
     }
 
     private func repositionForCurrentScreen() {
@@ -181,10 +188,17 @@ final class NotchWindowController {
             ?? NSScreen.main
         guard let screen else { return }
 
+        let isExternalOrNotchless = screen.safeAreaInsets.top <= 0
+        if isExternalOrNotchless && !environment.settings.preferences.showNotchOnExternalDisplays {
+            panel.orderOut(nil)
+            return
+        }
+
         environment.notch.updateGeometry(for: screen)
         let frame = environment.notch.geometry.windowFrame
         panel.setFrame(frame, display: true)
         hostingView?.frame = CGRect(origin: .zero, size: frame.size)
+        panel.orderFrontRegardless()
         Log.window.debug("Repositioned notch panel to \(NSStringFromRect(frame), privacy: .public)")
     }
 }

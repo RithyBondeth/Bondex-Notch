@@ -5,8 +5,6 @@ import { supportMailto } from '@/lib/public-config';
 const legalLinks = [
   { href: '/privacy/', label: 'Privacy' },
   { href: '/terms/', label: 'Terms' },
-  { href: '/refunds/', label: 'Refunds' },
-  { href: '/license-support/', label: 'Licence support' },
 ];
 
 type LegalPageProps = {

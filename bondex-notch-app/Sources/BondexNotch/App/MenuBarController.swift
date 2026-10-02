@@ -29,11 +29,6 @@ final class MenuBarController: NSObject {
             .removeDuplicates()
             .sink { [weak self] _ in self?.refresh() }
             .store(in: &cancellables)
-
-        environment.settings.$licenseAccess
-            .removeDuplicates()
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
     }
 
     private func makeMenu() -> NSMenu {
@@ -47,63 +42,53 @@ final class MenuBarController: NSObject {
         toggle.target = self
         menu.addItem(toggle)
 
-        if environment.settings.canUseApp {
-            let palette = NSMenuItem(
-                title: "Command Palette…",
-                action: #selector(openCommandPalette),
+        let palette = NSMenuItem(
+            title: "Command Palette…",
+            action: #selector(openCommandPalette),
+            keyEquivalent: ""
+        )
+        palette.target = self
+        menu.addItem(palette)
+
+        if environment.settings.preferences.quickCaptureEnabled {
+            let capture = NSMenuItem(
+                title: "Quick Capture…",
+                action: #selector(openQuickCapture),
                 keyEquivalent: ""
             )
-            palette.target = self
-            menu.addItem(palette)
+            capture.target = self
+            menu.addItem(capture)
+        }
 
-            if environment.settings.preferences.quickCaptureEnabled {
-                let capture = NSMenuItem(
-                    title: "Quick Capture…",
-                    action: #selector(openQuickCapture),
+        if environment.settings.preferences.focusTimerEnabled {
+            let focus = NSMenuItem(
+                title: focusMenuTitle,
+                action: #selector(toggleFocusTimer),
+                keyEquivalent: ""
+            )
+            focus.target = self
+            menu.addItem(focus)
+
+            if environment.focusTimer.snapshot.isActive {
+                let cancelFocus = NSMenuItem(
+                    title: "Cancel Focus Timer",
+                    action: #selector(cancelFocusTimer),
                     keyEquivalent: ""
                 )
-                capture.target = self
-                menu.addItem(capture)
+                cancelFocus.target = self
+                menu.addItem(cancelFocus)
             }
-
-            if environment.settings.preferences.focusTimerEnabled {
-                let focus = NSMenuItem(
-                    title: focusMenuTitle,
-                    action: #selector(toggleFocusTimer),
-                    keyEquivalent: ""
-                )
-                focus.target = self
-                menu.addItem(focus)
-
-                if environment.focusTimer.snapshot.isActive {
-                    let cancelFocus = NSMenuItem(
-                        title: "Cancel Focus Timer",
-                        action: #selector(cancelFocusTimer),
-                        keyEquivalent: ""
-                    )
-                    cancelFocus.target = self
-                    menu.addItem(cancelFocus)
-                }
-            }
-        } else {
-            let purchase = NSMenuItem(
-                title: "Purchase Bondex Notch…",
-                action: #selector(openPurchase),
-                keyEquivalent: ""
-            )
-            purchase.target = self
-            menu.addItem(purchase)
-
-            let activate = NSMenuItem(
-                title: "Activate Licence…",
-                action: #selector(openLicenseSettings),
-                keyEquivalent: ""
-            )
-            activate.target = self
-            menu.addItem(activate)
         }
 
         menu.addItem(.separator())
+
+        let feedback = NSMenuItem(
+            title: "Send Feedback…",
+            action: #selector(sendFeedback),
+            keyEquivalent: ""
+        )
+        feedback.target = self
+        menu.addItem(feedback)
 
         let settings = NSMenuItem(
             title: "Settings…",
@@ -112,14 +97,6 @@ final class MenuBarController: NSObject {
         )
         settings.target = self
         menu.addItem(settings)
-
-        let access = NSMenuItem(
-            title: "\(environment.settings.licenseAccess.displayName): \(environment.settings.licenseStatusDetail)",
-            action: nil,
-            keyEquivalent: ""
-        )
-        access.isEnabled = false
-        menu.addItem(access)
 
         menu.addItem(.separator())
 
@@ -134,9 +111,28 @@ final class MenuBarController: NSObject {
         return menu
     }
 
-    /// The access line is built once, so refresh it whenever the licence changes.
+    /// The menu is built once, so rebuild it whenever its contents change.
     func refresh() {
         statusItem?.menu = makeMenu()
+    }
+
+    @objc private func sendFeedback() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        let hasNotch = (NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) != nil) ? "Yes" : "No"
+        let subject = "Bondex Notch Feedback (v\(version))".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let body = """
+        [Describe your feedback, feature request, or issue here]
+
+        ---
+        App Version: \(version)
+        macOS: \(osVersion)
+        Hardware Notch: \(hasNotch)
+        """.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+
+        if let url = URL(string: "mailto:support@bondeth.site?subject=\(subject)&body=\(body)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func togglePanel() {
@@ -145,14 +141,6 @@ final class MenuBarController: NSObject {
 
     @objc private func openSettings() {
         onOpenSettings()
-    }
-
-    @objc private func openLicenseSettings() {
-        environment.requestSettingsPage?(.license)
-    }
-
-    @objc private func openPurchase() {
-        NSWorkspace.shared.open(AppConfiguration.checkoutURL)
     }
 
     @objc private func openCommandPalette() {

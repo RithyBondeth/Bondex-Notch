@@ -1,7 +1,7 @@
 # Bondex Notch — marketing site
 
-Next.js 16 (App Router, React 19, TypeScript), with Vercel server routes for
-Stripe Checkout session creation and signed webhook verification.
+Next.js 16 (App Router, React 19, TypeScript), deployed on Vercel. Bondex Notch
+is free and open source under the MIT License, so the site has no checkout.
 
 ```
 app/layout.tsx      metadata, fonts, the wallpaper and the notch bar
@@ -40,9 +40,8 @@ npm test
 ```
 
 The Playwright suite checks the landing page, every legal/support route,
-canonical metadata, narrow-screen legal layout, and the Stripe handoff. It also
-verifies that Checkout fails closed when credentials are absent and rejects
-cross-origin session creation.
+canonical metadata, the download and source links, and narrow-screen legal
+layout.
 
 `.github/workflows/web-ci.yml` runs these checks for web pull requests and every
 push to `main`. A high-severity dependency advisory fails CI.
@@ -53,8 +52,7 @@ Vercel is the only production hosting path for this site. The Vercel project
 must use `bondex-notch-web` as its **Root Directory** and the repository default
 branch (`main`) as its production branch. Pull requests receive Preview
 deployments; merges to `main` produce Production deployments. `vercel.json`
-keeps framework detection explicit. Stripe secrets are stored only in Vercel
-environment variables and are never exposed with a `NEXT_PUBLIC_` prefix.
+keeps framework detection explicit.
 
 `vercel.json` also applies the production security boundary to every route:
 Content Security Policy, MIME sniffing protection, a strict cross-origin
@@ -64,30 +62,15 @@ so CSP permits inline scripts and styles but does not permit
 `eval`, third-party script origins, arbitrary network connections, plugins, or
 framing.
 
-## Stripe Checkout setup
+## Environment
 
-The checkout uses Stripe's hosted payment page, so Bondex never handles raw
-card details. Copy `.env.example` to `.env.local` for test mode and configure
-the corresponding public and sensitive values in Vercel. Stripe secrets must
-remain server-only:
+Copy `.env.example` to `.env.local` for local work and set the same values in
+Vercel:
 
 - `NEXT_PUBLIC_SITE_URL` — the canonical site origin, without a path;
-- `NEXT_PUBLIC_SUPPORT_EMAIL` — the public address used by support and legal links;
-- `STRIPE_SECRET_KEY` — the test or live secret key;
-- `STRIPE_PRICE_ID` — an active, one-time USD 14.99 Price for the lifetime licence;
-- `STRIPE_WEBHOOK_SECRET` — signing secret for the production webhook endpoint;
-- `STRIPE_AUTOMATIC_TAX` — enable only after Stripe Tax and the product tax code are configured.
+- `NEXT_PUBLIC_SUPPORT_EMAIL` — the public address used by support and legal links.
 
-Register `https://bondex-notch.bondeth.site/api/stripe/webhook` in Stripe and
-subscribe it to `checkout.session.completed` and
-`checkout.session.async_payment_succeeded`. Configure the Terms and Privacy
-URLs in Stripe Checkout because the session requires terms acceptance.
-
-The webhook verifies Stripe&apos;s signature against the raw request body and marks
-the Checkout Session as payment-verified idempotently. It does **not yet issue
-the app&apos;s signed licence or email a download**. Keep Stripe in test mode until
-secure licence fulfilment, the signed/notarised DMG, recovery delivery, and a
-complete refund test are ready.
+## Rollback
 
 If a production deployment is unhealthy:
 
@@ -194,9 +177,7 @@ first interaction, and never starts under `prefers-reduced-motion`.
 
 ## Before going live
 
-- The download section links to the repository's quick-start instructions until
-  the first signed release is published.
-- Pricing shows one complete $14.99 lifetime licence after a full 24-hour trial.
-  Confirm the final price before publishing.
+- The download button opens the repository's latest GitHub Release. Publish a
+  release with `Bondex Notch.dmg` attached before linking people to it.
 - The "Genuinely light" card deliberately does not quote a memory figure. Add
   one only once it has been measured on a release build.

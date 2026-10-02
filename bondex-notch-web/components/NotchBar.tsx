@@ -7,7 +7,7 @@ import BrandMark from '@/components/BrandMark';
 const links = [
   { href: '/#showcase', label: 'Tour' },
   { href: '/#features', label: 'Features' },
-  { href: '/#pricing', label: 'Pricing' },
+  { href: '/#pricing', label: 'Free' },
   { href: '/#faq', label: 'FAQ' },
 ];
 

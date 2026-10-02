@@ -75,11 +75,6 @@ final class AppEnvironment: ObservableObject {
     private func wire() {
         globalHotKey.onPress = { [weak self] in
             guard let self else { return }
-            guard self.settings.canUseApp else {
-                self.notch.setPinned(true)
-                self.notch.expand()
-                return
-            }
             let isOpening = !self.notch.state.isExpanded
             if !isOpening { self.commandPalette.dismiss() }
             self.notch.toggle()
@@ -88,7 +83,6 @@ final class AppEnvironment: ObservableObject {
 
         globalHotKey.onQuickCapture = { [weak self] in
             guard let self else { return }
-            guard self.settings.canUseApp else { return }
             self.commandPalette.dismiss()
             self.quickCapture.begin()
             self.notch.tab = .capture
@@ -217,33 +211,9 @@ final class AppEnvironment: ObservableObject {
                 self?.applyWidgetActivation(preferences)
             }
             .store(in: &cancellables)
-
-        settings.$licenseAccess
-            .removeDuplicates()
-            .dropFirst()
-            .sink { [weak self] access in
-                guard let self else { return }
-                if access.canUseApp {
-                    self.notifications.start()
-                    self.smartProfiles.start()
-                    self.applyWidgetActivation(self.settings.preferences)
-                } else {
-                    self.commandPalette.dismiss()
-                    self.stopProductServices()
-                    self.notch.tab = .home
-                    self.notch.setPinned(true)
-                    self.notch.expand()
-                }
-            }
-            .store(in: &cancellables)
     }
 
     func start() {
-        guard settings.canUseApp else {
-            notch.setPinned(true)
-            notch.expand()
-            return
-        }
         notifications.start()
         smartProfiles.start()
         applyWidgetActivation(settings.preferences)
@@ -276,7 +246,6 @@ final class AppEnvironment: ObservableObject {
         value: String? = nil,
         minutes: Int? = nil
     ) -> Bool {
-        guard settings.canUseApp else { return false }
         switch action {
         case .automaticProfiles:
             smartProfiles.useAutomaticMode()
@@ -329,11 +298,6 @@ final class AppEnvironment: ObservableObject {
     }
 
     private func applyWidgetActivation(_ preferences: Preferences) {
-        guard settings.canUseApp else {
-            stopProductServices()
-            return
-        }
-
         // Set before starting: it decides whether the first poll scans tabs.
         nowPlaying.includeBrowsers = preferences.browserMediaEnabled
         if settings.isTabEnabled(.music) {
@@ -439,11 +403,6 @@ final class AppEnvironment: ObservableObject {
     }
 
     func presentCommandPalette() {
-        guard settings.canUseApp else {
-            notch.setPinned(true)
-            notch.expand()
-            return
-        }
         commandPalette.present()
         notch.setPinned(true)
         notch.expand()

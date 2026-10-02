@@ -8,7 +8,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     case profiles
     case shortcuts
     case appearance
-    case license
     case permissions
 
     var id: String { rawValue }
@@ -20,7 +19,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .profiles: return "Profiles"
         case .shortcuts: return "Shortcuts"
         case .appearance: return "Appearance"
-        case .license: return "License"
         case .permissions: return "Permissions"
         }
     }
@@ -32,7 +30,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .profiles: return "Adapt widgets and appearance to your context"
         case .shortcuts: return "Build your personal quick-action grid"
         case .appearance: return "Shape, colour, material, and motion"
-        case .license: return "Trial status, purchase, and activation"
         case .permissions: return "Review access used by integrations"
         }
     }
@@ -44,7 +41,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .profiles: return "person.crop.circle.badge.clock.fill"
         case .shortcuts: return "bolt.square.fill"
         case .appearance: return "paintbrush.pointed.fill"
-        case .license: return "key.fill"
         case .permissions: return "lock.shield.fill"
         }
     }
@@ -84,9 +80,6 @@ struct SettingsView: View {
         .tint(settings.effectiveAccentColor)
         .frame(minWidth: 720, idealWidth: 800, minHeight: 520, idealHeight: 570)
         .preferredColorScheme(.dark)
-        .onChange(of: settings.licenseAccess) { _, access in
-            if !access.canUseApp { selection = .license }
-        }
     }
 
     private var sidebar: some View {
@@ -113,7 +106,6 @@ struct SettingsView: View {
                     SettingsSidebarButton(
                         page: page,
                         isSelected: selection == page,
-                        isDisabled: !settings.canUseApp && page != .license,
                         accent: settings.effectiveAccentColor
                     ) {
                         withAnimation(.easeOut(duration: 0.16)) { selection = page }
@@ -125,10 +117,7 @@ struct SettingsView: View {
             Spacer()
 
             HStack(spacing: 7) {
-                Circle()
-                    .fill(settings.canUseApp ? Color.green : Color.orange)
-                    .frame(width: 6, height: 6)
-                Text(settings.licenseAccess.displayName)
+                Text("Free and open source")
                     .font(.system(size: 10, weight: .semibold))
                 Spacer()
                 Text(Bundle.main.shortVersion)
@@ -193,8 +182,6 @@ struct SettingsView: View {
             ShortcutSettings(settings: settings)
         case .appearance:
             AppearanceSettings(settings: settings)
-        case .license:
-            LicenseSettings(settings: settings)
         case .permissions:
             PermissionsSettings(environment: environment)
         }
@@ -204,7 +191,6 @@ struct SettingsView: View {
 private struct SettingsSidebarButton: View {
     let page: SettingsPage
     let isSelected: Bool
-    let isDisabled: Bool
     let accent: Color
     let action: () -> Void
 
@@ -243,8 +229,6 @@ private struct SettingsSidebarButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .opacity(isDisabled ? 0.42 : 1)
         .onHover { hovering = $0 }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -336,6 +320,28 @@ private struct GeneralSettings: View {
                 Text("How long the panel waits after the pointer leaves before closing.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Toggle("Show synthetic notch on external displays", isOn: binding(\.showNotchOnExternalDisplays))
+                Text("When turned off, the notch only appears on your Mac's built-in display.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Feedback & support") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Send feedback or report an issue")
+                            .font(.system(size: 13, weight: .medium))
+                        Text("Email system diagnostics directly to the Bondex developer team.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Send Feedback…") {
+                        sendFeedback()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             }
 
             Section("Keyboard & accessibility") {
@@ -396,6 +402,25 @@ private struct GeneralSettings: View {
             get: { settings.preferences[keyPath: keyPath] },
             set: { settings.preferences[keyPath: keyPath] = $0 }
         )
+    }
+
+    private func sendFeedback() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        let hasNotch = (NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) != nil) ? "Yes" : "No"
+        let subject = "Bondex Notch Feedback (v\(version))".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let body = """
+        [Describe your feedback, feature request, or issue here]
+
+        ---
+        App Version: \(version)
+        macOS: \(osVersion)
+        Hardware Notch: \(hasNotch)
+        """.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+
+        if let url = URL(string: "mailto:support@bondeth.site?subject=\(subject)&body=\(body)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 
@@ -942,74 +967,6 @@ private struct AppearanceSettings: View {
             Text(valueLabel)
                 .font(.caption.monospacedDigit())
                 .frame(width: 54, alignment: .trailing)
-        }
-    }
-}
-
-// MARK: - License
-
-private struct LicenseSettings: View {
-    @ObservedObject var settings: SettingsStore
-    @State private var draftKey = ""
-    @State private var message: String?
-
-    var body: some View {
-        Form {
-            Section {
-                LabeledContent("Access") {
-                    Text(settings.licenseAccess.displayName)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(settings.canUseApp ? .green : .orange)
-                }
-                LabeledContent("Status") {
-                    Text(settings.licenseStatusDetail)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section {
-                Link(
-                    "Purchase Bondex Notch",
-                    destination: AppConfiguration.checkoutURL
-                )
-                Text("The 24-hour trial includes the complete app. One licence keeps every feature unlocked after it ends.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("License key") {
-                TextField(LicenseValidator.keyFormat, text: $draftKey)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.body.monospaced())
-
-                HStack {
-                    Button("Apply") { apply() }
-                        .disabled(draftKey.trimmingCharacters(in: .whitespaces).isEmpty)
-                    Button("Remove") {
-                        settings.preferences.licenseKey = ""
-                        draftKey = ""
-                        message = "License removed."
-                    }
-                    .disabled(settings.preferences.licenseKey.isEmpty)
-                }
-
-                if let message {
-                    Text(message).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-
-        }
-        .modernSettingsForm()
-        .onAppear { draftKey = settings.preferences.licenseKey }
-    }
-
-    private func apply() {
-        let key = draftKey.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        if LicenseValidator.validate(key) {
-            settings.preferences.licenseKey = key
-            message = "Licence activated. Full access unlocked."
-        } else {
-            message = "That key is not valid."
         }
     }
 }

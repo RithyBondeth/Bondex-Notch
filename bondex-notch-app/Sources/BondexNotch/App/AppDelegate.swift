@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings(page: SettingsPage? = nil) {
         guard let environment else { return }
-        let requestedPage: SettingsPage? = environment.settings.canUseApp ? page : .license
+        let requestedPage = page
 
         if let settingsWindow {
             if let requestedPage {

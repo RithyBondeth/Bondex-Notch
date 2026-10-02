@@ -47,7 +47,15 @@ export const features: Feature[] = [
     title: 'Agent activity',
     body:
       'Know when Codex, Claude Code, Gemini, Ollama or another CLI agent is ' +
-      'working, what it is doing, and how long it has been running.',
+      'working, how long it has been running, and which project and model it is on.',
+  },
+  {
+    icon: 'agent',
+    title: 'Agent usage',
+    body:
+      'An Agents tab for Claude Code and Codex: plan limits with reset countdowns, ' +
+      'API-equivalent spend over 1, 7 or 30 days, recent sessions and a trend by ' +
+      'project or model — read from local logs, with no sign-in.',
   },
   {
     icon: 'capture',
@@ -197,7 +205,7 @@ export const panelStates: PanelState[] = [
 ];
 
 /* ── Pricing ──────────────────────────────────────────────
-   Figures are provisional; see the README before publishing. */
+   Bondex Notch is free and open source under the MIT License. */
 
 export interface Plan {
   name: string;
@@ -215,14 +223,15 @@ export interface Plan {
 export const plans: Plan[] = [
   {
     name: 'Bondex Notch',
-    price: '$14.99',
-    cadence: 'one-time',
-    note: 'Try the complete app free for 24 hours. Then purchase once to keep using it.',
+    price: 'Free',
+    cadence: 'MIT licensed',
+    note: 'The complete app, free for everyone. No trial, account, or licence key.',
     featured: true,
-    badge: '24-hour full trial',
+    badge: 'Open source',
     items: [
       'Music and supported browser playback',
       'Agent activity for Codex, Claude, Gemini, Ollama and custom agents',
+      'Claude Code and Codex usage: plan limits, spend and sessions',
       'Custom live activities from scripts and Shortcuts',
       'Quick Capture and session-only clipboard history',
       'Focus timer and optional upcoming meetings',
@@ -234,9 +243,9 @@ export const plans: Plan[] = [
       'File activity and live downloads',
       'Drag-and-drop file shelf',
       'Every theme and appearance control',
-      'Lifetime licence, no feature tiers',
+      'Full source code on GitHub',
     ],
-    cta: { label: 'Buy Bondex Notch', href: '/checkout', style: 'solid' },
+    cta: { label: 'Download for Mac', href: '/download/', style: 'solid' },
   },
 ];
 

@@ -28,7 +28,7 @@ enum PreviewRenderer {
         }
 
         // A throwaway defaults domain: rendering previews must never touch the
-        // user's real preferences (it activates a licence for stable previews).
+        // user's real preferences.
         let suiteName = "com.bondex.notch.preview"
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -601,11 +601,6 @@ enum PreviewRenderer {
 
     /// Deterministic content so previews are comparable between runs.
     private static func seedSampleData(_ environment: AppEnvironment) {
-        // Keep preview output independent from the trial clock.
-        if let key = LicenseValidator.makeKey(payload: "BEEF1234") {
-            environment.settings.preferences.licenseKey = key
-        }
-
         environment.settings.preferences.customActions = [
             CustomAction(
                 title: "Calculator",

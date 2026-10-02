@@ -19,6 +19,8 @@ if (configuredSupportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(configuredSuppo
 }
 export const SUPPORT_EMAIL = configuredSupportEmail || defaultSupportEmail;
 
+export const GITHUB_REPO_URL = 'https://github.com/RithyBondeth/Bondex-Notch';
+
 export function supportMailto(subject: string) {
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }

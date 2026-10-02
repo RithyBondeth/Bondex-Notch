@@ -8,8 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const supportingPages = [
     '/privacy/',
     '/terms/',
-    '/refunds/',
-    '/license-support/',
+    '/download/',
   ];
 
   return [
