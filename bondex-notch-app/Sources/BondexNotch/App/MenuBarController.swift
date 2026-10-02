@@ -105,6 +105,14 @@ final class MenuBarController: NSObject {
 
         menu.addItem(.separator())
 
+        let feedback = NSMenuItem(
+            title: "Send Feedback…",
+            action: #selector(sendFeedback),
+            keyEquivalent: ""
+        )
+        feedback.target = self
+        menu.addItem(feedback)
+
         let settings = NSMenuItem(
             title: "Settings…",
             action: #selector(openSettings),
@@ -137,6 +145,25 @@ final class MenuBarController: NSObject {
     /// The access line is built once, so refresh it whenever the licence changes.
     func refresh() {
         statusItem?.menu = makeMenu()
+    }
+
+    @objc private func sendFeedback() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        let hasNotch = (NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) != nil) ? "Yes" : "No"
+        let subject = "Bondex Notch Feedback (v\(version))".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let body = """
+        [Describe your feedback, feature request, or issue here]
+
+        ---
+        App Version: \(version)
+        macOS: \(osVersion)
+        Hardware Notch: \(hasNotch)
+        """.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+
+        if let url = URL(string: "mailto:support@bondeth.site?subject=\(subject)&body=\(body)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func togglePanel() {

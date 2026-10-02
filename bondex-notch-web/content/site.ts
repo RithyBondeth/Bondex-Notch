@@ -217,9 +217,9 @@ export const plans: Plan[] = [
     name: 'Bondex Notch',
     price: '$14.99',
     cadence: 'one-time',
-    note: 'Try the complete app free for 24 hours. Then purchase once to keep using it.',
+    note: 'Try the complete app free for 14 days. Then purchase once to keep using it.',
     featured: true,
-    badge: '24-hour full trial',
+    badge: '14-day full trial',
     items: [
       'Music and supported browser playback',
       'Agent activity for Codex, Claude, Gemini, Ollama and custom agents',

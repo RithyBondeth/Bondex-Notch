@@ -54,4 +54,23 @@ final class ShelfServiceTests: XCTestCase {
         service.clear()
         XCTAssertFalse(FileManager.default.fileExists(atPath: materialized.path))
     }
+
+    func testPruneMissingItemsRemovesDeletedFiles() throws {
+        let service = ShelfService(events: EventCenter())
+        let tempFile = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Bondex-Shelf-Temp-\(UUID().uuidString).txt")
+        try "test".write(to: tempFile, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(service.add(urls: [sourceURL, tempFile]), 2)
+        XCTAssertFalse(service.hasMissingItems)
+
+        // Delete the temp file to simulate an external file deletion
+        try FileManager.default.removeItem(at: tempFile)
+        XCTAssertTrue(service.hasMissingItems)
+
+        service.pruneMissingItems()
+        XCTAssertFalse(service.hasMissingItems)
+        XCTAssertEqual(service.items.count, 1)
+        XCTAssertEqual(service.items.first?.url, sourceURL)
+    }
 }

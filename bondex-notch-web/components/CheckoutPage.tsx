@@ -52,7 +52,7 @@ export default function CheckoutPage({ stripeConfigured }: CheckoutPageProps) {
           <p className="label">Bondex Notch</p>
           <h1>Keep the complete app.</h1>
           <p>
-            After your 24-hour trial, one lifetime licence keeps every Bondex
+            After your 14-day trial, one lifetime licence keeps every Bondex
             Notch feature available. There are no Free or Pro tiers.
           </p>
         </section>
@@ -69,7 +69,7 @@ export default function CheckoutPage({ stripeConfigured }: CheckoutPageProps) {
             </div>
 
             <ul className="order-card__features">
-              <li>The complete app after your 24-hour trial</li>
+              <li>The complete app after your 14-day trial</li>
               <li>Every current feature included</li>
               <li>No feature tiers or recurring app fee</li>
               <li>Use the version you buy forever</li>

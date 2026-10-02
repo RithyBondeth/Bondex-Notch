@@ -86,6 +86,7 @@ struct Preferences: Codable, Equatable {
 
     var downloadsFolderBookmark: Data?
     var launchAtLogin = false
+    var showNotchOnExternalDisplays = true
 
     var licenseKey: String = ""
 }
@@ -94,7 +95,7 @@ struct Preferences: Codable, Equatable {
 final class SettingsStore: ObservableObject {
     private static let defaultsKey = "com.bondex.notch.preferences"
     private static let trialStartedAtKey = "com.bondex.notch.trial.started-at"
-    static let trialDuration: TimeInterval = 24 * 60 * 60
+    static let trialDuration: TimeInterval = 14 * 24 * 60 * 60
 
     @Published var preferences: Preferences {
         didSet {

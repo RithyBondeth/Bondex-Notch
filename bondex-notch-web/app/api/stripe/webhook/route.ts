@@ -5,6 +5,7 @@ import {
   isPaidBondexSession,
   StripeConfigurationError,
 } from '@/lib/stripe';
+import { generateLicenseKey } from '@/lib/license';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,13 +17,15 @@ const paidEvents = new Set([
 
 async function markPaymentVerified(session: Stripe.Checkout.Session) {
   if (!isPaidBondexSession(session)) return;
-  if (session.metadata?.fulfilment === 'payment_verified') return;
+  if (session.metadata?.fulfilment === 'payment_verified' && session.metadata?.license_key) return;
 
+  const licenseKey = session.metadata?.license_key || generateLicenseKey(session.id);
   const stripe = getStripe();
   await stripe.checkout.sessions.update(session.id, {
     metadata: {
       ...session.metadata,
       fulfilment: 'payment_verified',
+      license_key: licenseKey,
     },
   });
 }

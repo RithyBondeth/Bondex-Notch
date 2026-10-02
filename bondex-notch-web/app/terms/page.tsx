@@ -15,7 +15,7 @@ export default function TermsPage() {
       currentPath="/terms/"
       eyebrow="Clear terms, no feature tiers"
       title="Terms of Use"
-      intro="These terms govern your use of the Bondex Notch website, 24-hour trial, software, and any licence you later purchase."
+      intro="These terms govern your use of the Bondex Notch website, 14-day trial, software, and any licence you later purchase."
     >
       <section>
         <h2>1. Agreement and operator</h2>
@@ -34,20 +34,18 @@ export default function TermsPage() {
       <section className="legal-callout">
         <h2>2. Purchases and payment</h2>
         <p>
-          When paid checkout is available, payments are processed on Stripe&apos;s
+          Payments are processed on Stripe&apos;s
           hosted checkout. A purchase agreement is formed only when Stripe
           accepts payment and provides an order confirmation. The final price,
-          taxes, licence scope, and payment method are shown before purchase. If
-          the checkout button says setup is still in progress, paid sales are not
-          yet open.
+          taxes, licence scope, and payment method are shown before purchase.
         </p>
       </section>
 
       <section>
-        <h2>3. The 24-hour trial</h2>
+        <h2>3. The 14-day trial</h2>
         <p>
-          The trial begins on first launch and provides the complete app for 24
-          hours. After it expires, app functionality is locked until a valid
+          The trial begins on first launch and provides the complete app for 14
+          days. After it expires, app functionality is locked until a valid
           licence is activated. You may not manipulate the clock, stored trial
           state, app files, or other technical measures to extend or restart the
           trial. Reinstalling the app does not grant a contractual right to a new

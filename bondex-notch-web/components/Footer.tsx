@@ -45,7 +45,7 @@ export default function Footer() {
           </span>
           <p>
             A calmer control center for macOS, built privately in Cambodia.
-            Questions, early access, and feedback are always welcome.
+            Questions, licence help, and feedback are always welcome.
           </p>
           <span className="footer__availability"><i /> Available for direct messages</span>
         </div>

@@ -1,6 +1,6 @@
 import Foundation
 
-/// The app has one feature set. A user can access it during the 24-hour trial
+/// The app has one feature set. A user can access it during the 14-day trial
 /// or after activating a purchased licence.
 enum LicenseAccessState: Equatable {
     case trial(expiresAt: Date)
@@ -9,7 +9,7 @@ enum LicenseAccessState: Equatable {
 
     var displayName: String {
         switch self {
-        case .trial: return "24-hour trial"
+        case .trial: return "Trial"
         case .licensed: return "Licensed"
         case .expired: return "Trial expired"
         }

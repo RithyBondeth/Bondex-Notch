@@ -222,7 +222,7 @@ private struct TrialExpiredView: View {
                 .foregroundStyle(settings.effectiveAccentColor)
 
             VStack(spacing: 4) {
-                Text("Your 24-hour trial has ended")
+                Text("Your trial has ended")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.primaryText)
                 Text("Purchase once to continue using the complete Bondex Notch app.")

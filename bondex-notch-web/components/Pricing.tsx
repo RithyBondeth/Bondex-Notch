@@ -9,7 +9,7 @@ export default function Pricing() {
             <p className="label">Pricing</p>
             <h2 className="title">Try everything. Then pay once.</h2>
             <p className="lede">
-              Your first 24 hours include the complete app—no locked features.
+              Your first 14 days include the complete app—no locked features.
               Purchase one licence to keep using Bondex Notch afterward.
             </p>
           </header>
@@ -42,6 +42,15 @@ export default function Pricing() {
                     {plan.cta.label}
                   </a>
                 )}
+                <div style={{ marginTop: '10px' }}>
+                  <a
+                    className="btn btn--block btn--ghost"
+                    href="/download/"
+                    style={{ fontSize: '13px', padding: '10px 16px' }}
+                  >
+                    Download free trial (.dmg)
+                  </a>
+                </div>
                 {plan.unavailable && (
                   <span className="plan__soon">{plan.unavailable}</span>
                 )}

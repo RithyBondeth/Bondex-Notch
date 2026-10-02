@@ -14,6 +14,10 @@ struct ShelfItem: Identifiable, Equatable {
         let values = try? url.resourceValues(forKeys: [.fileSizeKey])
         return Int64(values?.fileSize ?? 0)
     }
+
+    var existsOnDisk: Bool {
+        FileManager.default.fileExists(atPath: url.path)
+    }
 }
 
 /// A temporary tray. Drag files onto the notch to park them, drag them out
@@ -70,6 +74,16 @@ final class ShelfService: ObservableObject {
             subtitle: "On the shelf"
         ))
         return fresh.count
+    }
+
+    var hasMissingItems: Bool {
+        items.contains { !$0.existsOnDisk }
+    }
+
+    func pruneMissingItems() {
+        let missing = items.filter { !$0.existsOnDisk }
+        missing.forEach { removeTemporaryCopy(at: $0.url) }
+        items.removeAll { !$0.existsOnDisk }
     }
 
     func remove(_ item: ShelfItem) {

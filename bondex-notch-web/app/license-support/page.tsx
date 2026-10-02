@@ -14,22 +14,21 @@ export default function LicenseSupportPage() {
       currentPath="/license-support/"
       eyebrow="Activation help"
       title="Licence Support"
-      intro="Help with the 24-hour trial, activating a purchased licence, moving to another Mac, and resolving an invalid key."
+      intro="Help with the 14-day trial, activating a purchased licence, moving to another Mac, and resolving an invalid key."
     >
       <section className="legal-callout">
         <h2>Payment and licence status</h2>
         <p>
-          When paid checkout is enabled, Stripe handles the payment and provides
+          Stripe handles the payment and provides
           the receipt. Keep the receipt and order reference for licence support.
-          If the checkout button says setup is still in progress, paid sales are
-          not yet open. Never send card details or account passwords to support.
+          Never send card details or account passwords to support.
         </p>
       </section>
 
       <section>
         <h2>Start and check your trial</h2>
         <p>
-          The complete 24-hour trial starts automatically the first time Bondex
+          The complete 14-day trial starts automatically the first time Bondex
           Notch launches. Open the menu-bar icon, choose <b>Settings</b>, then
           select <b>License</b> to see whether the app is in trial, expired, or
           licensed state and how much trial time remains.

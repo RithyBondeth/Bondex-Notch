@@ -43,7 +43,7 @@ export default function PrivacyPage() {
       <section className="legal-callout">
         <h2>3. Stripe Checkout</h2>
         <p>
-          When paid checkout is available, Bondex sends you to a Stripe-hosted
+          At checkout, Bondex sends you to a Stripe-hosted
           payment page. Stripe receives and processes your card details, billing
           information, email address, payment status, and fraud-prevention data
           under its own privacy terms. Bondex receives transaction identifiers,

@@ -34,7 +34,7 @@ export const softwareApplicationJsonLd = {
     '@type': 'Offer',
     price: '14.99',
     priceCurrency: 'USD',
-    description: 'One-time lifetime licence after a full 24-hour trial',
+    description: 'One-time lifetime licence after a full 14-day trial',
     url: `${SITE_URL}/#pricing`,
   },
   featureList: [

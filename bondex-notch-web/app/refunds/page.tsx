@@ -14,15 +14,13 @@ export default function RefundsPage() {
       currentPath="/refunds/"
       eyebrow="A fair purchase policy"
       title="Refund Policy"
-      intro="The complete app is available during a free 24-hour trial so you can check compatibility before buying. When paid sales open, the policy below will apply."
+      intro="The complete app is available during a free 14-day trial so you can check compatibility before buying. The policy below applies to every purchase."
     >
       <section className="legal-callout">
         <h2>Stripe purchase record</h2>
         <p>
-          When paid sales are enabled, Stripe processes the transaction and
-          provides the receipt. Keep that receipt and order reference. If the
-          checkout button says setup is still in progress, no payment can be
-          submitted through the website.
+          Stripe processes the transaction and
+          provides the receipt. Keep that receipt and order reference.
         </p>
       </section>
 

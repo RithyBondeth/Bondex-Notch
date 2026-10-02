@@ -23,6 +23,9 @@ To package a distributable disk image (`.dmg`) with a drag-and-drop Applications
 ./scripts/build-dmg.sh
 ```
 
+It always builds a fresh universal release first and refuses to package a
+bundle that is not universal. `--skip-build` packages the existing bundle.
+
 The app is an agent (`LSUIElement`), so there is no Dock icon. It lives in the
 notch and in the menu bar; use the menu bar item for Settings and Quit.
 
@@ -486,7 +489,7 @@ app and re-prompts. Sign with a stable Developer ID identity to keep grants.
 
 ## Licensing
 
-Bondex Notch has one complete feature set. The 24-hour trial begins on first
+Bondex Notch has one complete feature set. The 14-day trial begins on first
 launch; when it expires, product services and actions stop and the app exposes
 only purchase and licence activation. A valid licence unlocks the complete app.
 
