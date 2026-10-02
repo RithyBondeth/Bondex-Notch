@@ -27,7 +27,7 @@ enum PeekContent: Equatable {
     case media
     case live
     /// - Parameter agents: how many agents are working, each of which brings its
-    ///   own mark and its own name.
+    ///   own mark and its own clock.
     case agent(agents: Int)
     case banner
 }
@@ -54,6 +54,7 @@ struct SystemHUDPresentation: Equatable {
 /// Which widget the expanded panel is showing.
 enum NotchTab: String, CaseIterable, Codable, Identifiable {
     case home
+    case agents
     case capture
     case shortcuts
     case music
@@ -69,6 +70,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .home: return "Home"
+        case .agents: return "Agents"
         case .capture: return "Capture"
         case .shortcuts: return "Shortcuts"
         case .music: return "Music"
@@ -84,6 +86,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     var systemImage: String {
         switch self {
         case .home: return "square.grid.2x2.fill"
+        case .agents: return RobotGlyph.symbolName
         case .capture: return "square.and.pencil"
         case .shortcuts: return "bolt.square.fill"
         case .music: return "music.note"
@@ -105,7 +108,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     /// tallest tab.
     var widgetHeight: CGFloat? {
         switch self {
-        case .home, .music, .system: return nil
+        case .home, .agents, .music, .system: return nil
         case .capture, .shortcuts: return 132
         case .live: return 132
         case .files, .activity, .clipboard, .shelf: return 132

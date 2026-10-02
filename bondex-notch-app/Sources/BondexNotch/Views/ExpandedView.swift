@@ -130,6 +130,8 @@ struct ExpandedView: View {
         switch notch.tab {
         case .home:
             HomeWidget(environment: environment)
+        case .agents:
+            AgentUsageWidget(environment: environment)
         case .capture:
             QuickCaptureWidget(environment: environment)
         case .shortcuts:
@@ -166,8 +168,7 @@ private struct TabChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Image(systemName: tab.systemImage)
-                    .font(.system(size: 9, weight: .semibold))
+                SymbolIcon(name: tab.systemImage, size: 9, weight: .semibold)
                     .foregroundStyle(isSelected ? accent : Theme.secondaryText)
                 if isSelected {
                     Text(tab.title)

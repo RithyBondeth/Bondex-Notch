@@ -26,6 +26,7 @@ final class AppEnvironment: ObservableObject {
     let clipboard: ClipboardHistoryService
     let shelf: ShelfService
     let agents: AgentActivityService
+    let agentUsage: AgentUsageService
     let liveActivities: LiveActivityService
     let notifications: NotificationService
     let notch: NotchViewModel
@@ -63,6 +64,7 @@ final class AppEnvironment: ObservableObject {
         self.clipboard = ClipboardHistoryService()
         self.shelf = ShelfService(events: events)
         self.agents = AgentActivityService(events: events)
+        self.agentUsage = AgentUsageService()
         self.liveActivities = LiveActivityService(events: events)
         self.notifications = NotificationService(events: events)
         self.notch = NotchViewModel(settings: settings, events: events, screen: screen)
@@ -126,13 +128,27 @@ final class AppEnvironment: ObservableObject {
             .store(in: &cancellables)
 
         agents.$active
-            .map(\.count)
+            .map { active in
+                let working = active.filter(\.isHookReported).count
+                return [working, active.count - working]
+            }
             .removeDuplicates()
-            .sink { [weak self] count in
-                self?.isAgentWorking = count > 0
-                self?.notch.workingAgentCount = count
+            .sink { [weak self] counts in
+                self?.isAgentWorking = counts[0] > 0
+                self?.notch.workingAgentCount = counts[0]
+                self?.notch.openAgentCount = counts[1]
                 self?.refreshLiveActivity()
             }
+            .store(in: &cancellables)
+
+        // A turn that just ended has just written its usage, so the Agents tab
+        // catches up now rather than at the next minute's scan.
+        agents.$active
+            .map { Set($0.filter(\.isHookReported).map(\.kind)) }
+            .removeDuplicates()
+            .scan((Set<AgentKind>(), Set<AgentKind>())) { ($0.1, $1) }
+            .filter { previous, current in !previous.subtracting(current).isEmpty }
+            .sink { [weak self] _ in self?.agentUsage.refresh() }
             .store(in: &cancellables)
 
         liveActivities.$active
@@ -243,6 +259,7 @@ final class AppEnvironment: ObservableObject {
         files.stop()
         clipboard.stop()
         agents.stop()
+        agentUsage.stop()
         liveActivities.stop()
         systemHUD.stop()
         deviceBatteries.stop()
@@ -385,6 +402,12 @@ final class AppEnvironment: ObservableObject {
             agents.start()
         } else {
             agents.stop()
+        }
+
+        if settings.isTabEnabled(.agents) {
+            agentUsage.start()
+        } else {
+            agentUsage.stop()
         }
 
         if settings.isTabEnabled(.live) {
@@ -701,6 +724,9 @@ final class AppEnvironment: ObservableObject {
 
         let newValue: Bool
         switch tab {
+        case .agents:
+            newValue = !settings.preferences.agentUsageEnabled
+            settings.preferences.agentUsageEnabled = newValue
         case .music:
             newValue = !settings.preferences.musicWidgetEnabled
             settings.preferences.musicWidgetEnabled = newValue

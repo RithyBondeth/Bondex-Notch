@@ -38,7 +38,15 @@ struct PeekView: View {
     /// hours, while an agent working is the transient state you actually want to
     /// know the end of. Playback is one hover away in the panel; the agent, once
     /// it stops, is gone.
-    private var workingAgents: [AgentActivity] { agents.active }
+    ///
+    /// Mirrors `NotchViewModel.peekAgentCount`, which sized the strip: the
+    /// agents a hook reports working, or — only while nothing is playing — the
+    /// ones that are merely open.
+    private var workingAgents: [AgentActivity] {
+        let working = agents.active.filter(\.isHookReported)
+        if !working.isEmpty { return working }
+        return notch.peekAgentCount > 0 ? agents.active : []
+    }
     private var currentLive: LiveActivity? { liveActivities.active.first }
 
     var body: some View {
@@ -61,9 +69,8 @@ struct PeekView: View {
                 // say, so it gets first claim on the width.
                 .layoutPriority(1)
         }
-        // The peek hangs a few points below the menu bar; centre content on the
-        // menu bar itself rather than on the panel, or it sits visibly low.
-        .padding(.bottom, 6)
+        // The peek is exactly the notch's height, so centring on the strip is
+        // centring on the menu bar.
         .frame(maxHeight: .infinity)
     }
 
@@ -125,7 +132,11 @@ struct PeekView: View {
             // opposite, so the pairing is positional and needs no explaining.
             HStack(spacing: 4) {
                 ForEach(workingAgents) { agent in
-                    AgentOrb(kind: agent.kind, size: 21)
+                    // Spins only for work a hook reported. An agent that is
+                    // merely open — the Claude desktop app idling all day —
+                    // shows its mark still, so motion over the menu bar always
+                    // means something is actually running.
+                    AgentOrb(kind: agent.kind, size: 21, isAnimating: agent.isHookReported)
                 }
             }
             .transition(.scale.combined(with: .opacity))
@@ -209,7 +220,7 @@ struct PeekView: View {
             .frame(maxWidth: 145, alignment: .trailing)
             .transition(.opacity)
         } else if !workingAgents.isEmpty {
-            agentNames
+            agentClocks
                 .transition(.opacity)
         } else if let track = nowPlaying.nowPlaying {
             // Artwork and equaliser only. The title lives one hover away in the
@@ -313,39 +324,59 @@ struct PeekView: View {
         }
     }
 
-    /// Just the names of the agents that are working.
+    /// How long each working agent has been at it.
     ///
-    /// The status and the elapsed clock used to be here too, and they have moved
-    /// into the expanded panel — which is one hover away, and is where there is
-    /// actually room for them. Three competing pieces of text in a strip beside
-    /// the notch meant the status, the only part carrying new information, was
-    /// the one that got truncated. What belongs over the menu bar all day is the
-    /// smallest true statement: *who* is working. What they are working on is a
-    /// question, and questions deserve a deliberate look rather than a permanent
-    /// slab of text.
+    /// The marks opposite already say *who* is working, so naming them again
+    /// here only repeated the left half of the strip. The run's length is the
+    /// part worth glancing at: it is what tells you whether to go and look.
+    /// Status stays one hover away, in the expanded panel.
     ///
-    /// Dropping the clock also takes the peek's last `TimelineView` with it, so
-    /// the strip no longer re-renders once a second for the entire length of a
-    /// run — which, for a panel that sits over the menu bar for tens of minutes,
-    /// is the same argument that put the orb on Core Animation.
-    private var agentNames: some View {
-        HStack(spacing: 5) {
-            ForEach(Array(workingAgents.enumerated()), id: \.element.id) { index, agent in
-                if index > 0 {
-                    Text("·")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.tertiaryText)
+    /// One agent gets a clock at the strip's normal text size. Several get
+    /// small ones, two to a column and the columns side by side — the strip is
+    /// only as tall as the menu bar, which fits two lines, not three. Each
+    /// clock is tinted like its mark, so the pairing needs no names.
+    ///
+    /// The clocks are `Text(_:style: .timer)`, which SwiftUI advances itself:
+    /// only the digits redraw each second, not this view, so a long run over
+    /// the menu bar costs no more than the orb does.
+    private var agentClocks: some View {
+        let agents = workingAgents
+        let columns = stride(from: 0, to: agents.count, by: 2).map { Array(agents[$0..<min($0 + 2, agents.count)]) }
+        return HStack(alignment: .center, spacing: 7) {
+            ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
+                VStack(alignment: .trailing, spacing: 0) {
+                    ForEach(column) { agent in
+                        AgentClock(agent: agent, compact: agents.count > 1)
+                    }
                 }
-                // Tinted to match its own mark opposite. With one agent this is
-                // decoration; with two it is what tells you which name belongs
-                // to which mark without counting positions.
-                Text(agent.kind.displayName)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(agent.kind.tint)
-                    .fixedSize()
             }
         }
+    }
+}
+
+/// One agent's elapsed time beside the notch.
+private struct AgentClock: View {
+    let agent: AgentActivity
+    /// Small type, for when several share the strip.
+    let compact: Bool
+
+    var body: some View {
+        Group {
+            if agent.isHookReported {
+                Text(agent.startedAt, style: .timer)
+                    .foregroundStyle(agent.kind.tint)
+            } else {
+                // Only known to be open, not working: a running clock would
+                // claim a run that is not happening.
+                Text("Open")
+                    .foregroundStyle(Theme.tertiaryText)
+            }
+        }
+        .font(.system(size: compact ? 9.5 : 11.5, weight: .semibold).monospacedDigit())
         .lineLimit(1)
+        .fixedSize()
+        .accessibilityLabel(agent.kind.displayName)
+        .accessibilityValue(agent.isHookReported ? "Working for \(agent.elapsed().clockString)" : "Open")
     }
 }
 

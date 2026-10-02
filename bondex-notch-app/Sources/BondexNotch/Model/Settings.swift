@@ -40,6 +40,9 @@ struct Preferences: Codable, Equatable {
     var shelfEnabled = true
     /// Show a mark beside the notch while Claude Code or Codex is working.
     var agentActivityEnabled = true
+    /// The Agents tab: plan limits, spend and trends read from local agent logs.
+    var agentUsageEnabled = true
+    var agentUsageRange: UsageRange = .today
     var customLiveActivitiesEnabled = true
     var focusTimerEnabled = true
     var defaultFocusMinutes = 25
@@ -266,6 +269,7 @@ final class SettingsStore: ObservableObject {
         }
         switch tab {
         case .home: return true
+        case .agents: return preferences.agentUsageEnabled
         case .capture: return preferences.quickCaptureEnabled
         case .shortcuts: return preferences.customShortcutsEnabled
         case .music: return preferences.musicWidgetEnabled

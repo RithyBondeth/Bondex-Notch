@@ -72,7 +72,19 @@ struct NotchGeometry: Equatable {
     /// Extra room around the content for the drop shadow and the hover margin.
     static let windowInset = CGSize(width: 90, height: 60)
 
-    private var peekHeight: CGFloat { max(notchSize.height + 8, 40) }
+    /// The peek is exactly as tall as the hardware notch, so it reads as the
+    /// notch widening rather than as a second shape hanging below it.
+    ///
+    /// Without a hardware notch the stand-in pill can be as short as a hidden
+    /// menu bar's 24pt, which cannot hold two lines — a banner's title and
+    /// subtitle, or two agents' clocks stacked — so it gets a 32pt floor there.
+    /// There is no hardware edge on those displays for the extra height to
+    /// misalign with.
+    static let minimumPeekHeight: CGFloat = 32
+
+    var peekHeight: CGFloat {
+        hasHardwareNotch ? notchSize.height : max(notchSize.height, Self.minimumPeekHeight)
+    }
 
     /// While media is playing: artwork on one side of the notch, the equaliser on
     /// the other, and nothing else. Only as wide as those two need, so the strips
@@ -110,7 +122,8 @@ struct NotchGeometry: Equatable {
         CGSize(width: max(notchSize.width + 205, 350), height: peekHeight)
     }
 
-    /// While agents are working: a mark and a name for each one.
+    /// While agents are working: a mark for each one on the left, and their
+    /// clocks on the right.
     ///
     /// Sized from the count rather than fixed at the worst case. One agent needs
     /// about as much room as playback does; three would be stranded at the far
@@ -118,8 +131,14 @@ struct NotchGeometry: Equatable {
     /// changing as a second agent starts is not a glitch — it is the panel
     /// growing to hold something that genuinely arrived, and the spring animates
     /// it like any other state change.
+    ///
+    /// Each extra agent adds 25pt a side: one more 21pt mark and its gap on the
+    /// left, which is also more than half a column of small clocks needs on the
+    /// right, since those stack two to a column.
+    static let agentPeekGrowth: CGFloat = 50
+
     func agentPeekSize(agents: Int) -> CGSize {
-        let extra = CGFloat(max(agents - 1, 0)) * 90
+        let extra = CGFloat(max(agents - 1, 0)) * Self.agentPeekGrowth
         return CGSize(width: max(notchSize.width + 120 + extra, 240), height: peekHeight)
     }
 

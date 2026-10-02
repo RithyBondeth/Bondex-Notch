@@ -42,6 +42,12 @@ final class AppIntentTests: XCTestCase {
             screen: try XCTUnwrap(NSScreen.main),
             defaults: defaults
         )
+        // A real environment starts real services: media polling over Apple
+        // Events, the agent-log scanner, their timers. Left running, they
+        // outlive this test and fire inside later ones — AppleScript pumps a
+        // nested run loop, which surfaced as "Run loop nesting count is
+        // negative" in whichever test happened to be running.
+        defer { environment.stop() }
 
         XCTAssertTrue(environment.performAppIntentCommand(.automaticProfiles))
         XCTAssertEqual(environment.settings.preferences.smartProfileMode, .automatic)

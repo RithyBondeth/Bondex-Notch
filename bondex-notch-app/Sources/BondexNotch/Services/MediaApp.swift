@@ -56,8 +56,28 @@ struct MediaApp: Equatable, Hashable, Sendable, Identifiable {
             .isEmpty
     }
 
-    /// Where this browser hides the "Allow JavaScript from Apple Events" switch.
-    /// It ships off, and it is the only manual step between Bondex and web media.
+    /// How the user lets Bondex read media in this browser.
+    enum MediaAccessFix: Equatable, Sendable {
+        /// The browser only allows it when launched with these arguments, so
+        /// Bondex can do it: quit the browser and reopen it with them.
+        case relaunch(arguments: [String])
+        /// A switch in the browser's own menus that only the user can flip.
+        case browserSetting
+    }
+
+    /// Nil when there is nothing the user can do.
+    var mediaAccessFix: MediaAccessFix? {
+        guard canEnableJavaScript else { return nil }
+        switch engine {
+        case .dia: return .relaunch(arguments: ["--enable-applescript-javascript"])
+        case .webkit, .chromium: return .browserSetting
+        case .music, .spotify: return nil
+        }
+    }
+
+    /// What to tell someone whose web media is not showing, in the words of
+    /// the browser's own menus. Written for someone who has never heard of
+    /// Apple Events: what is wrong, then what to click.
     ///
     /// Empty when there is nothing for the user to do — either because this is
     /// not a browser, or because the browser offers no way to allow it.
@@ -66,19 +86,20 @@ struct MediaApp: Equatable, Hashable, Sendable, Identifiable {
         switch engine {
         case .webkit:
             return """
-            \(displayName) › Settings › Advanced › “Show features for web developers”,
+            Safari only shares what a page is playing once you allow it: \
+            Settings › Advanced › “Show features for web developers”, \
             then Develop › Allow JavaScript from Apple Events.
             """
         case .chromium:
             return """
-            \(displayName) › View › Developer ›
-            Allow JavaScript from Apple Events.
+            \(displayName) only shares what a page is playing once you allow it: \
+            View › Developer › Allow JavaScript from Apple Events.
             """
         case .dia:
             return """
-            Quit Dia, then reopen it from Terminal with:
-            open -a Dia --args --enable-applescript-javascript
-            Dia requires this launch flag for JavaScript from Apple Events.
+            Dia only shares what a page is playing when it is opened with a \
+            special switch. Bondex can reopen it that way for you. Dia forgets \
+            the switch when it quits, so this comes back after a restart.
             """
         case .music, .spotify:
             return ""

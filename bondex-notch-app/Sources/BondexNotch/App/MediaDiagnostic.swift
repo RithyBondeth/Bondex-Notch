@@ -22,7 +22,11 @@ enum MediaDiagnostic {
             write("\(app.displayName).automationStatus=\(status)\n")
         }
 
-        let result = MediaReader().read(players: players, browsers: browsers)
+        let reader = MediaReader()
+        for line in reader.diagnoseBrowsers(browsers) {
+            write(line + "\n")
+        }
+        let result = reader.read(players: players, browsers: browsers)
         if let track = result.track {
             write("source=\(track.source.displayName)\n")
             write("title=\(track.title)\n")

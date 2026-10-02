@@ -453,3 +453,57 @@ final class ConcurrentAgentTests: XCTestCase {
         XCTAssertTrue(found.contains(second))
     }
 }
+
+/// What the peek shows when agents and playback compete for it.
+@MainActor
+final class PeekPriorityTests: XCTestCase {
+
+    private var defaults: UserDefaults!
+    private var suite: String!
+
+    override func setUp() async throws {
+        suite = "com.bondex.notch.tests.peek-priority.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suite)
+    }
+
+    override func tearDown() async throws {
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    private func model() throws -> NotchViewModel {
+        NotchViewModel(
+            settings: SettingsStore(defaults: defaults),
+            events: EventCenter(),
+            screen: try XCTUnwrap(NSScreen.main)
+        )
+    }
+
+    func testAnOpenAgentDoesNotHidePlayback() throws {
+        // The Claude and ChatGPT desktop apps each carry an agent binary, so
+        // "open" is the everyday state — it must not cover a playing video.
+        let notch = try model()
+        notch.openAgentCount = 2
+        notch.hasLiveActivity = true
+
+        XCTAssertEqual(notch.peekAgentCount, 0)
+        XCTAssertEqual(notch.peekContent, .media)
+        XCTAssertEqual(notch.state, .peek)
+    }
+
+    func testAWorkingAgentStillOutranksPlayback() throws {
+        let notch = try model()
+        notch.openAgentCount = 1
+        notch.workingAgentCount = 1
+        notch.hasLiveActivity = true
+
+        XCTAssertEqual(notch.peekContent, .agent(agents: 1))
+    }
+
+    func testOpenAgentsShowWhenNothingElseIs() throws {
+        let notch = try model()
+        notch.openAgentCount = 2
+
+        XCTAssertEqual(notch.peekContent, .agent(agents: 2))
+        XCTAssertEqual(notch.state, .peek)
+    }
+}

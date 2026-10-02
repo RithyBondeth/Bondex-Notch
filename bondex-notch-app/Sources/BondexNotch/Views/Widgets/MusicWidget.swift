@@ -25,12 +25,9 @@ struct MusicWidget: View {
             )
         } else if let browser = service.blockedBrowser {
             // The one thing the user has to do by hand for web media to appear.
-            // Saying nothing here is what "YouTube shows nothing" feels like.
-            EmptyStateView(
-                systemImage: "curlybraces",
-                title: "Turn on JavaScript from Apple Events",
-                subtitle: browser.javaScriptHint
-            )
+            // Saying nothing here is what "YouTube shows nothing" feels like,
+            // and explaining without a way to act on it is barely better.
+            BrowserAccessFixView(nowPlaying: service, browser: browser, accent: accent)
         } else {
             EmptyStateView(
                 systemImage: "music.note",

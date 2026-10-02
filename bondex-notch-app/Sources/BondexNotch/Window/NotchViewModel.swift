@@ -46,10 +46,10 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
-    /// How many coding agents are working, which the peek reports with a mark and
-    /// a name each. Kept separate from `hasLiveActivity` because it also decides
-    /// how *wide* the peek has to be: playback needs room for artwork and an
-    /// equaliser, and each agent brings its own pair.
+    /// How many coding agents a hook reports working, which the peek shows with
+    /// a mark and a clock each. Kept separate from `hasLiveActivity` because it
+    /// also decides how *wide* the peek has to be: playback needs room for
+    /// artwork and an equaliser, and each agent brings its own pair.
     @Published var workingAgentCount = 0 {
         didSet {
             // Only the empty/non-empty transition changes whether the peek is up
@@ -60,7 +60,32 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
-    var hasAgentActivity: Bool { workingAgentCount > 0 }
+    /// Agents that are only known to be open — a process is running, but no
+    /// hook says it is doing anything. The Claude and ChatGPT desktop apps
+    /// each carry an agent binary, so this is non-zero for as long as either
+    /// app is open.
+    @Published var openAgentCount = 0 {
+        didSet {
+            guard (openAgentCount > 0) != (oldValue > 0) else { return }
+            refreshIdleState()
+        }
+    }
+
+    /// Whether playback gets the peek, by its own preference.
+    var showsMediaInPeek: Bool { hasLiveActivity && settings.preferences.peekWhilePlaying }
+
+    /// How many agents the peek shows: working ones always, and open ones
+    /// only when nothing is playing.
+    ///
+    /// A working agent outranks playback — the run is the transient thing you
+    /// want to see the end of, and music will still be playing in ten minutes.
+    /// An agent that is merely open is not news, and letting it outrank
+    /// playback hid every YouTube video behind a still "Claude · Codex" strip
+    /// for as long as the desktop apps were open.
+    var peekAgentCount: Int {
+        if workingAgentCount > 0 { return workingAgentCount }
+        return showsMediaInPeek ? 0 : openAgentCount
+    }
 
     @Published var customLiveActivityCount = 0 {
         didSet {
@@ -94,7 +119,7 @@ final class NotchViewModel: ObservableObject {
         if hasFocusTimer { return .focus }
         if hasUpcomingMeeting { return .meeting }
         if customLiveActivityCount > 0 { return .live }
-        if hasAgentActivity { return .agent(agents: workingAgentCount) }
+        if peekAgentCount > 0 { return .agent(agents: peekAgentCount) }
         return .media
     }
 
@@ -264,7 +289,7 @@ final class NotchViewModel: ObservableObject {
         // someone who turned off "peek while playing" was asking not to see
         // album art over the menu bar, which says nothing about whether they
         // want to know their agent is still running.
-        if hasAgentActivity, settings.preferences.agentActivityEnabled { return .peek }
+        if peekAgentCount > 0, settings.preferences.agentActivityEnabled { return .peek }
         if customLiveActivityCount > 0,
            settings.preferences.customLiveActivitiesEnabled { return .peek }
         guard hasLiveActivity, settings.preferences.peekWhilePlaying else { return .collapsed }
