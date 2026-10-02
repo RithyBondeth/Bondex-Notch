@@ -20,6 +20,9 @@ struct BondexNotch {
         if arguments.contains("--diagnose-media") {
             exit(MediaDiagnostic.run())
         }
+        if arguments.contains("--agent-usage-report") {
+            exit(AgentUsageReport.run())
+        }
 
         switch FocusTimerCommand.parse(arguments) {
         case .command(let command):

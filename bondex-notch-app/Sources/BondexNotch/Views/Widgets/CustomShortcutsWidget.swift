@@ -112,8 +112,7 @@ struct CustomShortcutsWidget: View {
                 .scaledToFit()
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         } else {
-            Image(systemName: action.systemImage)
-                .font(.system(size: 12, weight: .semibold))
+            SymbolIcon(name: action.systemImage, size: 12, weight: .semibold)
                 .foregroundStyle(accent)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(accent.opacity(0.13), in: RoundedRectangle(

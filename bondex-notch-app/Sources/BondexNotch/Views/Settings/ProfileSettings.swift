@@ -164,7 +164,7 @@ struct ProfileSettings: View {
             ForEach(profile.orderedTabs) { tab in
                 HStack {
                     Toggle(isOn: tabEnabledBinding(tab, profileID: profile.id)) {
-                        Label(tab.title, systemImage: tab.systemImage)
+                        Label(tab.title, symbol: tab.systemImage)
                     }
                     .disabled(tab == .home)
 
@@ -192,7 +192,7 @@ struct ProfileSettings: View {
                     Button {
                         setTab(tab, enabled: true, profileID: profile.id)
                     } label: {
-                        Label(tab.title, systemImage: tab.systemImage)
+                        Label(tab.title, symbol: tab.systemImage)
                     }
                 }
             }

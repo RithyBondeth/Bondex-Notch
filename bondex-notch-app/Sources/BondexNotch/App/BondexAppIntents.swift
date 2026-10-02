@@ -35,6 +35,7 @@ enum BondexProfileIntentOption: String, AppEnum {
 
 enum BondexWidgetIntentOption: String, AppEnum {
     case home
+    case agents
     case capture
     case shortcuts
     case music
@@ -48,6 +49,7 @@ enum BondexWidgetIntentOption: String, AppEnum {
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Notch Widget")
     static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
         .home: "Home",
+        .agents: "Agents",
         .capture: "Capture",
         .shortcuts: "Shortcuts",
         .music: "Music",

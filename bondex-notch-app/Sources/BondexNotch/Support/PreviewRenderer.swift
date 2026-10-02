@@ -77,6 +77,16 @@ enum PreviewRenderer {
         environment.notch.expand()
         if !render(environment, named: "expanded-home-idle", into: directory) { failures += 1 }
 
+        // Dia hiding a YouTube tab: what a first-time user sees, and the
+        // button that fixes it, on Music and as the row on Home.
+        environment.nowPlaying.seedForPreview(nil, blockedBrowser: .dia)
+        environment.notch.tab = .music
+        if !render(environment, named: "expanded-music-blocked-dia", into: directory) { failures += 1 }
+        environment.nowPlaying.seedForPreview(nil, blockedBrowser: .chrome)
+        if !render(environment, named: "expanded-music-blocked-chrome", into: directory) { failures += 1 }
+        environment.notch.tab = .home
+        if !render(environment, named: "expanded-home-blocked", into: directory) { failures += 1 }
+
         environment.nowPlaying.seedForPreview(playing)
 
         let liveSample = LiveActivity(
@@ -90,6 +100,8 @@ enum PreviewRenderer {
             completionMessage: nil
         )
 
+        environment.agentUsage.seedForPreview(sampleAgentUsage())
+
         for tab in NotchTab.allCases {
             if tab == .live { environment.liveActivities.seedForPreview([liveSample]) }
             environment.notch.tab = tab
@@ -99,6 +111,16 @@ enum PreviewRenderer {
             }
         }
         environment.liveActivities.seedForPreview([])
+
+        // The Agents tab's other two breakdowns, which the panel render above
+        // cannot reach: the view starts on the trend.
+        for breakdown in [UsageBreakdown.projects, .models] {
+            let widget = AgentUsageWidget(environment: environment, breakdown: breakdown)
+                .padding(Theme.contentPadding)
+                .frame(width: environment.settings.effectivePanelWidth)
+                .foregroundStyle(Theme.primaryText)
+            if !renderView(widget, named: "agents-\(breakdown.rawValue)", into: directory) { failures += 1 }
+        }
 
         // A deterministic stand-in for the on-device model keeps the compact
         // enhancement chip reviewable on machines without Apple Intelligence.
@@ -241,10 +263,21 @@ enum PreviewRenderer {
         environment.notch.collapse()
         if !render(environment, named: "peek-agents-two", into: directory) { failures += 1 }
 
+        // Three, which is where the clocks wrap into a second column.
+        environment.notch.expand()
+        environment.notch.workingAgentCount = 3
+        environment.agents.seedForPreview([
+            AgentActivity(kind: .claude, startedAt: Date().addingTimeInterval(-374), status: "Editing PeekView.swift"),
+            AgentActivity(kind: .codex, startedAt: Date().addingTimeInterval(-52), status: "Running tests"),
+            AgentActivity(kind: .gemini, startedAt: Date().addingTimeInterval(-3_725), status: "Reading files")
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agents-three", into: directory) { failures += 1 }
+
         // The expanded detail those marks open into, with both agents listed.
         environment.notch.tab = .home
         environment.notch.expand()
-        if !render(environment, named: "expanded-agents", into: directory) { failures += 1 }
+        if !render(environment, named: "expanded-home-agents", into: directory) { failures += 1 }
 
         // Every mark Bondex ships, which is the only way to check the artwork:
         // the drawn marks are geometry, so a mistake in one is invisible until
@@ -312,6 +345,130 @@ enum PreviewRenderer {
 
     // MARK: Rendering
 
+    /// A busy day of Claude Code and Codex use, so the Agents tab renders with
+    /// every card populated instead of the empty state.
+    private static func sampleAgentUsage(now: Date = Date()) -> AgentUsageSnapshot {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+
+        // A working day's shape: quiet overnight, heavy mid-morning and
+        // afternoon, Codex picking up a share in the evening.
+        let claudeByHour = [0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 6, 5, 2, 4, 7, 6, 3, 2, 1, 0, 0, 0, 0, 0]
+        let codexByHour = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 2, 1, 1, 3, 2, 1, 0, 0, 0, 0]
+
+        func tally(_ millions: Int, cost: Double) -> UsageTally {
+            let total = millions * 1_000_000
+            return UsageTally(
+                tokens: TokenTally(
+                    input: total / 100,
+                    output: total / 50,
+                    cacheWrite: total / 50,
+                    cacheRead: total - total / 100 - total / 50 - total / 50
+                ),
+                cost: cost
+            )
+        }
+
+        var today24 = UsageRangeSummary(range: .today)
+        for hour in 0..<24 {
+            let start = calendar.date(byAdding: .hour, value: hour, to: today) ?? today
+            var bar = UsageTrendBar(start: start)
+            if claudeByHour[hour] > 0 {
+                bar.tokens[.claude] = claudeByHour[hour] * 1_000_000
+                bar.cost[.claude] = Double(claudeByHour[hour]) * 0.21
+            }
+            if codexByHour[hour] > 0 {
+                bar.tokens[.codex] = codexByHour[hour] * 1_000_000
+                bar.cost[.codex] = Double(codexByHour[hour]) * 0.32
+            }
+            today24.trend.append(bar)
+        }
+        today24.byProvider[.claude] = tally(claudeByHour.reduce(0, +), cost: 8.61)
+        today24.byProvider[.codex] = tally(codexByHour.reduce(0, +), cost: 3.55)
+        today24.byProject = [
+            UsageBreakdownItem(name: "Bondex-Notch", provider: .claude, tally: tally(28, cost: 6.12)),
+            UsageBreakdownItem(name: "Portfolio", provider: .codex, tally: tally(13, cost: 3.55)),
+            UsageBreakdownItem(name: "Apsara Talent", provider: .claude, tally: tally(9, cost: 1.98)),
+            UsageBreakdownItem(name: "Scratch", provider: .claude, tally: tally(2, cost: 0.51))
+        ]
+        today24.byModel = [
+            UsageBreakdownItem(name: "Opus 5.5", provider: .claude, tally: tally(35, cost: 7.94)),
+            UsageBreakdownItem(name: "GPT-6.1 Sol", provider: .codex, tally: tally(13, cost: 3.55)),
+            UsageBreakdownItem(name: "Sonnet 5.5", provider: .claude, tally: tally(4, cost: 0.67))
+        ]
+
+        func days(_ range: UsageRange) -> UsageRangeSummary {
+            var summary = UsageRangeSummary(range: range)
+            for offset in 0..<range.barCount {
+                let start = calendar.date(byAdding: .day, value: offset - range.barCount + 1, to: today) ?? today
+                let weekday = calendar.component(.weekday, from: start)
+                let weight = weekday == 1 || weekday == 7 ? 1 : 4 + (offset * 7) % 5
+                var bar = UsageTrendBar(start: start)
+                bar.tokens[.claude] = weight * 9_000_000
+                bar.tokens[.codex] = weight * 2_000_000
+                bar.cost[.claude] = Double(weight) * 1.9
+                bar.cost[.codex] = Double(weight) * 0.6
+                summary.trend.append(bar)
+            }
+            let claude = summary.trend.compactMap { $0.tokens[.claude] }.reduce(0, +) / 1_000_000
+            let codex = summary.trend.compactMap { $0.tokens[.codex] }.reduce(0, +) / 1_000_000
+            summary.byProvider[.claude] = tally(claude, cost: summary.trend.compactMap { $0.cost[.claude] }.reduce(0, +))
+            summary.byProvider[.codex] = tally(codex, cost: summary.trend.compactMap { $0.cost[.codex] }.reduce(0, +))
+            return summary
+        }
+
+        return AgentUsageSnapshot(
+            providers: [
+                .claude: ProviderStatus(
+                    limits: ProviderLimits(
+                        windows: [
+                            UsageLimitWindow(
+                                id: "claude.fh", minutes: 300, usedPercent: 64,
+                                resetsAt: now.addingTimeInterval(1.6 * 3_600)
+                            ),
+                            UsageLimitWindow(
+                                id: "claude.sd", minutes: 10_080, usedPercent: 34,
+                                resetsAt: now.addingTimeInterval(3 * 86_400 + 19 * 3_600)
+                            )
+                        ],
+                        observedAt: now.addingTimeInterval(-240),
+                        source: .claudeApp
+                    ),
+                    plan: "Pro",
+                    model: "claude-opus-5-5",
+                    lastActivity: now.addingTimeInterval(-240),
+                    hasLogs: true
+                ),
+                .codex: ProviderStatus(
+                    limits: ProviderLimits(
+                        windows: [
+                            UsageLimitWindow(
+                                id: "codex.secondary", minutes: 10_080, usedPercent: 5,
+                                resetsAt: now.addingTimeInterval(5 * 86_400)
+                            )
+                        ],
+                        observedAt: now.addingTimeInterval(-2 * 3_600),
+                        source: .codexLog
+                    ),
+                    plan: "Plus",
+                    model: "gpt-6.1-sol",
+                    lastActivity: now.addingTimeInterval(-2 * 3_600),
+                    hasLogs: true
+                )
+            ],
+            summaries: [.today: today24, .week: days(.week), .month: days(.month)],
+            sessions: [
+                AgentSession(id: "claude:1", provider: .claude, project: "Bondex-Notch",
+                             model: "claude-opus-5-5", lastActivity: now.addingTimeInterval(-20)),
+                AgentSession(id: "codex:1", provider: .codex, project: "Portfolio",
+                             model: "gpt-6.1-sol", lastActivity: now.addingTimeInterval(-2 * 3_600)),
+                AgentSession(id: "claude:2", provider: .claude, project: "Apsara Talent",
+                             model: "claude-sonnet-5-5", lastActivity: now.addingTimeInterval(-4 * 3_600))
+            ],
+            scannedAt: now
+        )
+    }
+
     /// Deterministic square album art for the Spotify playback sample.
     private static func sampleSpotifyArtwork() -> NSImage {
         if let resourceURL = Bundle.main.resourceURL?
@@ -363,6 +520,35 @@ enum PreviewRenderer {
             return false
         }
 
+        let url = directory.appendingPathComponent("\(name).png")
+        do {
+            try png.write(to: url)
+            print("rendered \(url.path)")
+            return true
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return false
+        }
+    }
+
+    /// Renders a single view on the panel's black, for parts of a tab that a
+    /// whole-panel render cannot show.
+    private static func renderView<Content: View>(
+        _ content: Content,
+        named name: String,
+        into directory: URL
+    ) -> Bool {
+        let renderer = ImageRenderer(content: content
+            .background(Color.black)
+            .environment(\.isRenderingOffscreen, true))
+        renderer.scale = 2
+        guard let image = renderer.nsImage,
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else {
+            FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
+            return false
+        }
         let url = directory.appendingPathComponent("\(name).png")
         do {
             try png.write(to: url)

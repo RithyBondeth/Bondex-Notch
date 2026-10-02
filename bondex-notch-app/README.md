@@ -81,7 +81,7 @@ re-derived on `didChangeScreenParametersNotification`.
 | State | Size | When |
 |---|---|---|
 | `collapsed` | exactly the notch | nothing live; invisible on notched Macs |
-| `peek` | notch + 120 while playing, + 90 per extra agent, + 260 for a banner | media playing, an agent working, or a transient banner |
+| `peek` | notch + 120 while playing, + 50 per extra agent, + 260 for a banner | media playing, an agent working, or a transient banner |
 | `expanded` | user-controlled 440–680 wide, height **measured from the content** | pointer on the notch, or clicked to pin |
 
 Only the widths are fixed. The expanded panel's height comes from what it is
@@ -101,17 +101,22 @@ aged out would be worse than one that stays put.
 ### Agent activity
 
 While a coding agent is working, the peek shows its mark on one side of the notch
-and its name on the other. What it is doing, and how long it has been at it, are
-one hover away: expanding the panel puts an agent card at the top of Home with a
-row per agent — status and a running clock.
+and how long it has been working on the other. What it is doing is one hover
+away: expanding the panel puts an agent card at the top of Home with a row per
+agent — status, project, model and the same clock.
 
-That split is deliberate. All three used to be crammed into the strip beside the
-notch, where the status — the only part carrying new information — was the first
-thing to be truncated. What belongs over the menu bar all day is the smallest
-true statement, *who is working*; what they are working on is a question, and a
-question deserves a deliberate look rather than a permanent slab of text. It also
-takes the peek's last `TimelineView` with it, so the strip no longer re-renders
-once a second for the entire length of a run.
+That split is deliberate. Status used to be crammed into the strip beside the
+notch, where it — the only part that changes every few seconds — was the first
+thing to be truncated. The mark already says *who* is working, so a name beside
+it only repeated the other half of the strip; the run's length is what tells you
+whether to go and look. One agent gets a clock at normal size. Several get small
+clocks, two to a column with the columns side by side, because the strip is only
+as tall as the menu bar. Each clock is tinted like its mark.
+
+The clocks are SwiftUI's self-advancing timer text, so only the digits redraw
+each second — the strip's view is not re-evaluated, and there is no
+`TimelineView`. An agent that is only known to be open shows `Open` instead of a
+clock, and its mark does not spin.
 
 Several agents at once is an ordinary case, not a corner one — a Claude Code
 session and a Codex session on the same machine signal independently. Each gets
@@ -216,6 +221,59 @@ which is what lets Settings show setup instructions for the agents you use and
 stay quiet about the rest. `proc_pidpath` resolves every process the user owns
 (measured at 617 of 617). Matching is case-sensitive on purpose: Claude Code's
 binary is `claude`, the Claude desktop app's is `Claude`.
+
+### Agent usage
+
+The Agents tab is a small dashboard for Claude Code and Codex: plan limits with
+renewal countdowns, what the tokens would have cost at public API prices, which
+agent was active last, and an hourly or daily trend. Everything comes from
+files the agents already write on this Mac. Bondex signs in to nothing, reads no
+credentials and sends nothing.
+
+| Figure | Source |
+|---|---|
+| Claude tokens, spend, sessions, projects and models | `~/.claude/projects/**/*.jsonl` (and `CLAUDE_CONFIG_DIR`) |
+| Claude plan limits | `~/Library/Application Support/Claude/plan-usage-history.json`, kept by the Claude desktop app while it runs |
+| Claude plan name | `oauthAccount.organizationType` and its rate-limit tier in `~/.claude.json`; nothing else in that file is kept |
+| Codex tokens, spend, limits, plan, sessions, projects and models | `~/.codex/sessions/**/*.jsonl` (and `CODEX_HOME`) |
+
+A session is named for the folder it was started in, so a session that `cd`s
+into a subfolder stays one project, and a worktree is named for its repository.
+The Sessions card lays live hook status over each working agent's newest
+session, with the same spinning mark as the peek. The orb spins only for work a
+hook reported: an agent that is merely open shows a still mark.
+
+Claude Code writes one log line per content block, each repeating the request's
+usage, and copies earlier turns into a resumed session's file. Requests are
+therefore counted once by message and request ID. When a request lists
+`usage.iterations` — a compaction pass, or a refused attempt before a fallback
+model answered — every iteration is billed at its own model's rates, as the API
+bills it; the top-level counts cover only the final attempt. US-only inference
+(×1.1) and web searches ($0.01 each) are added. Codex reports cached input as
+part of input and repeats its running total whenever only the rate limits move;
+both are accounted for. The Claude app records percentages but not renewal
+times, so the session countdown is taken from the hour its run of readings
+began, and the weekly one from the last drop in the history. Where neither can
+be worked out, no countdown is shown rather than a guess.
+
+Prices live in `AgentPricing` as a static table. Model IDs are matched exactly,
+after stripping date stamps and provider prefixes, so an unknown model is counted
+but not priced and the total is shown as a minimum (`≥`). Long-context
+surcharges are not modelled.
+
+To check a figure from a terminal, `--agent-usage-report` runs the same scan
+and prints every total the tab would show:
+
+```bash
+"build/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-usage-report
+```
+
+Logs are read incrementally on a utility queue. The first scan covers the last
+31 days; each later one reads only bytes appended since, and only complete
+lines. A raw-byte filter skips lines that cannot carry usage before any JSON is
+decoded. On 423 MB of synthetic logs the first scan took 2.7 s and a rescan
+3 ms. Usage is kept as 15-minute slots, so day boundaries are exact in every time
+zone.
 
 ### Customization
 
@@ -376,6 +434,15 @@ Both are handled with the supported alternative rather than a private API:
     Events" turned off**; until it is on, reads fail with `errAEEventNotPermitted`
     and the panel says so rather than showing an empty widget. Firefox has no
     scripting dictionary at all and cannot be supported.
+  - A first-time user should never need to know any of that. The first time a
+    browser refuses while a media site is open in it, Bondex posts one banner
+    per browser launch ("Chrome is hiding what's playing"). Home's media row
+    then carries a **Fix** button, and the Music tab explains the refusal in
+    plain words with a button that acts on it: for Safari and Chrome-family
+    browsers it brings the browser forward, next to the exact menu path, because
+    that switch is the user's to flip. The refusal state is kept between scans,
+    so the fix does not flicker in and out of the panel on the ticks that do
+    not probe.
   - Some Chromium forks — ChatGPT Atlas is the one seen so far — inherit Chrome's
     `execute javascript` command while exposing no menu item or preference that
     would ever permit it. Those are read from the window title instead: the
@@ -388,8 +455,16 @@ Both are handled with the supported alternative rather than a private API:
     rather than assumed — otherwise a video in one tab is reported as whatever
     the user happens to be looking at in another.
   - Dia exposes its tabs through AppleScript, but enables page JavaScript only
-    when launched with `--enable-applescript-javascript`. Bondex detects the
-    disabled state and shows the exact relaunch command in the Music tab.
+    when launched with `--enable-applescript-javascript`, and has no setting to
+    make that permanent. **Reopen Dia** quits it the way ⌘Q does, so it saves
+    its windows, and opens it again with the flag; the flag only reaches a fresh
+    launch, which is why typing the command while Dia is still open does
+    nothing. Dia reports the refusal through `OSAScript` with an
+    `NSError`-style dictionary, so its message is read from the localized
+    description as well as AppleScript's own keys — reading only the latter
+    filed it as a transient glitch and showed nothing at all.
+    `--diagnose-media` prints, per browser, how many tabs and media-site tabs
+    it can see and the exact error each probe returned, without URLs or titles.
 - **Reading other apps' notifications.** There is no API for this and the
   Notification Center store is SIP-protected. The "Activity" widget is a feed of
   what Bondex observes directly — track changes, completed downloads, power

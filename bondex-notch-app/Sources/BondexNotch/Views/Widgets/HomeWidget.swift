@@ -153,6 +153,15 @@ struct HomeWidget: View {
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
                 Spacer()
+                // Home is where hovering the notch lands, so the fix is one
+                // click from here rather than a tab the user has to find.
+                if nowPlaying.blockedOnMediaSite, nowPlaying.blockedBrowser?.mediaAccessFix != nil {
+                    PillButton(title: "Fix", systemImage: nil, tint: accent, isProminent: true) {
+                        withAnimation(Motion.content(settings.motion)) {
+                            environment.notch.tab = .music
+                        }
+                    }
+                }
             }
             .notchCard(padding: Theme.compactCardPadding)
         }
@@ -160,7 +169,7 @@ struct HomeWidget: View {
 
     private var idleIcon: String {
         if nowPlaying.automationDenied { return "hand.raised.fill" }
-        if nowPlaying.blockedBrowser != nil { return "curlybraces" }
+        if nowPlaying.blockedOnMediaSite { return "play.rectangle.on.rectangle" }
         return "music.note"
     }
 
@@ -169,8 +178,10 @@ struct HomeWidget: View {
         if nowPlaying.automationDenied {
             return "Automation access needed for media control"
         }
-        if let browser = nowPlaying.blockedBrowser {
-            return "Allow JavaScript from Apple Events in \(browser.displayName)"
+        // Only when a media site is open there: a browser that refuses on a
+        // docs page is not hiding anything the user is waiting for.
+        if nowPlaying.blockedOnMediaSite, let browser = nowPlaying.blockedBrowser {
+            return "\(browser.displayName) is hiding what’s playing"
         }
         return "Nothing playing"
     }

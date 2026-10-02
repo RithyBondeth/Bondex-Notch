@@ -153,8 +153,7 @@ private struct CommandPaletteRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: command.systemImage)
-                    .font(.system(size: 11, weight: .semibold))
+                SymbolIcon(name: command.systemImage, size: 11, weight: .semibold)
                     .foregroundStyle(isSelected ? accent : Theme.secondaryText)
                     .frame(width: 26, height: 26)
                     .background(

@@ -82,6 +82,9 @@ final class NowPlayingService: ObservableObject {
     /// turned off, which is the one thing the user has to do by hand for web
     /// media to appear.
     @Published private(set) var blockedBrowser: MediaApp?
+    /// The blocked browser has a media site open, so the refusal is hiding
+    /// something the user is likely trying to see — not just a docs page.
+    @Published private(set) var blockedOnMediaSite = false
 
     /// Whether browser tabs are scanned at all. Owned by settings.
     var includeBrowsers = true {
@@ -101,6 +104,10 @@ final class NowPlayingService: ObservableObject {
     private var artworkRetryAfter = Date.distantPast
     private var isSampling = false
     private var artworkTask: Task<Void, Never>?
+    /// Browser launches already told that they are hiding web media, keyed by
+    /// bundle and process, so the banner comes once per launch rather than on
+    /// every scan — and once more if the browser is reopened the old way.
+    private var announcedBlockedLaunches: Set<String> = []
     /// See `seedForPreview`. Always false in the running app.
     private var isPreviewSeeded = false
 
@@ -137,10 +144,12 @@ final class NowPlayingService: ObservableObject {
     ///
     /// Latches polling off for good: a read already in flight would otherwise land
     /// afterwards and clear the seeded track back to "nothing playing".
-    func seedForPreview(_ track: NowPlaying?) {
+    func seedForPreview(_ track: NowPlaying?, blockedBrowser: MediaApp? = nil) {
         stop()
         isPreviewSeeded = true
         nowPlaying = track
+        self.blockedBrowser = blockedBrowser
+        blockedOnMediaSite = blockedBrowser != nil
     }
 
     // MARK: Transport
@@ -186,6 +195,10 @@ final class NowPlayingService: ObservableObject {
         guard !isPreviewSeeded else { return }
         automationDenied = result.automationDenied
         blockedBrowser = includeBrowsers ? result.blockedBrowser : nil
+        blockedOnMediaSite = blockedBrowser != nil && result.blockedOnMediaSite
+        if let browser = blockedBrowser, result.blockedOnMediaSite {
+            announceBlocked(browser)
+        }
 
         guard var track = result.track else {
             nowPlaying = nil
@@ -217,6 +230,47 @@ final class NowPlayingService: ObservableObject {
 
         nowPlaying = track
         fetchArtworkIfNeeded(for: track)
+    }
+
+    // MARK: Browser setup
+
+    /// Tells someone who just opened YouTube in a browser that hides it why the
+    /// notch stayed empty — without this, the fix sat in a panel they had no
+    /// reason to open. Only for a media site actually open in that browser, so
+    /// a browser used for nothing but reading never raises it.
+    private func announceBlocked(_ browser: MediaApp) {
+        guard let pid = NSRunningApplication
+            .runningApplications(withBundleIdentifier: browser.bundleIdentifier)
+            .first?.processIdentifier else { return }
+        let launch = "\(browser.bundleIdentifier):\(pid)"
+        guard announcedBlockedLaunches.insert(launch).inserted else { return }
+        events.post(NotchEvent(
+            kind: .app,
+            title: "\(browser.displayName) is hiding what’s playing",
+            subtitle: "Hover the notch to fix it in one click"
+        ))
+    }
+
+    /// Runs the blocked browser's fix: reopens Dia with its switch, or brings
+    /// a browser with a menu setting to the front.
+    @discardableResult
+    func fixBlockedBrowser() async -> BrowserMediaSetup.Outcome {
+        guard let browser = blockedBrowser, let fix = browser.mediaAccessFix else { return .couldNotOpen }
+        switch fix {
+        case .browserSetting:
+            BrowserMediaSetup.bringToFront(browser)
+            return .done
+        case let .relaunch(arguments):
+            let outcome = await BrowserMediaSetup.relaunch(browser, arguments: arguments)
+            if outcome == .done {
+                // The old refusal is about the process that just quit.
+                reader.resetBrowserState()
+                blockedBrowser = nil
+                blockedOnMediaSite = false
+                refresh()
+            }
+            return outcome
+        }
     }
 
     /// Remote artwork is fetched off the Apple Event lock, so a slow CDN can
@@ -285,6 +339,9 @@ final class MediaReader: @unchecked Sendable {
         var track: NowPlaying?
         var automationDenied = false
         var blockedBrowser: MediaApp?
+        /// The blocked browser has a media site open, so it is hiding
+        /// something the user is likely trying to see.
+        var blockedOnMediaSite = false
     }
 
     private let engine = AppleScriptEngine()
@@ -296,6 +353,11 @@ final class MediaReader: @unchecked Sendable {
 
     func resetBrowserState() {
         engine.withLock { browsers.reset() }
+    }
+
+    /// Support detail for `--diagnose-media`; see `BrowserMediaReader.diagnose`.
+    func diagnoseBrowsers(_ apps: [MediaApp]) -> [String] {
+        engine.withLock { apps.flatMap { browsers.diagnose($0) } }
     }
 
     // MARK: Reading
@@ -326,7 +388,9 @@ final class MediaReader: @unchecked Sendable {
                 let reading = browsers.read(in: browserApps)
                 switch reading.failure {
                 case .automationDenied: result.automationDenied = true
-                case .javaScriptDisabled: result.blockedBrowser = reading.failedApp
+                case .javaScriptDisabled:
+                    result.blockedBrowser = reading.failedApp
+                    result.blockedOnMediaSite = reading.failedOnMediaSite
                 default: break
                 }
                 if let track = reading.track {

@@ -419,6 +419,7 @@ private struct WidgetSettings: View {
             Section("Widgets") {
                 Toggle("Music", isOn: binding(\.musicWidgetEnabled))
                 Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
+                Toggle("Agent usage dashboard", isOn: binding(\.agentUsageEnabled))
                 Toggle("System", isOn: binding(\.systemWidgetEnabled))
                 Toggle("Show hardware controls in notch", isOn: binding(\.systemHUDEnabled))
                 Toggle("Microphone and camera privacy indicator", isOn: binding(\.privacyIndicatorsEnabled))
@@ -463,7 +464,7 @@ private struct WidgetSettings: View {
             Section("Tab order") {
                 ForEach(settings.orderedTabs) { tab in
                     HStack {
-                        Label(tab.title, systemImage: tab.systemImage)
+                        Label(tab.title, symbol: tab.systemImage)
                         Spacer()
                         Button {
                             move(tab, by: -1)
@@ -527,6 +528,24 @@ private struct WidgetSettings: View {
             }
 
             Section {
+                Text("""
+                Tokens, spend, projects and models come from Claude Code's and \
+                Codex's own session logs. Codex records its plan and limits in \
+                the same logs; Claude's limits come from the Claude desktop app, \
+                which keeps them while it runs, and its plan from the account \
+                profile Claude Code caches. Spend is what the tokens would cost \
+                at public API prices.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("Agent Usage")
+            } footer: {
+                Text("Read-only and on this Mac. Bondex signs in to nothing and sends nothing.")
+                    .font(.caption)
+            }
+
+            Section {
                 Toggle("Include browser tabs", isOn: binding(\.browserMediaEnabled))
                     .disabled(!settings.preferences.musicWidgetEnabled)
 
@@ -534,6 +553,7 @@ private struct WidgetSettings: View {
                     Text(browser.javaScriptHint)
                         .font(.caption)
                         .foregroundStyle(.orange)
+                    BrowserFixButton(nowPlaying: nowPlaying, browser: browser)
                 }
             } header: {
                 Text("Media")
@@ -670,7 +690,7 @@ private struct ShortcutSettings: View {
             Section("Toggle a widget") {
                 Picker("Widget", selection: $selectedWidget) {
                     ForEach(toggleableTabs) { tab in
-                        Label(tab.title, systemImage: tab.systemImage).tag(tab)
+                        Label(tab.title, symbol: tab.systemImage).tag(tab)
                     }
                 }
                 Button("Add Widget Toggle") { addWidgetToggle() }
@@ -682,8 +702,7 @@ private struct ShortcutSettings: View {
 
     private func actionRow(_ action: CustomAction, at index: Int) -> some View {
         HStack(spacing: 9) {
-            Image(systemName: action.systemImage)
-                .font(.system(size: 12, weight: .semibold))
+            SymbolIcon(name: action.systemImage, size: 12, weight: .semibold)
                 .foregroundStyle(settings.effectiveAccentColor)
                 .frame(width: 24)
 
@@ -997,6 +1016,60 @@ private struct LicenseSettings: View {
 
 // MARK: - Permissions
 
+/// The blocked browser's fix, as a native button for the Settings window.
+private struct BrowserFixButton: View {
+    @ObservedObject var nowPlaying: NowPlayingService
+    let browser: MediaApp
+
+    @State private var isConfirming = false
+    @State private var isWorking = false
+    @State private var failure: String?
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            switch browser.mediaAccessFix {
+            case .relaunch:
+                Button(isWorking ? "Reopening \(browser.displayName)…" : "Reopen \(browser.displayName)") {
+                    isConfirming = true
+                }
+                .disabled(isWorking)
+                .confirmationDialog(
+                    "Reopen \(browser.displayName)?",
+                    isPresented: $isConfirming
+                ) {
+                    Button("Reopen") { reopen() }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("\(browser.displayName) will quit and open again so it can share what’s playing. It normally brings your tabs back.")
+                }
+            case .browserSetting:
+                Button("Open \(browser.displayName)") { BrowserMediaSetup.bringToFront(browser) }
+            case nil:
+                EmptyView()
+            }
+            if let failure {
+                Text(failure)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private func reopen() {
+        isWorking = true
+        failure = nil
+        Task {
+            let outcome = await nowPlaying.fixBlockedBrowser()
+            isWorking = false
+            switch outcome {
+            case .done: break
+            case .didNotQuit: failure = "\(browser.displayName) didn’t quit — it may be asking about open tabs."
+            case .couldNotOpen: failure = "Couldn’t reopen \(browser.displayName)."
+            }
+        }
+    }
+}
+
 private struct PermissionsSettings: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var nowPlaying: NowPlayingService
@@ -1032,6 +1105,7 @@ private struct PermissionsSettings: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer()
+                        BrowserFixButton(nowPlaying: nowPlaying, browser: browser)
                     }
                     .padding(.vertical, 3)
                 }

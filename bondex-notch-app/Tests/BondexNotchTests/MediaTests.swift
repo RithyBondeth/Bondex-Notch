@@ -180,10 +180,19 @@ final class MediaAppTests: XCTestCase {
     func testBrowsersWithTheSwitchExplainWhereItIs() {
         for app in MediaApp.browsers where app.canEnableJavaScript {
             XCTAssertFalse(app.javaScriptHint.isEmpty, "\(app.displayName) has no hint")
-            XCTAssertTrue(
-                app.javaScriptHint.contains("Apple Events"),
-                "\(app.displayName)'s hint should name the setting"
-            )
+            // A menu setting is named, so the user can find it; Dia's switch
+            // is applied by Bondex's button, so its hint says that instead.
+            switch app.mediaAccessFix {
+            case .browserSetting:
+                XCTAssertTrue(
+                    app.javaScriptHint.contains("Apple Events"),
+                    "\(app.displayName)'s hint should name the setting"
+                )
+            case .relaunch:
+                XCTAssertTrue(app.javaScriptHint.contains("Bondex can reopen it"), app.displayName)
+            case nil:
+                XCTFail("\(app.displayName) can enable JavaScript but offers no fix")
+            }
         }
     }
 
@@ -191,7 +200,10 @@ final class MediaAppTests: XCTestCase {
         XCTAssertEqual(MediaApp.dia.bundleIdentifier, "company.thebrowser.dia")
         XCTAssertEqual(MediaApp.dia.engine, .dia)
         XCTAssertTrue(MediaApp.browsers.contains(.dia))
-        XCTAssertTrue(MediaApp.dia.javaScriptHint.contains("--enable-applescript-javascript"))
+        guard case let .relaunch(arguments) = MediaApp.dia.mediaAccessFix else {
+            return XCTFail("Dia is fixed by reopening it")
+        }
+        XCTAssertEqual(arguments, ["--enable-applescript-javascript"])
     }
 
     func testBrowsersWithoutTheSwitchSendNobodyLookingForIt() {
@@ -334,11 +346,46 @@ final class PeekWidthTests: XCTestCase {
         XCTAssertEqual(playing.height, banner.height, "Only the width should differ")
     }
 
+    func testThePeekIsExactlyAsTallAsAHardwareNotch() {
+        // Measured on a 14-inch MacBook Pro: 185 × 32pt.
+        let notched = NotchGeometry(
+            notchSize: CGSize(width: 185, height: 32),
+            hasHardwareNotch: true,
+            screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982)
+        )
+        for content in [PeekContent.media, .banner, .agent(agents: 3), .systemHUD] {
+            XCTAssertEqual(notched.contentSize(for: .peek, peek: content).height, 32)
+        }
+
+        // A display without a notch, whose menu bar is hidden: the stand-in is
+        // 24pt, but the peek still needs room for two lines.
+        let plain = NotchGeometry(
+            notchSize: CGSize(width: 190, height: 24),
+            hasHardwareNotch: false,
+            screenFrame: CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        )
+        XCTAssertEqual(plain.contentSize(for: .peek, peek: .banner).height, NotchGeometry.minimumPeekHeight)
+    }
+
     func testPlaybackPeekStillClearsTheNotchOnBothSides() {
         let playing = geometry.contentSize(for: .peek, peek: .media)
         let perSide = (playing.width - geometry.notchSize.width) / 2
 
         XCTAssertGreaterThan(perSide, 40, "No room for artwork beside the notch")
+    }
+
+    func testTheAgentPeekFitsEveryMarkAndClockColumn() {
+        for agents in 1...5 {
+            let peek = geometry.contentSize(for: .peek, peek: .agent(agents: agents))
+            let perSide = (peek.width - geometry.notchSize.width) / 2
+            // Left: 10pt inset, a 21pt mark per agent, 4pt between them.
+            let marks = 10 + CGFloat(agents) * 21 + CGFloat(agents - 1) * 4
+            // Right: one 11.5pt clock alone, else 9.5pt clocks two to a column
+            // (an h:mm:ss clock is under 50pt and 40pt respectively).
+            let columns = agents == 1 ? 50 : CGFloat((agents + 1) / 2) * 40 + CGFloat((agents - 1) / 2) * 7
+            XCTAssertGreaterThanOrEqual(perSide, marks, "\(agents) agents: marks do not fit")
+            XCTAssertGreaterThanOrEqual(perSide, 10 + columns, "\(agents) agents: clocks do not fit")
+        }
     }
 
     func testBothPeeksSitBetweenCollapsedAndExpanded() {
@@ -481,7 +528,7 @@ final class PreferencesDecodingTests: XCTestCase {
         XCTAssertEqual(
             store.orderedTabs,
             [
-                .shelf, .home, .capture, .shortcuts, .music,
+                .shelf, .home, .agents, .capture, .shortcuts, .music,
                 .system, .live, .files, .activity, .clipboard
             ]
         )
@@ -498,7 +545,7 @@ final class PreferencesDecodingTests: XCTestCase {
         XCTAssertEqual(
             store.orderedTabs,
             [
-                .activity, .clipboard, .home, .capture, .shortcuts,
+                .activity, .clipboard, .home, .agents, .capture, .shortcuts,
                 .music, .system, .live, .shelf, .files
             ]
         )
@@ -550,5 +597,59 @@ final class NowPlayingInterpolationTests: XCTestCase {
         let live = track(isPlaying: true, position: 42, duration: 0)
         XCTAssertTrue(live.isLive)
         XCTAssertEqual(live.progress(at: Date()), 0)
+    }
+}
+
+/// Errors reach the classifier in two shapes, depending on which runner ran
+/// the script, and both must say why a browser refused.
+final class ScriptErrorClassificationTests: XCTestCase {
+
+    func testDiasLaunchFlagRefusalIsReportedAsJavaScriptDisabled() {
+        // Verbatim from Dia, as `OSAScript` returns it: no NSAppleScript keys.
+        let error: NSDictionary = [
+            NSLocalizedDescriptionKey: "Dia got an error: JavaScript execution via AppleScript requires the --enable-applescript-javascript launch flag.",
+            NSLocalizedFailureReasonErrorKey: "JavaScript execution via AppleScript requires the --enable-applescript-javascript launch flag."
+        ]
+        XCTAssertEqual(AppleScriptEngine.classify(error, isJavaScript: true), .javaScriptDisabled)
+        XCTAssertTrue(AppleScriptEngine.errorMessage(error).contains("--enable-applescript-javascript"))
+    }
+
+    func testNSAppleScriptErrorsStillClassify() {
+        XCTAssertEqual(
+            AppleScriptEngine.classify([NSAppleScript.errorNumber: -1743], isJavaScript: false),
+            .automationDenied
+        )
+        XCTAssertEqual(
+            AppleScriptEngine.classify([NSAppleScript.errorNumber: -1723], isJavaScript: true),
+            .javaScriptDisabled
+        )
+        XCTAssertEqual(
+            AppleScriptEngine.classify([NSAppleScript.errorNumber: -1728], isJavaScript: true),
+            .transient
+        )
+    }
+}
+
+/// Every browser that can be fixed offers the fix the user can actually take.
+final class BrowserMediaAccessTests: XCTestCase {
+
+    func testDiaIsReopenedWithItsLaunchSwitch() {
+        XCTAssertEqual(MediaApp.dia.mediaAccessFix, .relaunch(arguments: ["--enable-applescript-javascript"]))
+        // The point of the button: nobody should be sent to Terminal.
+        XCTAssertFalse(MediaApp.dia.javaScriptHint.contains("Terminal"))
+        XCTAssertFalse(MediaApp.dia.javaScriptHint.contains("open -a"))
+    }
+
+    func testMenuSettingBrowsersAreBroughtForward() {
+        for browser in [MediaApp.safari, .chrome, .brave, .edge] {
+            XCTAssertEqual(browser.mediaAccessFix, .browserSetting, browser.displayName)
+            XCTAssertTrue(browser.javaScriptHint.contains("Allow JavaScript from Apple Events"), browser.displayName)
+        }
+    }
+
+    func testBrowsersWithNoSwitchOfferNothing() {
+        XCTAssertNil(MediaApp.atlas.mediaAccessFix)
+        XCTAssertEqual(MediaApp.atlas.javaScriptHint, "")
+        XCTAssertNil(MediaApp.music.mediaAccessFix)
     }
 }
