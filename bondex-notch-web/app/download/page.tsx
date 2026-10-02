@@ -49,13 +49,31 @@ export default function DownloadPage() {
           </ol>
 
           <h4 style={{ margin: '16px 0 6px 0', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Note for Test / Pre-release Builds
+            First launch: allow the app once
           </h4>
-          <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.65)', fontSize: '12.5px' }}>
-            If macOS Gatekeeper displays a warning on first launch (for pre-notarized builds), right-click <strong>Bondex Notch</strong> in Applications and choose <strong>Open</strong>, or run:
+          <p style={{ margin: '0 0 8px 0', color: 'rgba(255, 255, 255, 0.65)', fontSize: '12.5px' }}>
+            Bondex Notch is independently developed and not yet notarized by Apple, so
+            macOS asks you to confirm it the first time. You only do this once.
+          </p>
+          <p style={{ margin: '0 0 4px 0', color: 'rgba(255, 255, 255, 0.8)', fontSize: '12.5px' }}>
+            <strong>macOS 15 Sequoia and later</strong>
+          </p>
+          <ol style={{ paddingLeft: '20px', margin: '0 0 12px 0', color: 'rgba(255, 255, 255, 0.65)', fontSize: '12.5px' }}>
+            <li>Open Bondex Notch. When macOS says it cannot verify the app, choose <strong>Done</strong>.</li>
+            <li>Open <strong>System Settings → Privacy &amp; Security</strong> and scroll down to <strong>Security</strong>.</li>
+            <li>Next to the message about Bondex Notch, choose <strong>Open Anyway</strong>, then confirm with your password or Touch ID.</li>
+          </ol>
+          <p style={{ margin: '0 0 4px 0', color: 'rgba(255, 255, 255, 0.8)', fontSize: '12.5px' }}>
+            <strong>macOS 14 Sonoma</strong>
+          </p>
+          <p style={{ margin: '0 0 12px 0', color: 'rgba(255, 255, 255, 0.65)', fontSize: '12.5px' }}>
+            In Applications, Control-click <strong>Bondex Notch</strong>, choose <strong>Open</strong>, then choose <strong>Open</strong> again.
+          </p>
+          <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px' }}>
+            Comfortable with Terminal? This does the same thing on any version:
             <br />
             <code style={{ display: 'inline-block', margin: '6px 0', padding: '4px 8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', color: '#3CC1F6', fontFamily: 'var(--mono, monospace)' }}>
-              xattr -cr &quot;/Applications/Bondex Notch.app&quot;
+              xattr -dr com.apple.quarantine &quot;/Applications/Bondex Notch.app&quot;
             </code>
           </p>
         </div>
