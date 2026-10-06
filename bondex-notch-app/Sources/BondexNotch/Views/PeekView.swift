@@ -172,7 +172,7 @@ struct PeekView: View {
             }
         case .privacy:
             Text(privacyActivity.state.label)
-                .font(.system(size: 10.5, weight: .semibold))
+                .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
                 .foregroundStyle(Theme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -183,12 +183,12 @@ struct PeekView: View {
             if let banner = notch.banner {
                 VStack(alignment: .trailing, spacing: 0) {
                     Text(banner.title)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.body, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
                     if let subtitle = banner.subtitle {
                         Text(subtitle)
-                            .font(.system(size: 9.5))
+                            .font(.system(size: Theme.TextSize.caption))
                             .foregroundStyle(Theme.secondaryText)
                             .lineLimit(1)
                     }
@@ -198,7 +198,7 @@ struct PeekView: View {
             }
         case .focus:
             Text(focusTimer.snapshot.timeString)
-                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                .font(.system(size: Theme.TextSize.body, weight: .semibold).monospacedDigit())
                 .foregroundStyle(Theme.primaryText)
                 .accessibilityLabel("Focus timer")
                 .accessibilityValue(focusTimer.snapshot.timeString + " remaining")
@@ -209,11 +209,11 @@ struct PeekView: View {
                     Text(settings.preferences.showMeetingTitlesInPeek
                          ? meeting.title
                          : "Upcoming meeting")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
                     Text(meeting.relativeString())
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: Theme.TextSize.caption, weight: .medium))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .frame(maxWidth: 116, alignment: .trailing)
@@ -224,17 +224,17 @@ struct PeekView: View {
             if let activity = currentLive {
                 VStack(alignment: .trailing, spacing: 0) {
                     Text(activity.title)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.body, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
                     if let subtitle = activity.subtitle {
                         Text(subtitle)
-                            .font(.system(size: 9.5))
+                            .font(.system(size: Theme.TextSize.caption))
                             .foregroundStyle(Theme.secondaryText)
                             .lineLimit(1)
                     } else if let progress = activity.progress {
                         Text("\(Int(progress * 100))%")
-                            .font(.system(size: 9.5, weight: .medium).monospacedDigit())
+                            .font(.system(size: Theme.TextSize.caption, weight: .medium).monospacedDigit())
                             .foregroundStyle(accent)
                     }
                 }
@@ -290,16 +290,16 @@ struct PeekView: View {
 
             if hud.isMuted {
                 Text("MUTED")
-                    .font(.system(size: 8.5, weight: .bold))
+                    .font(.system(size: Theme.TextSize.micro, weight: .bold))
                     .tracking(0.6)
                     .foregroundStyle(Theme.secondaryText)
                     .frame(width: 36, alignment: .trailing)
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text("\(hud.percentage)")
-                        .font(.system(size: 11.5, weight: .semibold).monospacedDigit())
+                        .font(.system(size: Theme.TextSize.body, weight: .semibold).monospacedDigit())
                     Text("%")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: Theme.TextSize.micro, weight: .bold))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .foregroundStyle(Theme.primaryText)

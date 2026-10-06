@@ -19,8 +19,14 @@ struct Preferences: Codable, Equatable {
     var shadowStrength: Double = 1
     var motionSpeed: Motion.Speed = .standard
 
+    // Which tabs a new install starts with. Eleven icon-only chips was more
+    // than most people use or can tell apart, so new installs begin with the
+    // everyday set — Home, Agents, Capture, Music, Clipboard, and the Shelf,
+    // whose tab is where a file dragged onto the notch lands — and the rest are
+    // one toggle away in Settings › Widgets. Existing installs keep what they
+    // chose: stored values override these defaults (see `SettingsStore.decode`).
     var musicWidgetEnabled = true
-    var systemWidgetEnabled = true
+    var systemWidgetEnabled = false
     /// Show compact notch feedback when a hardware control changes.
     var systemHUDEnabled = true
     /// Show a persistent compact indicator while a camera or microphone is active.
@@ -29,14 +35,14 @@ struct Preferences: Codable, Equatable {
     var systemHUDDuration = 1.65
     /// Keep a compact copy of the System tab's gauges on Home.
     var showSystemSummaryOnHome = false
-    var fileActivityEnabled = true
-    var activityFeedEnabled = true
+    var fileActivityEnabled = false
+    var activityFeedEnabled = false
     var clipboardHistoryEnabled = true
     var quickCaptureEnabled = true
     /// User-triggered only. Capture text remains on device when the system
     /// Apple Intelligence model is available.
     var appleIntelligenceCaptureEnabled = true
-    var customShortcutsEnabled = true
+    var customShortcutsEnabled = false
     var customActions: [CustomAction] = []
     var shelfEnabled = true
     /// Show a mark beside the notch while Claude Code or Codex is working.
@@ -44,7 +50,7 @@ struct Preferences: Codable, Equatable {
     /// The Agents tab: plan limits, spend and trends read from local agent logs.
     var agentUsageEnabled = true
     var agentUsageRange: UsageRange = .today
-    var customLiveActivitiesEnabled = true
+    var customLiveActivitiesEnabled = false
     var focusTimerEnabled = true
     var defaultFocusMinutes = 25
     var upcomingMeetingsEnabled = false
@@ -92,7 +98,13 @@ struct Preferences: Codable, Equatable {
 
 @MainActor
 final class SettingsStore: ObservableObject {
-    private static let defaultsKey = "com.bondex.notch.preferences"
+    private nonisolated static let defaultsKey = "com.bondex.notch.preferences"
+
+    /// The preferences as stored, for command-line paths that run without the
+    /// app's store.
+    nonisolated static func storedPreferences(in defaults: UserDefaults = .standard) -> Preferences {
+        defaults.data(forKey: defaultsKey).flatMap(decode) ?? Preferences()
+    }
 
     @Published var preferences: Preferences {
         didSet {
@@ -156,7 +168,7 @@ final class SettingsStore: ObservableObject {
     /// encoded default gives new fields their default and keeps everything the
     /// user actually set, in both directions: fields that go away are ignored
     /// rather than fatal.
-    static func decode(_ data: Data) -> Preferences? {
+    nonisolated static func decode(_ data: Data) -> Preferences? {
         guard let stored = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let defaultData = try? JSONEncoder().encode(Preferences()),
               var merged = try? JSONSerialization.jsonObject(with: defaultData) as? [String: Any]

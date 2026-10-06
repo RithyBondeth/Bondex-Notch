@@ -10,7 +10,19 @@ import SwiftUI
 final class NotchViewModel: ObservableObject {
 
     @Published private(set) var state: NotchState = .collapsed
-    @Published var tab: NotchTab = .home
+    @Published var tab: NotchTab = .home {
+        willSet {
+            // Before the change is published, so the view that renders the new
+            // tab already knows which side it slides in from.
+            let from = tabOrder.firstIndex(of: tab) ?? 0
+            let to = tabOrder.firstIndex(of: newValue) ?? 0
+            tabAdvances = to >= from
+        }
+    }
+    /// The strip's left-to-right order, kept in step by the environment.
+    var tabOrder: [NotchTab] = NotchTab.allCases
+    /// Whether the last tab change moved right along the strip.
+    private(set) var tabAdvances = true
     @Published var isDropTargeted = false
     /// Set while a transient banner (track change, download finished) is showing.
     @Published private(set) var banner: NotchEvent?
@@ -441,9 +453,12 @@ final class NotchViewModel: ObservableObject {
         guard !state.isExpanded else { return }
 
         bannerWorkItem?.cancel()
-        // Growing out of the notch is a panel move; swapping one banner for the
-        // next inside an existing peek is only a content change.
-        let resizes = state == .collapsed
+        // Growing out of the notch, or widening a playback or agent strip to
+        // banner width, is a panel move; swapping one banner for the next
+        // inside a banner-width peek is only a content change. Treating the
+        // widening as content ran the silhouette on the quick content curve
+        // while the panel's own moves use the spring.
+        let resizes = state == .collapsed || peekContent != .banner
         withAnimation(resizes ? Motion.panel(settings.motion) : Motion.content(settings.motion)) {
             banner = event
             if state == .collapsed { state = .peek }

@@ -11,6 +11,10 @@ struct ExpandedHeightKey: PreferenceKey {
 /// The full panel: a tab strip along the top and one widget below it.
 struct ExpandedView: View {
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Shared by the tab chips so the selection pill slides between them.
+    @Namespace private var tabSelection
+
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var notch: NotchViewModel
     @ObservedObject private var settings: SettingsStore
@@ -56,14 +60,24 @@ struct ExpandedView: View {
                             endPoint: .trailing
                         ))
                         .frame(height: 1)
-                    widget
-                        .frame(maxWidth: .infinity)
-                        // nil height means "as tall as the content" — that is what makes
-                        // the panel itself size to what it is showing.
-                        .frame(height: notch.tab.widgetHeight)
-                        // Swapping tabs is a content change, so it gets the content
-                        // curve rather than the panel's.
-                        .animation(Motion.content(settings.motion), value: notch.tab)
+                    // Overlapping, so the outgoing widget fades in place while
+                    // the incoming one slides in, instead of the two stacking
+                    // for a frame and jolting the panel's measured height.
+                    ZStack(alignment: .top) {
+                        // A cap for the list tabs, which scroll past it, and
+                        // nothing for the rest: either way the widget is as
+                        // tall as its content, which is what the panel sizes
+                        // itself from. List tabs were once a fixed height,
+                        // which left a near-empty list sitting in dead space.
+                        HeightCap(maximum: notch.tab.widgetHeight) {
+                            widget.frame(maxWidth: .infinity)
+                        }
+                        .id(notch.tab)
+                        .transition(tabTransition)
+                    }
+                    // Swapping tabs is a content change, so it gets the content
+                    // curve rather than the panel's.
+                    .animation(Motion.content(settings.motion), value: notch.tab)
                 }
             }
         }
@@ -155,13 +169,27 @@ struct ExpandedView: View {
 
     // MARK: Tabs
 
+    /// The incoming widget slides a short way in from the side of the strip it
+    /// was chosen from, so moving along the tabs reads as moving along them.
+    /// The outgoing one only fades: its transition is fixed when it was last
+    /// drawn, before the direction of this change was known.
+    private var tabTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        let shift: CGFloat = notch.tabAdvances ? 16 : -16
+        return .asymmetric(
+            insertion: .offset(x: shift).combined(with: .opacity),
+            removal: .opacity
+        )
+    }
+
     private var tabStrip: some View {
         HStack(spacing: 2) {
             ForEach(environment.availableTabs) { tab in
                 TabChip(
                     tab: tab,
                     isSelected: notch.tab == tab,
-                    accent: accent
+                    accent: accent,
+                    selection: tabSelection
                 ) {
                     withAnimation(Motion.content(settings.motion)) { notch.tab = tab }
                 }
@@ -213,6 +241,7 @@ private struct TabChip: View {
     let tab: NotchTab
     let isSelected: Bool
     let accent: Color
+    let selection: Namespace.ID
     let action: () -> Void
 
     @State private var isHovering = false
@@ -225,7 +254,7 @@ private struct TabChip: View {
                     .foregroundStyle(isSelected ? accent : Theme.secondaryText)
                 if isSelected {
                     Text(tab.title)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
                         .fixedSize()
                         // Width, not opacity: the label has to push the
                         // neighbouring chips aside as it appears, or the strip
@@ -241,29 +270,73 @@ private struct TabChip: View {
             .foregroundStyle(isSelected ? Theme.primaryText : Theme.secondaryText)
             .padding(.horizontal, isSelected ? 8 : 6)
             .padding(.vertical, 4.5)
-            .background(
-                Capsule(style: .continuous).fill(
-                    isSelected
-                        ? AnyShapeStyle(accent.opacity(0.17))
-                        : AnyShapeStyle(Color.white.opacity(isHovering ? 0.09 : 0))
-                )
-            )
+            .background {
+                if isSelected {
+                    // One pill, handed from chip to chip, so it slides to the
+                    // new tab instead of vanishing here and appearing there.
+                    Capsule(style: .continuous)
+                        .fill(accent.opacity(0.17))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(accent.opacity(0.32), lineWidth: 0.7)
+                        )
+                        .shadow(color: accent.opacity(0.13), radius: 7)
+                        .matchedGeometryEffect(id: "selection", in: selection)
+                } else {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(isHovering ? 0.09 : 0))
+                }
+            }
             .overlay(
                 Capsule(style: .continuous).strokeBorder(
-                    isFocused
-                        ? Color.white.opacity(0.9)
-                        : (isSelected ? accent.opacity(0.32) : .clear),
-                    lineWidth: isFocused ? 2 : 0.7
+                    isFocused ? Color.white.opacity(0.9) : .clear,
+                    lineWidth: 2
                 )
             )
-            .shadow(color: isSelected ? accent.opacity(0.13) : .clear, radius: 7)
             .contentShape(Capsule())
             .animation(Motion.hover, value: isHovering)
         }
         .buttonStyle(.plain)
         .focused($isFocused)
         .onHover { isHovering = $0 }
+        // The chips are icons until selected; the name is a hover away.
+        .help(tab.title)
         .accessibilityLabel(tab.title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// Offers its content at most `maximum` points of height and then takes the
+/// content's own height, so a short widget stays short.
+///
+/// Not `.frame(maxHeight:)`: a flexible frame grows to its maximum whenever it
+/// is offered more, which inside a panel measured from its content meant every
+/// list tab was exactly as tall as its cap however little it held.
+private struct HeightCap: Layout {
+    var maximum: CGFloat?
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let content = subviews.first else { return .zero }
+        return content.sizeThatFits(capped(proposal))
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        subviews.first?.place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: bounds.height)
+        )
+    }
+
+    private func capped(_ proposal: ProposedViewSize) -> ProposedViewSize {
+        guard let maximum else { return proposal }
+        var capped = proposal
+        capped.height = min(proposal.height ?? maximum, maximum)
+        return capped
     }
 }

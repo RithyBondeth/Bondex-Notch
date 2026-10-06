@@ -11,6 +11,7 @@ struct HomeWidget: View {
     @ObservedObject private var agents: AgentActivityService
     @ObservedObject private var liveActivities: LiveActivityService
     @ObservedObject private var meetings: UpcomingMeetingService
+    @ObservedObject private var focusTimer: FocusTimerService
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -19,6 +20,7 @@ struct HomeWidget: View {
         self.agents = environment.agents
         self.liveActivities = environment.liveActivities
         self.meetings = environment.meetings
+        self.focusTimer = environment.focusTimer
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -33,17 +35,39 @@ struct HomeWidget: View {
         settings.preferences.agentActivityEnabled && !agents.active.isEmpty
     }
 
+    /// A session in progress is live, so it leads the tab; an idle timer is
+    /// only an option, and gets a chip at the foot instead.
+    private var showsFocusCard: Bool {
+        settings.preferences.focusTimerEnabled && focusTimer.snapshot.isActive
+    }
+
+    private var showsFocusChip: Bool {
+        settings.preferences.focusTimerEnabled && !focusTimer.snapshot.isActive
+    }
+
+    private var showsMeeting: Bool {
+        settings.preferences.upcomingMeetingsEnabled
+            && meetings.meeting?.isRelevantToHome() == true
+    }
+
+    private var showsLive: Bool {
+        settings.isTabEnabled(.live) && !liveActivities.active.isEmpty
+    }
+
+    private var showsSystemSummary: Bool {
+        settings.isTabEnabled(.system) && settings.preferences.showSystemSummaryOnHome
+    }
+
     var body: some View {
         VStack(spacing: Theme.widgetSpacing) {
-            if settings.preferences.focusTimerEnabled {
+            if showsFocusCard {
                 FocusTimerCard(environment: environment)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            if settings.preferences.upcomingMeetingsEnabled,
-               meetings.meeting?.isRelevantToHome() == true {
+            if showsMeeting {
                 UpcomingMeetingCard(environment: environment)
             }
-            if settings.isTabEnabled(.live),
-               !liveActivities.active.isEmpty {
+            if showsLive {
                 LiveActivityCard(environment: environment)
             }
             if showsAgents {
@@ -52,18 +76,18 @@ struct HomeWidget: View {
             if settings.isTabEnabled(.music) {
                 mediaRow
             }
-            if settings.isTabEnabled(.system)
-                && settings.preferences.showSystemSummaryOnHome {
+            if showsSystemSummary {
                 SystemWidget(environment: environment, compact: true)
             }
-            if !showsAgents
-                && (!settings.isTabEnabled(.live) || liveActivities.active.isEmpty)
-                && !settings.preferences.focusTimerEnabled
-                && (!settings.preferences.upcomingMeetingsEnabled
-                    || meetings.meeting?.isRelevantToHome() != true)
-                && !settings.isTabEnabled(.music)
-                && !(settings.isTabEnabled(.system)
-                     && settings.preferences.showSystemSummaryOnHome) {
+            if showsFocusChip {
+                HStack {
+                    FocusStartChip(environment: environment)
+                    Spacer()
+                }
+                .transition(.opacity)
+            }
+            if !showsFocusCard, !showsFocusChip, !showsMeeting, !showsLive, !showsAgents,
+               !settings.isTabEnabled(.music), !showsSystemSummary {
                 EmptyStateView(
                     systemImage: "square.grid.2x2",
                     title: "No widgets enabled",
@@ -71,6 +95,7 @@ struct HomeWidget: View {
                 )
             }
         }
+        .animation(Motion.content(settings.motion), value: focusTimer.snapshot.isActive)
     }
 
     @ViewBuilder
@@ -86,7 +111,7 @@ struct HomeWidget: View {
 
                     VStack(alignment: .leading, spacing: 5) {
                         Text(track.title.isEmpty ? "Unknown Track" : track.title)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: Theme.TextSize.title, weight: .semibold))
                             .foregroundStyle(Theme.primaryText)
                             .lineLimit(2)
                             .truncationMode(.tail)
@@ -103,7 +128,7 @@ struct HomeWidget: View {
                             Text(track.source.displayName)
                                 .lineLimit(1)
                         }
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                         .foregroundStyle(Theme.secondaryText)
                     }
 
@@ -137,9 +162,16 @@ struct HomeWidget: View {
                 }
 
                 if !track.isLive {
-                    MeterBar(value: track.progress, tint: accent, height: 2)
-                        .accessibilityLabel("Playback progress")
-                        .accessibilityValue("\(Int(track.progress * 100)) percent")
+                    // Advanced from the sample's timestamp rather than stepped
+                    // by each poll: the service no longer republishes a track
+                    // just because its position moved on by a second.
+                    TimelineView(.animation(minimumInterval: 1, paused: !track.isPlaying)) { timeline in
+                        let progress = track.progress(at: timeline.date)
+                        MeterBar(value: progress, tint: accent, height: 2)
+                            .animation(.linear(duration: 1), value: progress)
+                            .accessibilityLabel("Playback progress")
+                            .accessibilityValue("\(Int(progress * 100)) percent")
+                    }
                 }
             }
             .notchCard(padding: 10)
@@ -149,7 +181,7 @@ struct HomeWidget: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.tertiaryText)
                 Text(idleMessage)
-                    .font(.system(size: 11))
+                    .font(.system(size: Theme.TextSize.body))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
                 Spacer()

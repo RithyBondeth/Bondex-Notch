@@ -20,6 +20,13 @@ final class NotchPanel: NSPanel {
         level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
+        // The panel is always black, whatever the system appearance. Without
+        // this, on a Mac in Light mode every AppKit-drawn piece inside it used
+        // light-mode colours: near-black placeholder text and a black caret in
+        // the text fields, a dark-grey spinner, light context menus — all on
+        // a black surface, and most of them close to invisible.
+        appearance = NSAppearance(named: .darkAqua)
+
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false          // The SwiftUI layer draws its own shadow.

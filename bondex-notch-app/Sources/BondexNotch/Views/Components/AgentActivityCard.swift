@@ -59,7 +59,7 @@ struct AgentActivityCard: View {
 
             if overflow > 0 {
                 Text("+\(overflow) more working")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                     .foregroundStyle(Theme.tertiaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -77,20 +77,20 @@ struct AgentActivityCard: View {
                 let session = session(for: agent)
                 HStack(spacing: 5) {
                     Text(agent.kind.displayName)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.title, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
                         .fixedSize()
                     if let project = session?.project {
                         Text(project)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: Theme.TextSize.body, weight: .medium))
                             .foregroundStyle(Theme.secondaryText)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
                     if let model = session?.model {
                         Text(AgentModelName.display(model))
-                            .font(.system(size: 9.5, weight: .semibold))
+                            .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                             .foregroundStyle(agent.kind.tint)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
@@ -104,7 +104,7 @@ struct AgentActivityCard: View {
                 // part no heuristic could ever have recovered, and it is the
                 // reason the signal file carries a payload at all.
                 Text(agent.status ?? "Working")
-                    .font(.system(size: 10))
+                    .font(.system(size: Theme.TextSize.footnote))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
                     // Middle, not tail: "Editing PeekView.swift" cut at the tail
@@ -122,7 +122,7 @@ struct AgentActivityCard: View {
             // nothing from finer steps.
             TimelineView(.periodic(from: .now, by: 1)) { timeline in
                 Text(agent.elapsed(at: timeline.date).clockString)
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.body, weight: .medium).monospacedDigit())
                     .foregroundStyle(agent.kind.tint)
                     .fixedSize()
             }

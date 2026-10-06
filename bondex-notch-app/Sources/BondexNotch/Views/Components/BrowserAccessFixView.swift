@@ -28,10 +28,10 @@ struct BrowserAccessFixView: View {
                 .font(.system(size: 18, weight: .regular))
                 .foregroundStyle(Theme.tertiaryText)
             Text(title)
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: Theme.TextSize.title, weight: .semibold))
                 .foregroundStyle(Theme.primaryText)
             Text(browser.javaScriptHint)
-                .font(.system(size: 10.5))
+                .font(.system(size: Theme.TextSize.footnote))
                 .foregroundStyle(Theme.tertiaryText)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -75,7 +75,7 @@ struct BrowserAccessFixView: View {
         case .confirming:
             VStack(spacing: 6) {
                 Text("\(browser.displayName) will quit and open again. It normally brings your tabs back.")
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                     .multilineTextAlignment(.center)
                 HStack(spacing: 6) {
@@ -91,13 +91,13 @@ struct BrowserAccessFixView: View {
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
                 Text("Reopening \(browser.displayName)…")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: Theme.TextSize.body, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
             }
         case let .failed(message):
             VStack(spacing: 6) {
                 Text(message)
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                     .foregroundStyle(Color(red: 0.99, green: 0.72, blue: 0.25))
                     .multilineTextAlignment(.center)
                 PillButton(title: "Try again", systemImage: "arrow.clockwise", tint: accent) {
@@ -142,7 +142,7 @@ struct PillButton: View {
                         .font(.system(size: 10, weight: .semibold))
                 }
                 Text(title)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.body, weight: .semibold))
             }
             .foregroundStyle(isProminent ? Color.black : Theme.primaryText)
             .padding(.horizontal, 12)

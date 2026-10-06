@@ -64,7 +64,21 @@ struct ScrollingStack<Content: View>: View {
 
     @Environment(\.isRenderingOffscreen) private var isRenderingOffscreen
 
+    /// The plain stack when it fits, so a short list is only as tall as its
+    /// rows and the panel shrinks to match; a scroll view only once it does
+    /// not. A `ScrollView` always takes all the height it is offered, which
+    /// is what left two clipboard items floating in a list-sized gap.
     var body: some View {
+        ViewThatFits(in: axis) {
+            // Leading, like the scroll view it stands in for: a short row of
+            // shelf tiles should start at the edge, not sit centred.
+            stack.frame(maxWidth: .infinity, alignment: .leading)
+            overflow
+        }
+    }
+
+    @ViewBuilder
+    private var overflow: some View {
         if isRenderingOffscreen {
             // `Color.clear` takes exactly the space the parent offers and the
             // overlay does not feed its own size back, so an over-long stack
@@ -109,7 +123,7 @@ private struct WidthKey: PreferenceKey {
 /// Scrolls text horizontally when it does not fit, and stays still when it does.
 struct MarqueeText: View {
     let text: String
-    var font: Font = .system(size: 12, weight: .semibold)
+    var font: Font = .system(size: Theme.TextSize.title, weight: .semibold)
     var speed: Double = 26   // points per second
     /// Caps the width and lets the view hug shorter text instead of filling the
     /// space it is offered. Needed wherever the title sits next to something else
@@ -575,11 +589,11 @@ struct EmptyStateView: View {
                 .font(.system(size: 20, weight: .regular))
                 .foregroundStyle(Theme.tertiaryText)
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: Theme.TextSize.title, weight: .medium))
                 .foregroundStyle(Theme.secondaryText)
             if let subtitle {
                 Text(subtitle)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: Theme.TextSize.footnote))
                     .foregroundStyle(Theme.tertiaryText)
                     .multilineTextAlignment(.center)
             }

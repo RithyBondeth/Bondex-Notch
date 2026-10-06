@@ -83,13 +83,18 @@ struct ClipboardWidget: View {
             // ImageRenderer cannot rasterise AppKit-backed text fields. A
             // static stand-in keeps visual regression renders meaningful.
             Text("Search clipboard")
-                .font(.system(size: 10))
+                .font(.system(size: Theme.TextSize.footnote))
                 .foregroundStyle(Theme.tertiaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            TextField("Search clipboard", text: $query)
+            TextField("", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 10))
+                .notchPlaceholder(
+                    "Search clipboard",
+                    isShown: query.isEmpty,
+                    font: .system(size: Theme.TextSize.footnote)
+                )
+                .font(.system(size: Theme.TextSize.footnote))
                 .accessibilityLabel("Search clipboard history")
         }
     }
@@ -102,11 +107,11 @@ struct ClipboardWidget: View {
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(item.title)
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                             .foregroundStyle(Theme.primaryText)
                             .lineLimit(1)
                         Text(item.detail)
-                            .font(.system(size: 9))
+                            .font(.system(size: Theme.TextSize.caption))
                             .foregroundStyle(Theme.tertiaryText)
                             .lineLimit(1)
                     }
@@ -133,12 +138,7 @@ struct ClipboardWidget: View {
             }
             .accessibilityLabel("Remove \(item.title)")
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Theme.surfaceElevated)
-        )
+        .notchRow()
         .contextMenu {
             Button("Copy") { service.copy(item) }
             Button(item.isPinned ? "Unpin" : "Pin") { service.togglePinned(item) }
@@ -155,14 +155,14 @@ struct ClipboardWidget: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(accent)
                 .frame(width: 25, height: 25)
-                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: Theme.Radius.control))
         case .image:
             if let image = service.thumbnail(for: item) {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 25, height: 25)
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
             } else {
                 Image(systemName: "photo")
                     .frame(width: 25, height: 25)

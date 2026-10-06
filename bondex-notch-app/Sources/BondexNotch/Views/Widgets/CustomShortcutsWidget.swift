@@ -30,9 +30,9 @@ struct CustomShortcutsWidget: View {
                         .font(.system(size: 22, weight: .medium))
                         .foregroundStyle(accent)
                     Text("No custom shortcuts yet")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.title, weight: .semibold))
                     Text("Add apps, Apple Shortcuts, or widget toggles in Settings.")
-                        .font(.system(size: 9.5))
+                        .font(.system(size: Theme.TextSize.caption))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -53,7 +53,7 @@ struct CustomShortcutsWidget: View {
                         ? "exclamationmark.triangle.fill"
                         : "checkmark.circle.fill"
                 )
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                 .foregroundStyle(feedback.isError ? Color.orange : accent)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
@@ -75,12 +75,12 @@ struct CustomShortcutsWidget: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(action.title)
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                     Text(action.subtitle)
-                        .font(.system(size: 8))
+                        .font(.system(size: Theme.TextSize.micro))
                         .foregroundStyle(Theme.tertiaryText)
                         .lineLimit(1)
                 }

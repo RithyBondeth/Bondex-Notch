@@ -34,16 +34,11 @@ struct FileActivityWidget: View {
 
     private var list: some View {
         VStack(spacing: 6) {
-            HStack {
-                Text("\(service.activities.count) transfer\(service.activities.count == 1 ? "" : "s")")
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundStyle(Theme.tertiaryText)
-                Spacer()
+            NotchListHeader(
+                "\(service.activities.count) transfer\(service.activities.count == 1 ? "" : "s")"
+            ) {
                 if service.hasFinished {
-                    Button("Clear finished") { service.clearFinished() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(Theme.secondaryText)
+                    NotchTextButton("Clear finished") { service.clearFinished() }
                 }
             }
 
@@ -63,14 +58,14 @@ struct FileActivityWidget: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(activity.displayName)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: Theme.TextSize.body, weight: .medium))
                     .foregroundStyle(Theme.primaryText)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
                 if activity.isComplete {
                     Text(activity.byteCount.formattedBytes)
-                        .font(.system(size: 9.5))
+                        .font(.system(size: Theme.TextSize.caption))
                         .foregroundStyle(Theme.tertiaryText)
                 } else {
                     // No public API reports a download's expected total size,
@@ -82,7 +77,7 @@ struct FileActivityWidget: View {
                             Text("· \(Int64(activity.bytesPerSecond).formattedBytes)/s")
                         }
                     }
-                    .font(.system(size: 9.5).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.caption).monospacedDigit())
                     .foregroundStyle(Theme.secondaryText)
                 }
             }
@@ -100,6 +95,6 @@ struct FileActivityWidget: View {
                     .tint(accent)
             }
         }
-        .notchCard()
+        .notchRow()
     }
 }
