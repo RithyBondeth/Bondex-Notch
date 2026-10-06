@@ -38,8 +38,10 @@ final class SystemMetricsService: ObservableObject {
         self.events = events
     }
 
+    /// Idempotent: an extra sample moments after the last one measures CPU and
+    /// network over a sliver of time and reports noise.
     func start(interval: TimeInterval = 2.0) {
-        stop()
+        guard timer == nil else { return }
         sample()
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             onMainActor { self?.sample() }
@@ -65,6 +67,23 @@ final class SystemMetricsService: ObservableObject {
     private func apply(_ next: SystemSnapshot) {
         snapshot = next
         checkBatteryWarning(next)
+    }
+
+    /// Throughput between two summed counter readings.
+    ///
+    /// `if_data`'s byte counters are 32-bit, so each interface's wraps every
+    /// 4 GB, and the sum also drops whenever an interface goes away (a VPN
+    /// disconnecting, Wi-Fi handing over, sleep). A drop is not negative
+    /// traffic, and the wrapping subtraction this used to do turned it into a
+    /// rate near 2^64 bytes/s — which the System tab then converted to `Int64`
+    /// and crashed on. A sample where the total went down is skipped instead.
+    nonisolated static func networkRate(
+        from previous: UInt64,
+        to current: UInt64,
+        over elapsed: TimeInterval
+    ) -> Double {
+        guard elapsed > 0, current >= previous else { return 0 }
+        return Double(current - previous) / elapsed
     }
 
     private func checkBatteryWarning(_ next: SystemSnapshot) {
@@ -244,10 +263,12 @@ private final class MetricsSampler: @unchecked Sendable {
         if let previous = previousNetBytes, let previousAt = previousNetSampleAt {
             let elapsed = now.timeIntervalSince(previousAt)
             if elapsed > 0.05 {
-                // Counters wrap and interfaces disappear; clamp rather than
-                // reporting a nonsense spike.
-                snapshot.downloadRate = max(0, Double(input &- previous.input) / elapsed)
-                snapshot.uploadRate = max(0, Double(output &- previous.output) / elapsed)
+                snapshot.downloadRate = SystemMetricsService.networkRate(
+                    from: previous.input, to: input, over: elapsed
+                )
+                snapshot.uploadRate = SystemMetricsService.networkRate(
+                    from: previous.output, to: output, over: elapsed
+                )
             }
         }
         previousNetBytes = (input, output)

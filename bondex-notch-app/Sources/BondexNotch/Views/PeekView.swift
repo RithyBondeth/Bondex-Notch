@@ -31,7 +31,7 @@ struct PeekView: View {
     private var accent: Color { settings.effectiveAccentColor }
     private var notchWidth: CGFloat { notch.geometry.notchSize.width }
 
-    /// The agents the peek is reporting.
+    /// The agents the peek is reporting: the ones a hook reports working.
     ///
     /// Agents working outrank playback here. Both can be true at once, and the
     /// peek has room for one kind of thing — but music is ambient and lasts for
@@ -39,35 +39,41 @@ struct PeekView: View {
     /// know the end of. Playback is one hover away in the panel; the agent, once
     /// it stops, is gone.
     ///
-    /// Mirrors `NotchViewModel.peekAgentCount`, which sized the strip: the
-    /// agents a hook reports working, or — only while nothing is playing — the
-    /// ones that are merely open.
+    /// Agents that are merely open never appear here; the expanded panel lists
+    /// them. Mirrors `NotchViewModel.workingAgentCount`, which sized the strip.
     private var workingAgents: [AgentActivity] {
-        let working = agents.active.filter(\.isHookReported)
-        if !working.isEmpty { return working }
-        return notch.peekAgentCount > 0 ? agents.active : []
+        agents.active.filter(\.isHookReported)
     }
     private var currentLive: LiveActivity? { liveActivities.active.first }
 
+    /// Each side of the notch gets exactly half of what is left over, so the
+    /// gap between them sits precisely over the camera housing.
+    ///
+    /// The strips used to share the free width by layout priority, which let
+    /// the trailing one grow towards the middle and shoved the gap off-centre —
+    /// the start of a banner line, or the volume rail, then rendered under the
+    /// hardware notch where nobody could see it. Content that does not fit a
+    /// wing now truncates inside it instead.
+    private var wingWidth: CGFloat {
+        notch.geometry.peekWingWidth(forPeekWidth: notch.contentSize.width)
+    }
+
     var body: some View {
         HStack(spacing: 0) {
+            // A few points clear of the notch on its side, so text that fills
+            // a wing does not run right up against the camera housing.
             leading
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 10)
+                .padding(.trailing, 4)
+                .frame(width: wingWidth, alignment: .leading)
 
             // Reserved for the hardware notch.
             Color.clear.frame(width: notchWidth)
 
             trailing
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.leading, 4)
                 .padding(.trailing, 10)
-                // Both strips ask for infinite width, and without this SwiftUI
-                // splits the free space down the middle — handing half the peek
-                // to a 21pt piece of artwork and truncating the half that is
-                // actually text. The leading strip only ever holds one small
-                // mark; the trailing one carries everything with something to
-                // say, so it gets first claim on the width.
-                .layoutPriority(1)
+                .frame(width: wingWidth, alignment: .trailing)
         }
         // The peek is exactly the notch's height, so centring on the strip is
         // centring on the menu bar.
@@ -76,23 +82,30 @@ struct PeekView: View {
 
     // MARK: Leading
 
+    /// Driven by `notch.peekContent`, the same decision that sized the strip,
+    /// so the two cannot disagree about what the peek is showing.
     @ViewBuilder
     private var leading: some View {
-        if let hud = notch.systemHUD {
-            systemHUDIcon(hud)
-                .transition(systemHUDLeadingTransition)
-        } else if privacyActivity.state.isActive {
+        switch notch.peekContent {
+        case .systemHUD:
+            if let hud = notch.systemHUD {
+                systemHUDIcon(hud)
+                    .transition(systemHUDLeadingTransition)
+            }
+        case .privacy:
             PrivacyActivityMarks(state: privacyActivity.state)
                 .accessibilityHidden(true)
                 .transition(.scale.combined(with: .opacity))
-        } else if let banner = notch.banner {
-            EventIcon(event: banner, size: 12)
-                .frame(width: 22, height: 22)
-                .background(
-                    Circle().fill(banner.tint.opacity(0.16))
-                )
-                .transition(.scale.combined(with: .opacity))
-        } else if focusTimer.snapshot.isActive {
+        case .banner:
+            if let banner = notch.banner {
+                EventIcon(event: banner, size: 12)
+                    .frame(width: 22, height: 22)
+                    .background(
+                        Circle().fill(banner.tint.opacity(0.16))
+                    )
+                    .transition(.scale.combined(with: .opacity))
+            }
+        case .focus:
             ZStack {
                 ProgressRing(
                     value: focusTimer.snapshot.progress,
@@ -106,44 +119,44 @@ struct PeekView: View {
             .frame(width: 22, height: 22)
             .accessibilityHidden(true)
             .transition(.scale.combined(with: .opacity))
-        } else if let meeting = meetings.meeting, meeting.startsSoon() {
+        case .meeting:
             Image(systemName: "calendar.badge.clock")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color(red: 0.29, green: 0.62, blue: 0.98))
                 .frame(width: 22, height: 22)
                 .accessibilityHidden(true)
                 .transition(.scale.combined(with: .opacity))
-        } else if let activity = currentLive {
-            ZStack {
-                Circle().fill(accent.opacity(0.14))
-                if let progress = activity.progress {
-                    ProgressRing(value: progress, tint: accent, lineWidth: 2.2)
-                        .padding(3)
-                } else {
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(accent)
+        case .live:
+            if let activity = currentLive {
+                ZStack {
+                    Circle().fill(accent.opacity(0.14))
+                    if let progress = activity.progress {
+                        ProgressRing(value: progress, tint: accent, lineWidth: 2.2)
+                            .padding(3)
+                    } else {
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(accent)
+                    }
                 }
+                .frame(width: 22, height: 22)
+                .transition(.scale.combined(with: .opacity))
             }
-            .frame(width: 22, height: 22)
-            .transition(.scale.combined(with: .opacity))
-        } else if !workingAgents.isEmpty {
+        case .agent:
             // One mark per working agent, in the same order as the names
             // opposite, so the pairing is positional and needs no explaining.
             HStack(spacing: 4) {
                 ForEach(workingAgents) { agent in
-                    // Spins only for work a hook reported. An agent that is
-                    // merely open — the Claude desktop app idling all day —
-                    // shows its mark still, so motion over the menu bar always
-                    // means something is actually running.
-                    AgentOrb(kind: agent.kind, size: 21, isAnimating: agent.isHookReported)
+                    AgentOrb(kind: agent.kind, size: 21, isAnimating: true)
                 }
             }
             .transition(.scale.combined(with: .opacity))
-        } else if let track = nowPlaying.nowPlaying {
-            ArtworkView(image: track.artwork, cornerRadius: 5, tint: accent)
-                .frame(width: 21, height: 21)
-                .transition(.scale.combined(with: .opacity))
+        case .media:
+            if let track = nowPlaying.nowPlaying {
+                ArtworkView(image: track.artwork, cornerRadius: 5, tint: accent)
+                    .frame(width: 21, height: 21)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
     }
 
@@ -151,83 +164,94 @@ struct PeekView: View {
 
     @ViewBuilder
     private var trailing: some View {
-        if let hud = notch.systemHUD {
-            systemHUDMeter(hud)
-                .transition(systemHUDTrailingTransition)
-        } else if privacyActivity.state.isActive {
+        switch notch.peekContent {
+        case .systemHUD:
+            if let hud = notch.systemHUD {
+                systemHUDMeter(hud)
+                    .transition(systemHUDTrailingTransition)
+            }
+        case .privacy:
             Text(privacyActivity.state.label)
                 .font(.system(size: 10.5, weight: .semibold))
                 .foregroundStyle(Theme.primaryText)
                 .lineLimit(1)
-                .fixedSize()
+                .minimumScaleFactor(0.8)
                 .accessibilityLabel("Privacy indicator")
                 .accessibilityValue(privacyActivity.state.accessibilityValue)
                 .transition(.opacity)
-        } else if let banner = notch.banner {
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(banner.title)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .lineLimit(1)
-                if let subtitle = banner.subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(Theme.secondaryText)
+        case .banner:
+            if let banner = notch.banner {
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(banner.title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
+                    if let subtitle = banner.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(Theme.secondaryText)
+                            .lineLimit(1)
+                    }
                 }
+                .frame(maxWidth: 136, alignment: .trailing)
+                .transition(.opacity)
             }
-            .frame(maxWidth: 150, alignment: .trailing)
-            .transition(.opacity)
-        } else if focusTimer.snapshot.isActive {
+        case .focus:
             Text(focusTimer.snapshot.timeString)
                 .font(.system(size: 11, weight: .semibold).monospacedDigit())
                 .foregroundStyle(Theme.primaryText)
                 .accessibilityLabel("Focus timer")
                 .accessibilityValue(focusTimer.snapshot.timeString + " remaining")
                 .transition(.opacity)
-        } else if let meeting = meetings.meeting, meeting.startsSoon() {
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(settings.preferences.showMeetingTitlesInPeek
-                     ? meeting.title
-                     : "Upcoming meeting")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .lineLimit(1)
-                Text(meeting.relativeString())
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(Theme.secondaryText)
-            }
-            .frame(maxWidth: 145, alignment: .trailing)
-            .accessibilityElement(children: .combine)
-            .transition(.opacity)
-        } else if let activity = currentLive {
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(activity.title)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .lineLimit(1)
-                if let subtitle = activity.subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(Theme.secondaryText)
+        case .meeting:
+            if let meeting = meetings.meeting {
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(settings.preferences.showMeetingTitlesInPeek
+                         ? meeting.title
+                         : "Upcoming meeting")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
-                } else if let progress = activity.progress {
-                    Text("\(Int(progress * 100))%")
-                        .font(.system(size: 9.5, weight: .medium).monospacedDigit())
-                        .foregroundStyle(accent)
+                    Text(meeting.relativeString())
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Theme.secondaryText)
                 }
+                .frame(maxWidth: 116, alignment: .trailing)
+                .accessibilityElement(children: .combine)
+                .transition(.opacity)
             }
-            .frame(maxWidth: 145, alignment: .trailing)
-            .transition(.opacity)
-        } else if !workingAgents.isEmpty {
+        case .live:
+            if let activity = currentLive {
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(activity.title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.primaryText)
+                        .lineLimit(1)
+                    if let subtitle = activity.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(Theme.secondaryText)
+                            .lineLimit(1)
+                    } else if let progress = activity.progress {
+                        Text("\(Int(progress * 100))%")
+                            .font(.system(size: 9.5, weight: .medium).monospacedDigit())
+                            .foregroundStyle(accent)
+                    }
+                }
+                .frame(maxWidth: 116, alignment: .trailing)
+                .transition(.opacity)
+            }
+        case .agent:
             agentClocks
                 .transition(.opacity)
-        } else if let track = nowPlaying.nowPlaying {
+        case .media:
             // Artwork and equaliser only. The title lives one hover away in the
             // expanded panel; putting it here too made the peek a wide slab of
             // text sitting over the menu bar all day.
-            AudioBars(isAnimating: track.isPlaying, tint: accent)
-                .transition(.opacity)
+            if let track = nowPlaying.nowPlaying {
+                AudioBars(isAnimating: track.isPlaying, tint: accent)
+                    .transition(.opacity)
+            }
         }
     }
 
@@ -361,22 +385,13 @@ private struct AgentClock: View {
     let compact: Bool
 
     var body: some View {
-        Group {
-            if agent.isHookReported {
-                Text(agent.startedAt, style: .timer)
-                    .foregroundStyle(agent.kind.tint)
-            } else {
-                // Only known to be open, not working: a running clock would
-                // claim a run that is not happening.
-                Text("Open")
-                    .foregroundStyle(Theme.tertiaryText)
-            }
-        }
-        .font(.system(size: compact ? 9.5 : 11.5, weight: .semibold).monospacedDigit())
-        .lineLimit(1)
-        .fixedSize()
-        .accessibilityLabel(agent.kind.displayName)
-        .accessibilityValue(agent.isHookReported ? "Working for \(agent.elapsed().clockString)" : "Open")
+        Text(agent.startedAt, style: .timer)
+            .foregroundStyle(agent.kind.tint)
+            .font(.system(size: compact ? 9.5 : 11.5, weight: .semibold).monospacedDigit())
+            .lineLimit(1)
+            .fixedSize()
+            .accessibilityLabel(agent.kind.displayName)
+            .accessibilityValue("Working for \(agent.elapsed().clockString)")
     }
 }
 
@@ -420,7 +435,7 @@ private struct SystemHUDLevelRail: View {
                 }
             }
         }
-        .frame(width: 74, height: 5)
+        .frame(width: 60, height: 5)
         .animation(
             reduceMotion
                 ? .linear(duration: 0.06)

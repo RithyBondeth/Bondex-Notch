@@ -46,7 +46,10 @@ final class AppIntentTests: XCTestCase {
         // Events, the agent-log scanner, their timers. Left running, they
         // outlive this test and fire inside later ones — AppleScript pumps a
         // nested run loop, which surfaced as "Run loop nesting count is
-        // negative" in whichever test happened to be running.
+        // negative" in whichever test happened to be running. Stopping them
+        // afterwards is not enough: a media read already in flight carries on.
+        // This test is about routing, so nothing is started at all.
+        environment.activatesServices = false
         defer { environment.stop() }
 
         XCTAssertTrue(environment.performAppIntentCommand(.automaticProfiles))

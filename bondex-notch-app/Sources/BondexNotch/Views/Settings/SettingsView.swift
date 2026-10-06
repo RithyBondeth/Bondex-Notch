@@ -441,6 +441,25 @@ private struct WidgetSettings: View {
 
     var body: some View {
         Form {
+            if let profile = settings.activeProfile {
+                // While a profile is active its own widget list and tab order
+                // decide what the notch shows. Without saying so, the toggles
+                // and arrows below appeared to do nothing at all.
+                Section {
+                    Label {
+                        Text("""
+                        The \(profile.displayName) profile is active, so its own widget \
+                        list and tab order are in use. Changes here apply when no profile \
+                        is active; edit the profile under Profiles.
+                        """)
+                        .font(.caption)
+                    } icon: {
+                        Image(systemName: profile.systemImage)
+                            .foregroundStyle(settings.effectiveAccentColor)
+                    }
+                }
+            }
+
             Section("Widgets") {
                 Toggle("Music", isOn: binding(\.musicWidgetEnabled))
                 Toggle("Agent activity", isOn: binding(\.agentActivityEnabled))
@@ -487,7 +506,7 @@ private struct WidgetSettings: View {
             }
 
             Section("Tab order") {
-                ForEach(settings.orderedTabs) { tab in
+                ForEach(settings.standardOrderedTabs) { tab in
                     HStack {
                         Label(tab.title, symbol: tab.systemImage)
                         Spacer()
@@ -497,7 +516,7 @@ private struct WidgetSettings: View {
                             Image(systemName: "chevron.up")
                         }
                         .buttonStyle(.borderless)
-                        .disabled(settings.orderedTabs.first == tab)
+                        .disabled(settings.standardOrderedTabs.first == tab)
                         .help("Move " + tab.title + " left")
 
                         Button {
@@ -506,7 +525,7 @@ private struct WidgetSettings: View {
                             Image(systemName: "chevron.down")
                         }
                         .buttonStyle(.borderless)
-                        .disabled(settings.orderedTabs.last == tab)
+                        .disabled(settings.standardOrderedTabs.last == tab)
                         .help("Move " + tab.title + " right")
                     }
                 }
@@ -634,7 +653,10 @@ private struct WidgetSettings: View {
     }
 
     private func move(_ tab: NotchTab, by offset: Int) {
-        var order = settings.orderedTabs
+        // The standard order, not `orderedTabs`: with a profile active that is
+        // the profile's own subset, and writing it here scrambled the global
+        // layout the user returns to when the profile ends.
+        var order = settings.standardOrderedTabs
         guard let source = order.firstIndex(of: tab) else { return }
         let destination = source + offset
         guard order.indices.contains(destination) else { return }

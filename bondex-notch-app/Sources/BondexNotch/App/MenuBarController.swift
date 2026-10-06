@@ -1,16 +1,14 @@
 import AppKit
-import Combine
 import SwiftUI
 
 /// The status item — the only chrome an LSUIElement app gets, so it carries
 /// Settings, the panel toggle and Quit.
 @MainActor
-final class MenuBarController: NSObject {
+final class MenuBarController: NSObject, NSMenuDelegate {
 
     private var statusItem: NSStatusItem?
     private let environment: AppEnvironment
     private let onOpenSettings: () -> Void
-    private var cancellables = Set<AnyCancellable>()
 
     init(environment: AppEnvironment, onOpenSettings: @escaping () -> Void) {
         self.environment = environment
@@ -21,21 +19,26 @@ final class MenuBarController: NSObject {
     func install() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = BondexLogoMark.menuBarImage()
-        item.menu = makeMenu()
+        let menu = NSMenu()
+        menu.delegate = self
+        item.menu = menu
         statusItem = item
-
-        environment.focusTimer.$snapshot
-            .map(\.phase)
-            .removeDuplicates()
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
     }
 
-    private func makeMenu() -> NSMenu {
-        let menu = NSMenu()
+    /// Rebuilt as it opens, from the state at that moment.
+    ///
+    /// It used to be rebuilt from Combine sinks on `$snapshot` and
+    /// `$preferences`, which fire *before* the new value is stored — so the
+    /// focus item always described the previous phase ("Start" while a timer
+    /// ran, "Pause" once it was paused) and toggled widgets lagged a change.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        populate(menu)
+    }
 
+    private func populate(_ menu: NSMenu) {
         let toggle = NSMenuItem(
-            title: "Show Notch Panel",
+            title: environment.notch.state.isExpanded ? "Hide Notch Panel" : "Show Notch Panel",
             action: #selector(togglePanel),
             keyEquivalent: ""
         )
@@ -50,7 +53,7 @@ final class MenuBarController: NSObject {
         palette.target = self
         menu.addItem(palette)
 
-        if environment.settings.preferences.quickCaptureEnabled {
+        if environment.settings.isTabEnabled(.capture) {
             let capture = NSMenuItem(
                 title: "Quick Capture…",
                 action: #selector(openQuickCapture),
@@ -107,13 +110,6 @@ final class MenuBarController: NSObject {
         )
         quit.target = self
         menu.addItem(quit)
-
-        return menu
-    }
-
-    /// The menu is built once, so rebuild it whenever its contents change.
-    func refresh() {
-        statusItem?.menu = makeMenu()
     }
 
     @objc private func sendFeedback() {
@@ -136,6 +132,7 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func togglePanel() {
+        environment.commandPalette.dismiss()
         environment.notch.toggle()
     }
 

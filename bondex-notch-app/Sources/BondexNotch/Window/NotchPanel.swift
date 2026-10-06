@@ -62,7 +62,10 @@ final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard hitRegionProvider().contains(point) else { return nil }
+        // `point` is in the (non-flipped) window frame's coordinates, where a
+        // click on the top row of the screen arrives with y equal to the
+        // window's height — inside by AppKit's rule, outside by `contains`.
+        guard NotchGeometry.pointer(point, isIn: hitRegionProvider()) else { return nil }
         return super.hitTest(point)
     }
 }

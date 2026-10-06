@@ -58,8 +58,9 @@ final class SmartProfileService: ObservableObject {
             }
             .store(in: &cancellables)
 
-        settings.$preferences
-            .removeDuplicates()
+        // Not `$preferences`: that fires before the value is stored, so the
+        // refresh would match against the mode and rules being replaced.
+        settings.preferencesDidChange
             .sink { [weak self] _ in self?.refresh() }
             .store(in: &cancellables)
 

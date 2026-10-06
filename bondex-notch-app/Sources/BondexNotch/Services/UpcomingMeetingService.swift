@@ -39,8 +39,10 @@ final class UpcomingMeetingService: ObservableObject {
     private let store = EKEventStore()
     private var timer: Timer?
 
+    /// Idempotent. Restarting cleared the meeting before re-reading it, which
+    /// blinked the compact meeting peek on every preference change.
     func start() {
-        stop()
+        guard timer == nil else { return }
         refresh()
         let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
             onMainActor { self?.refresh() }
@@ -90,14 +92,17 @@ final class UpcomingMeetingService: ObservableObject {
             end: now.addingTimeInterval(24 * 60 * 60),
             calendars: nil
         )
-        let event = store.events(matching: predicate)
+        let candidates = store.events(matching: predicate)
             .filter { !$0.isAllDay && $0.endDate > now }
-            .sorted { $0.startDate < $1.startDate }
-            .first
+        let event = Self.preferredEvent(
+            in: candidates.map { (start: $0.startDate, end: $0.endDate) },
+            now: now
+        ).map { candidates[$0] }
 
-        meeting = event.map {
+        let next = event.map {
             UpcomingMeeting(
-                id: $0.eventIdentifier ?? UUID().uuidString,
+                id: $0.eventIdentifier
+                    ?? "\($0.title ?? "")|\($0.startDate.timeIntervalSince1970)",
                 title: $0.title?.trimmingCharacters(in: .whitespacesAndNewlines)
                     .nilIfEmpty ?? "Untitled meeting",
                 startDate: $0.startDate,
@@ -105,6 +110,28 @@ final class UpcomingMeetingService: ObservableObject {
                 joinURL: Self.joinURL(for: $0)
             )
         }
+        // Republished on every refresh on purpose: the compact "In 7 min" text
+        // is computed when the view renders, and this is what re-renders it.
+        meeting = next
+    }
+
+    /// Which of the day's remaining timed events to surface.
+    ///
+    /// Not simply the earliest start: a long block that began an hour ago (an
+    /// afternoon "focus" event, or a meeting that overran) would otherwise hide
+    /// the meeting that starts in five minutes for as long as it lasted, since
+    /// it sorts first and is too old to count as starting soon. An event that
+    /// started at most five minutes ago, or has yet to start, wins; one already
+    /// well under way is shown only when nothing else is coming.
+    nonisolated static func preferredEvent(
+        in events: [(start: Date, end: Date)],
+        now: Date
+    ) -> Int? {
+        let ordered = events.indices
+            .filter { events[$0].end > now }
+            .sorted { events[$0].start < events[$1].start }
+        let recentCutoff = now.addingTimeInterval(-5 * 60)
+        return ordered.first { events[$0].start >= recentCutoff } ?? ordered.first
     }
 
     /// Internal so meeting-link extraction can be verified without requesting

@@ -33,9 +33,24 @@ struct FileActivityWidget: View {
     }
 
     private var list: some View {
-        ScrollingStack(spacing: 6) {
-            ForEach(service.activities) { activity in
-                row(activity)
+        VStack(spacing: 6) {
+            HStack {
+                Text("\(service.activities.count) transfer\(service.activities.count == 1 ? "" : "s")")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(Theme.tertiaryText)
+                Spacer()
+                if service.hasFinished {
+                    Button("Clear finished") { service.clearFinished() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Theme.secondaryText)
+                }
+            }
+
+            ScrollingStack(spacing: 6) {
+                ForEach(service.activities) { activity in
+                    row(activity)
+                }
             }
         }
     }

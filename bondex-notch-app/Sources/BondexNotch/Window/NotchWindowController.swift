@@ -11,6 +11,7 @@ final class NotchWindowController {
     private var hostingView: PassthroughHostingView<NotchRootView>?
     private var tracker: MouseTracker?
     private var keyMonitor: Any?
+    private var outsideClickMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
 
     private let environment: AppEnvironment
@@ -41,14 +42,19 @@ final class NotchWindowController {
 
         panel.contentView = hosting
         panel.setFrame(frame, display: true)
-        panel.orderFrontRegardless()
 
         self.panel = panel
         self.hostingView = hosting
 
         startTracking()
         startKeyboardMonitoring()
+        startOutsideClickMonitoring()
+        observeKeyFocus()
         observeScreenChanges()
+        // Through the same path as a display change, so a launch with only an
+        // external display honours "Show synthetic notch on external displays"
+        // instead of showing the panel regardless until the first change.
+        repositionForCurrentScreen()
     }
 
     func hide() {
@@ -56,6 +62,8 @@ final class NotchWindowController {
         tracker = nil
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        outsideClickMonitor = nil
         panel?.orderOut(nil)
         panel = nil
         hostingView = nil
@@ -79,6 +87,69 @@ final class NotchWindowController {
         DispatchQueue.main.async { [weak panel] in
             panel?.becomesKeyOnlyIfNeeded = true
         }
+    }
+
+    /// Gives keyboard focus back to whatever had it before the panel took it.
+    ///
+    /// A nonactivating panel that became key stays key after it collapses, so
+    /// the next keystrokes — meant for the editor the user was in before Quick
+    /// Capture or the palette — went to an invisible panel until they clicked
+    /// back. (`resignKey()` does not do this; it only announces a change that
+    /// has already happened.) Ordering the panel out lets the window server
+    /// hand focus back to the active app; ordering it straight back in keeps
+    /// the notch where it was, and on a collapsed notch there is nothing on
+    /// screen to flicker.
+    private func relinquishKeyFocus() {
+        guard let panel, panel.isKeyWindow else { return }
+        panel.orderOut(nil)
+        panel.orderFrontRegardless()
+    }
+
+    /// Typing holds the panel open; losing focus — a click in another app —
+    /// releases it. Collapsing returns focus to the app the user came from.
+    private func observeKeyFocus() {
+        guard let panel else { return }
+        NotificationCenter.default
+            .publisher(for: NSWindow.didBecomeKeyNotification, object: panel)
+            .sink { [weak self] _ in self?.environment.notch.setHoldsOpenForKeyboard(true) }
+            .store(in: &cancellables)
+        NotificationCenter.default
+            .publisher(for: NSWindow.didResignKeyNotification, object: panel)
+            .sink { [weak self] _ in self?.environment.notch.setHoldsOpenForKeyboard(false) }
+            .store(in: &cancellables)
+
+        environment.notch.$state
+            .removeDuplicates()
+            .filter { !$0.isExpanded }
+            .sink { [weak self] _ in
+                // After the state change has been applied and the collapse
+                // animation committed.
+                DispatchQueue.main.async { self?.relinquishKeyFocus() }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// A click anywhere outside Bondex closes the open panel.
+    ///
+    /// Without this a panel latched open by a click had no way to be dismissed
+    /// short of finding its close button: clicking back into the app you were
+    /// working in left it hanging over the screen. Global monitors only see
+    /// events bound for *other* apps, so clicks on the panel itself, the menu
+    /// bar item and Settings never arrive here. Mouse monitors need no
+    /// accessibility permission.
+    private func startOutsideClickMonitoring() {
+        guard outsideClickMonitor == nil else { return }
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            onMainActor { self?.environment.notch.clickedOutside() }
+        }
+    }
+
+    /// True while a text field in the panel is being edited — its field editor
+    /// is first responder — so arrow keys belong to the caret.
+    private var isEditingText: Bool {
+        panel?.firstResponder is NSText
     }
 
     private func startKeyboardMonitoring() {
@@ -117,9 +188,13 @@ final class NotchWindowController {
                 if self.environment.notch.tab == .capture {
                     self.environment.quickCapture.cancelDraft()
                 }
+                // Collapsing also returns keyboard focus to the previous app.
                 self.environment.notch.collapse()
-                self.panel?.resignKey()
                 return nil
+            case 123 where self.isEditingText, 124 where self.isEditingText:
+                // Moving the caret in Quick Capture or a search field. Taking
+                // these for tab switching made it impossible to edit a typo.
+                return event
             case 123: // Left arrow
                 self.selectAdjacentTab(offset: -1)
                 return nil
@@ -152,9 +227,15 @@ final class NotchWindowController {
     }
 
     private func handlePointer(at location: CGPoint) {
-        // Only react to the pointer on the screen the panel lives on.
-        guard let panel, let screen = panel.screen ?? NSScreen.main else { return }
-        guard screen.frame.contains(location) || environment.notch.state.isExpanded else {
+        // Only react to the pointer on the screen the panel lives on. With
+        // AppKit's mouse rule, not `contains`: the top row of the screen — where
+        // a pointer thrown at the notch comes to rest — has y equal to the
+        // frame's maxY, and `contains` dropped every one of those events here.
+        guard let panel, panel.isVisible, let screen = panel.screen ?? NSScreen.main else {
+            return
+        }
+        guard NotchGeometry.pointer(location, isIn: screen.frame)
+                || environment.notch.state.isExpanded else {
             return
         }
         environment.notch.pointerMoved(to: location)
@@ -172,10 +253,11 @@ final class NotchWindowController {
             .sink { [weak self] _ in self?.repositionForCurrentScreen() }
             .store(in: &cancellables)
 
-        environment.settings.$preferences
+        // After the value is stored: `repositionForCurrentScreen` reads it back,
+        // and reading it from `$preferences` (willSet) inverted the toggle.
+        environment.settings.preferencesDidChange
             .map(\.showNotchOnExternalDisplays)
             .removeDuplicates()
-            .dropFirst()
             .sink { [weak self] _ in self?.repositionForCurrentScreen() }
             .store(in: &cancellables)
     }

@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import Foundation
 import UniformTypeIdentifiers
 
@@ -89,11 +90,22 @@ final class ClipboardHistoryService: ObservableObject {
     ]
     private static let maximumTextLength = 100_000
     private static let maximumImageBytes = 20 * 1_024 * 1_024
+    /// Images are kept in memory, and thirty full-screen screenshots of a 5K
+    /// display is well over half a gigabyte for a menu-bar utility. Past this
+    /// total the oldest unpinned images are let go; text is never evicted for it.
+    static let imageBudgetBytes = 80 * 1_024 * 1_024
+    nonisolated private static let textTypes: Set<NSPasteboard.PasteboardType> = [
+        .string,
+        NSPasteboard.PasteboardType("public.utf8-plain-text"),
+        .rtf,
+        .html
+    ]
 
     private let pasteboard: NSPasteboard
     private let capacity: Int
     private var observedChangeCount: Int
     private var timer: Timer?
+    private let thumbnails = NSCache<NSUUID, NSImage>()
 
     init(pasteboard: NSPasteboard = .general, capacity: Int = 30) {
         self.pasteboard = pasteboard
@@ -160,10 +172,38 @@ final class ClipboardHistoryService: ObservableObject {
 
     func remove(_ item: ClipboardHistoryItem) {
         items.removeAll { $0.id == item.id }
+        thumbnails.removeObject(forKey: item.id as NSUUID)
     }
 
     func clear() {
         items.removeAll()
+        thumbnails.removeAllObjects()
+    }
+
+    /// A small decoded copy of an image item for its list row.
+    ///
+    /// Decoding the stored bytes in the row's `body` re-decoded a full-size
+    /// image — a screenshot can be tens of megapixels — on every re-render and
+    /// every scroll step, for a 25pt square.
+    func thumbnail(for item: ClipboardHistoryItem) -> NSImage? {
+        guard case let .image(data, _) = item.content else { return nil }
+        let key = item.id as NSUUID
+        if let cached = thumbnails.object(forKey: key) { return cached }
+
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 96
+        ]
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        else { return nil }
+        let thumbnail = NSImage(
+            cgImage: image,
+            size: NSSize(width: image.width, height: image.height)
+        )
+        thumbnails.setObject(thumbnail, forKey: key)
+        return thumbnail
     }
 
     func seedForPreview(_ samples: [ClipboardHistoryItem]) {
@@ -177,6 +217,19 @@ final class ClipboardHistoryService: ObservableObject {
     }
 
     private func readContent() -> ClipboardContent? {
+        let types = pasteboard.types ?? []
+        // A file copied in Finder carries its icon as a TIFF and its name as
+        // text. Neither is what was copied — the file is — and recording the
+        // icon as an "Image" entry was just noise.
+        guard !types.contains(.fileURL) else { return nil }
+
+        let text = pasteboard.string(forType: .string).flatMap { value -> String? in
+            guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  value.count <= Self.maximumTextLength else { return nil }
+            return value
+        }
+        if let text, !Self.prefersImage(in: types) { return .text(text) }
+
         for type in Self.imageTypes {
             if let data = pasteboard.data(forType: type),
                !data.isEmpty,
@@ -184,11 +237,23 @@ final class ClipboardHistoryService: ObservableObject {
                 return .image(data: data, type: type)
             }
         }
+        return text.map(ClipboardContent.text)
+    }
 
-        guard let value = pasteboard.string(forType: .string),
-              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              value.count <= Self.maximumTextLength else { return nil }
-        return .text(value)
+    /// Whether the source app offers an image ahead of any text.
+    ///
+    /// Pasteboard types are listed in the source's order of preference. Office
+    /// and iWork attach a picture of copied text or cells as a courtesy for
+    /// apps that cannot read their formats; taking any image first recorded
+    /// those copies as "Image" and lost the text. A screenshot or an image
+    /// copied from a browser lists the image first, and stays an image.
+    nonisolated static func prefersImage(in types: [NSPasteboard.PasteboardType]) -> Bool {
+        let imageTypes: Set<NSPasteboard.PasteboardType> = [
+            .png, .tiff, NSPasteboard.PasteboardType(UTType.jpeg.identifier)
+        ]
+        guard let firstImage = types.firstIndex(where: imageTypes.contains) else { return false }
+        guard let firstText = types.firstIndex(where: textTypes.contains) else { return true }
+        return firstImage < firstText
     }
 
     private func insert(_ content: ClipboardContent) {
@@ -217,7 +282,16 @@ final class ClipboardHistoryService: ObservableObject {
     }
 
     private func trimToCapacity() {
-        guard items.count > capacity else { return }
-        items.removeLast(items.count - capacity)
+        if items.count > capacity {
+            items.removeLast(items.count - capacity)
+        }
+
+        // Newest first, so the walk keeps recent images and drops old ones.
+        var imageBytes = 0
+        items.removeAll { item in
+            guard case let .image(data, _) = item.content else { return false }
+            imageBytes += data.count
+            return imageBytes > Self.imageBudgetBytes && !item.isPinned
+        }
     }
 }

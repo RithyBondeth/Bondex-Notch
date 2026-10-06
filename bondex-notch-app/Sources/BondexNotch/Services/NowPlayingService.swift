@@ -115,9 +115,10 @@ final class NowPlayingService: ObservableObject {
         self.events = events
     }
 
+    /// Idempotent: every preference change asks for this again, and restarting
+    /// an already-running poll fired a fresh round of Apple Events each time.
     func start(interval: TimeInterval = 1.0) {
-        guard !isPreviewSeeded else { return }
-        stop()
+        guard !isPreviewSeeded, timer == nil else { return }
         refresh()
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             onMainActor { self?.refresh() }
@@ -346,6 +347,10 @@ final class MediaReader: @unchecked Sendable {
 
     private let engine = AppleScriptEngine()
     private let browsers: BrowserMediaReader
+    /// Music's artwork for the track it was read for. Touched only under the
+    /// engine lock, like everything else here.
+    private var musicArtworkKey: String?
+    private var musicArtwork: NSImage?
 
     init() {
         browsers = BrowserMediaReader(engine: engine)
@@ -415,7 +420,7 @@ final class MediaReader: @unchecked Sendable {
             ? "((duration of current track) / 1000)"
             : "(duration of current track)"
 
-        let script = """
+        let script = app.onlyWhileRunning("""
         tell application "\(app.scriptName)"
             if player state is stopped then return "STOPPED"
             set trackName to name of current track
@@ -427,7 +432,7 @@ final class MediaReader: @unchecked Sendable {
             return trackName & "\\n" & trackArtist & "\\n" & trackAlbum & "\\n" ¬
                 & trackDuration & "\\n" & trackPosition & "\\n" & playState
         end tell
-        """
+        """)
 
         let outcome = engine.run(script)
         if let failure = outcome.failure {
@@ -455,12 +460,20 @@ final class MediaReader: @unchecked Sendable {
 
         switch app.engine {
         case .music:
-            // Only Music.app hands over raw artwork bytes, and it is cheap
-            // enough to read inline.
-            track.artwork = readMusicArtwork()
+            // Only Music.app hands over raw artwork bytes. They are the full
+            // resolution image — often megabytes — so they are read once per
+            // track, not on every one-second poll.
+            let key = track.trackKey
+            if key != musicArtworkKey || musicArtwork == nil {
+                musicArtwork = readMusicArtwork(app)
+                musicArtworkKey = key
+            }
+            track.artwork = musicArtwork
         case .spotify:
             track.artworkURL = engine
-                .run("tell application \"Spotify\" to return artwork url of current track")
+                .run(app.onlyWhileRunning(
+                    "tell application \"Spotify\" to return artwork url of current track"
+                ))
                 .value
                 .flatMap(URL.init(string:))
         case .webkit, .chromium, .dia:
@@ -470,13 +483,13 @@ final class MediaReader: @unchecked Sendable {
         return BrowserMediaReader.Reading(track: track, failure: nil)
     }
 
-    private func readMusicArtwork() -> NSImage? {
-        let script = """
+    private func readMusicArtwork(_ app: MediaApp) -> NSImage? {
+        let script = app.onlyWhileRunning("""
         tell application "Music"
             if (count of artworks of current track) is 0 then return missing value
             return data of artwork 1 of current track
         end tell
-        """
+        """)
         guard let data = engine.runForData(script) else { return nil }
         return NSImage(data: data)
     }
@@ -498,7 +511,9 @@ final class MediaReader: @unchecked Sendable {
             // position is past ~2s, which is what users expect from one tap.
             case .previous: verb = "previous track"
             }
-            _ = engine.run("tell application \"\(app.scriptName)\" to \(verb)")
+            _ = engine.run(app.onlyWhileRunning(
+                "tell application \"\(app.scriptName)\" to \(verb)"
+            ))
         }
     }
 }

@@ -74,6 +74,19 @@ Hover is driven by a global `NSEvent` monitor rather than SwiftUI's `.onHover`,
 which is unreliable in a panel that is rarely key. Global *mouse* monitors need
 no accessibility permission.
 
+Pointer tests use `NSMouseInRect` (via `NotchGeometry.pointer(_:isIn:)`), not
+`CGRect.contains`. A cursor pushed against the top of the display reports a y
+equal to the screen's `maxY`, and `contains` treats that edge as outside, so the
+notch ignored exactly the gesture people use to reach it: throwing the pointer
+at the top of the screen.
+
+Hovering opens the panel transiently; it closes when the pointer leaves. A click
+on the notch or anywhere in the open panel latches it, and it then closes on a
+click elsewhere, Escape, the close button or the shortcut. While the panel has
+keyboard focus (Quick Capture, a search field, the palette) the pointer leaving
+does not close it, and closing hands keyboard focus back to the app you came
+from.
+
 `NotchGeometry` measures the hardware notch from `NSScreen.safeAreaInsets` and
 `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`. Displays without a notch get a
 synthetic 190×32 pill so the interaction is identical everywhere. Everything is
@@ -84,8 +97,13 @@ re-derived on `didChangeScreenParametersNotification`.
 | State | Size | When |
 |---|---|---|
 | `collapsed` | exactly the notch | nothing live; invisible on notched Macs |
-| `peek` | notch + 120 while playing, + 50 per extra agent, + 260 for a banner | media playing, an agent working, or a transient banner |
+| `peek` | notch + 120 while playing, + 50 per extra agent, + 300 for a banner | media playing, an agent working, or a transient banner |
 | `expanded` | user-controlled 440–680 wide, height **measured from the content** | pointer on the notch, or clicked to pin |
+
+A peek is two wings either side of the camera housing, each exactly half of the
+width that is not notch. Widths are chosen so each wing holds what it shows —
+the volume rail, a banner line — because anything drawn in the middle is under
+the hardware and invisible.
 
 Only the widths are fixed. The expanded panel's height comes from what it is
 actually showing: `ExpandedView` reports its laid-out height through
@@ -118,8 +136,12 @@ as tall as the menu bar. Each clock is tinted like its mark.
 
 The clocks are SwiftUI's self-advancing timer text, so only the digits redraw
 each second — the strip's view is not re-evaluated, and there is no
-`TimelineView`. An agent that is only known to be open shows `Open` instead of a
-clock, and its mark does not spin.
+`TimelineView`.
+
+Only agents a hook reports working reach the peek. One that is only known to be
+open is listed in the expanded panel, labelled `Open` with a still mark, and
+nowhere else: the Claude and ChatGPT desktop apps each carry an agent binary, so
+"open" is true all day, and a strip saying so over the menu bar told you nothing.
 
 Several agents at once is an ordinary case, not a corner one — a Claude Code
 session and a Codex session on the same machine signal independently. Each gets
@@ -131,8 +153,9 @@ would push Home past its height ceiling and be silently cut off at the bottom.
 Agent presence works without configuration. Bondex scans executable names, not
 usernames, versioned installation folders, CPU usage, or a fixed application
 path, so standard CLI, editor-extension, and desktop-host installs are detected
-wherever they live. A presence-only agent is labelled `Open`; Bondex does not
-pretend that an open process is actively thinking.
+wherever they live. A presence-only agent is labelled `Open` in the panel and
+kept out of the peek; Bondex does not pretend that an open process is actively
+thinking.
 
 Hooks are optional enrichment. They replace `Open` with the exact live state —
 for example `Thinking`, `Editing`, or `Running tests`. This distinction matters
@@ -298,7 +321,12 @@ label. Discovery is read-only, requires no Bluetooth pairing or privacy
 permission, and gracefully omits hardware whose driver does not expose a level.
 
 Volume, mute, display brightness, and keyboard-backlight keys produce a compact
-meter beside the notch with the current percentage. Power-source and charging
+meter beside the notch with the current percentage. Apple silicon Macs have no
+`IODisplayConnect` service and no public brightness API, so the built-in
+display's level is read with `DisplayServicesGetBrightness`, looked up at run
+time and only ever read; the classic IOKit parameter remains the fallback.
+Brightness is announced only for the brightness keys, never from polling, so
+automatic brightness drifting with ambient light does not pop the HUD. Power-source and charging
 transitions use the same surface for battery feedback without adding routine
 discharge steps to the activity feed. Hardware feedback temporarily outranks
 playback and notification peeks, dismisses after a short delay, and can be
@@ -312,7 +340,11 @@ expanded header, so opening another widget does not hide the active-device state
 The indicator can be disabled independently in Widget settings and announces
 state changes through VoiceOver when important announcements are enabled.
 
-Detection reads the public CoreAudio and CoreMediaIO device running-state APIs.
+Detection reads the public CoreAudio and CoreMediaIO running-state APIs. The
+microphone is checked per process (`kAudioProcessPropertyIsRunningInput`),
+because the device-level flag cannot tell input from output: AirPods and USB
+headsets are one device with both directions, and playing music through them
+used to light the microphone mark.
 Bondex never opens or records either stream and does not request microphone or
 camera permission. macOS does not expose the responsible application's identity
 through these public APIs, so the indicator intentionally reports the device,
@@ -329,7 +361,8 @@ are left to macOS so they are not spoken twice.
 
 Permission-free global shortcuts open the notch (`⌃⌥ Space` by default) or jump
 straight into Quick Capture (`⌃⌥ C` by default), with alternatives in Settings.
-Once open, Left and Right Arrow cycle tabs and Escape closes the panel. Keyboard-
+Once open, Left and Right Arrow cycle tabs (while a text field is being edited
+they move the caret instead) and Escape closes the panel. Keyboard-
 focused tab chips and controls get a visible outline. The hardware-HUD display
 time is also configurable.
 
@@ -521,7 +554,10 @@ renders every state to PNG without a display:
 ```
 
 It runs against a throwaway `UserDefaults` domain and never
-touches real preferences. Two caveats, both
+touches real preferences, starts none of the watchers (every state is seeded),
+and uses the notched display's real notch size. The camera housing is marked
+with a translucent red box: anything inside it would be invisible on a real
+notched Mac. Two caveats, both
 `ImageRenderer` limitations rather than app behaviour: `.onDrop` cannot be
 rasterised, and `ScrollView` renders empty — `NotchRootView` and
 `ScrollingStack` both degrade when `\.isRenderingOffscreen` is set.

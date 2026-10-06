@@ -156,8 +156,8 @@ struct ClipboardWidget: View {
                 .foregroundStyle(accent)
                 .frame(width: 25, height: 25)
                 .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
-        case let .image(data, _):
-            if let image = NSImage(data: data) {
+        case .image:
+            if let image = service.thumbnail(for: item) {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFill()

@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import ServiceManagement
 import SwiftUI
@@ -100,13 +101,39 @@ final class SettingsStore: ObservableObject {
             if preferences.launchAtLogin != oldValue.launchAtLogin, !isRevertingLoginItem {
                 applyLaunchAtLogin(preferences.launchAtLogin)
             }
+            preferencesSubject.send(preferences)
         }
     }
 
     /// Surfaced in Settings when macOS refuses to register the login item
     /// (common for ad-hoc signed local builds).
     @Published var launchAtLoginError: String?
-    @Published private(set) var activeProfile: NotchProfile?
+    @Published private(set) var activeProfile: NotchProfile? {
+        didSet {
+            guard activeProfile != oldValue else { return }
+            activeProfileSubject.send(activeProfile)
+        }
+    }
+
+    /// Emits after `preferences` has been stored.
+    ///
+    /// `$preferences` fires from `willSet`, so a subscriber that reads the store
+    /// again — directly, or through `isTabEnabled`, `activeProfile`-aware
+    /// helpers, or another service — sees the *previous* value. That made every
+    /// toggle apply one change late: turning a widget on started nothing, and
+    /// turning it off again started it. Subscribers that react to a change by
+    /// consulting the store must use this instead.
+    var preferencesDidChange: AnyPublisher<Preferences, Never> {
+        preferencesSubject.eraseToAnyPublisher()
+    }
+
+    /// The `activeProfile` counterpart of `preferencesDidChange`.
+    var activeProfileDidChange: AnyPublisher<NotchProfile?, Never> {
+        activeProfileSubject.eraseToAnyPublisher()
+    }
+
+    private let preferencesSubject = PassthroughSubject<Preferences, Never>()
+    private let activeProfileSubject = PassthroughSubject<NotchProfile?, Never>()
 
     private let defaults: UserDefaults
     /// Guards the write-back that undoes a failed login-item registration, so
@@ -156,7 +183,12 @@ final class SettingsStore: ObservableObject {
 
     var orderedTabs: [NotchTab] {
         if let activeProfile { return activeProfile.orderedTabs }
+        return standardOrderedTabs
+    }
 
+    /// The order used when no profile is active — what Settings › Widgets
+    /// edits, whatever profile happens to be in force.
+    var standardOrderedTabs: [NotchTab] {
         var seen = Set<NotchTab>()
         var result = preferences.widgetOrder.filter { seen.insert($0).inserted }
 

@@ -73,8 +73,16 @@ final class PrivacyActivityService: ObservableObject {
 
     // MARK: Device activity
 
+    /// Whether any process is capturing audio *input*.
+    ///
+    /// Asked of CoreAudio's per-process objects first, because they separate
+    /// input from output. The device-level "running somewhere" flag does not:
+    /// AirPods and USB headsets are one device with both directions, so merely
+    /// playing music through them lit the orange microphone mark. The device
+    /// check remains as the fallback if the process list cannot be read.
     nonisolated private static func isMicrophoneActive() -> Bool {
-        audioDeviceIDs().contains { device in
+        if let capturing = isAnyProcessCapturingInput() { return capturing }
+        return audioDeviceIDs().contains { device in
             guard audioDeviceHasInput(device) else { return false }
             var address = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
@@ -87,6 +95,42 @@ final class PrivacyActivityService: ObservableObject {
                 device, &address, 0, nil, &size, &running
             )
             return status == noErr && running != 0
+        }
+    }
+
+    /// Nil when CoreAudio will not list its client processes, so the caller can
+    /// fall back to the device check rather than report "nothing recording".
+    nonisolated private static func isAnyProcessCapturingInput() -> Bool? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyProcessObjectList,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
+        ) == noErr else { return nil }
+        guard size > 0 else { return false }
+
+        var processes = [AudioObjectID](
+            repeating: 0,
+            count: Int(size) / MemoryLayout<AudioObjectID>.size
+        )
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &processes
+        ) == noErr else { return nil }
+
+        return processes.contains { process in
+            var inputAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioProcessPropertyIsRunningInput,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var running: UInt32 = 0
+            var valueSize = UInt32(MemoryLayout<UInt32>.size)
+            return AudioObjectGetPropertyData(
+                process, &inputAddress, 0, nil, &valueSize, &running
+            ) == noErr && running != 0
         }
     }
 

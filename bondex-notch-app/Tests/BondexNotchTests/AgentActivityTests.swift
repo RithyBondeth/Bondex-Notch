@@ -478,32 +478,61 @@ final class PeekPriorityTests: XCTestCase {
         )
     }
 
-    func testAnOpenAgentDoesNotHidePlayback() throws {
-        // The Claude and ChatGPT desktop apps each carry an agent binary, so
-        // "open" is the everyday state — it must not cover a playing video.
-        let notch = try model()
-        notch.openAgentCount = 2
-        notch.hasLiveActivity = true
+    /// Builds a real environment, with nothing started, so agents can be
+    /// seeded through the service and followed all the way to the notch.
+    private func environment() throws -> AppEnvironment {
+        let environment = AppEnvironment(
+            screen: try XCTUnwrap(NSScreen.main),
+            defaults: defaults
+        )
+        environment.activatesServices = false
+        return environment
+    }
 
-        XCTAssertEqual(notch.peekAgentCount, 0)
-        XCTAssertEqual(notch.peekContent, .media)
-        XCTAssertEqual(notch.state, .peek)
+    private func open(_ kind: AgentKind) -> AgentActivity {
+        AgentActivity(kind: kind, startedAt: Date(), status: "Open", isHookReported: false)
+    }
+
+    private func working(_ kind: AgentKind) -> AgentActivity {
+        AgentActivity(kind: kind, startedAt: Date(), status: "Editing PeekView.swift")
+    }
+
+    /// The Claude and ChatGPT desktop apps each carry an agent binary, so
+    /// "open" is the everyday state. It belongs in the expanded panel, not in a
+    /// still strip over the menu bar all day.
+    func testOpenAgentsStayOutOfThePeek() throws {
+        let environment = try environment()
+        environment.agents.seedForPreview([open(.claude), open(.codex)])
+
+        XCTAssertEqual(environment.notch.workingAgentCount, 0)
+        XCTAssertEqual(environment.notch.state, .collapsed)
+    }
+
+    func testAnOpenAgentDoesNotHidePlayback() throws {
+        let environment = try environment()
+        environment.agents.seedForPreview([open(.claude)])
+        environment.notch.hasLiveActivity = true
+
+        XCTAssertEqual(environment.notch.peekContent, .media)
+        XCTAssertEqual(environment.notch.state, .peek)
+    }
+
+    /// Only the working agents are counted, so the strip is sized for the
+    /// marks it actually draws.
+    func testOnlyWorkingAgentsAreCountedForThePeek() throws {
+        let environment = try environment()
+        environment.agents.seedForPreview([working(.claude), open(.codex)])
+
+        XCTAssertEqual(environment.notch.workingAgentCount, 1)
+        XCTAssertEqual(environment.notch.peekContent, .agent(agents: 1))
+        XCTAssertEqual(environment.notch.state, .peek)
     }
 
     func testAWorkingAgentStillOutranksPlayback() throws {
         let notch = try model()
-        notch.openAgentCount = 1
         notch.workingAgentCount = 1
         notch.hasLiveActivity = true
 
         XCTAssertEqual(notch.peekContent, .agent(agents: 1))
-    }
-
-    func testOpenAgentsShowWhenNothingElseIs() throws {
-        let notch = try model()
-        notch.openAgentCount = 2
-
-        XCTAssertEqual(notch.peekContent, .agent(agents: 2))
-        XCTAssertEqual(notch.state, .peek)
     }
 }

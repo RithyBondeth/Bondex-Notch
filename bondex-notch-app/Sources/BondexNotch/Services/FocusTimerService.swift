@@ -38,6 +38,16 @@ final class FocusTimerService: ObservableObject {
 
     @Published private(set) var snapshot = FocusTimerSnapshot()
 
+    /// Mirrors the Focus timer preference. `--focus-start` arrives from outside
+    /// the app, so the command path checks this rather than starting a timer
+    /// the user switched off.
+    var isEnabled = true {
+        didSet {
+            guard !isEnabled, snapshot.isActive else { return }
+            cancel()
+        }
+    }
+
     private enum Key {
         static let endDate = "com.bondex.notch.focus.endDate"
         static let duration = "com.bondex.notch.focus.duration"
@@ -95,6 +105,13 @@ final class FocusTimerService: ObservableObject {
         startTicking()
     }
 
+    /// Stops the once-a-second tick without ending the session, for when the
+    /// app is shutting down: the persisted end date is left for the next launch
+    /// to restore, and no timer outlives the environment that owned it.
+    func suspend() {
+        stopTicking()
+    }
+
     func cancel() {
         stopTicking()
         endDate = nil
@@ -140,7 +157,7 @@ final class FocusTimerService: ObservableObject {
     }
 
     private func handle(command userInfo: [AnyHashable: Any]?) {
-        guard let action = userInfo?[CommandKey.action] as? String else { return }
+        guard isEnabled, let action = userInfo?[CommandKey.action] as? String else { return }
         switch action {
         case "start":
             start(minutes: userInfo?[CommandKey.minutes] as? Int ?? 25)

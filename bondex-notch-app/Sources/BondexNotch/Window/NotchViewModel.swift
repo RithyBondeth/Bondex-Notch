@@ -28,6 +28,10 @@ final class NotchViewModel: ObservableObject {
 
     /// Latched open by a click, so the panel stays put while the user works in it.
     private var isPinned = false
+    /// The panel has keyboard focus — someone is typing in Quick Capture, a
+    /// search field or the palette. The pointer drifting off the panel mid-word
+    /// must not close it; a click elsewhere, which takes the focus away, does.
+    private var holdsOpenForKeyboard = false
     private var closeWorkItem: DispatchWorkItem?
     private var openWorkItem: DispatchWorkItem?
     private var bannerWorkItem: DispatchWorkItem?
@@ -50,6 +54,16 @@ final class NotchViewModel: ObservableObject {
     /// a mark and a clock each. Kept separate from `hasLiveActivity` because it
     /// also decides how *wide* the peek has to be: playback needs room for
     /// artwork and an equaliser, and each agent brings its own pair.
+    ///
+    /// Only *working* agents reach the peek. One that is merely open — a
+    /// process is running, but no hook says it is doing anything — is listed in
+    /// the expanded panel and nowhere else. The Claude and ChatGPT desktop apps
+    /// each carry an agent binary, so "open" is true for as long as either app
+    /// is, and letting it hold the peek kept a still mark and the word "Open"
+    /// over the menu bar all day, telling you nothing.
+    ///
+    /// A working agent outranks playback — the run is the transient thing you
+    /// want to see the end of, and music will still be playing in ten minutes.
     @Published var workingAgentCount = 0 {
         didSet {
             // Only the empty/non-empty transition changes whether the peek is up
@@ -60,32 +74,8 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
-    /// Agents that are only known to be open — a process is running, but no
-    /// hook says it is doing anything. The Claude and ChatGPT desktop apps
-    /// each carry an agent binary, so this is non-zero for as long as either
-    /// app is open.
-    @Published var openAgentCount = 0 {
-        didSet {
-            guard (openAgentCount > 0) != (oldValue > 0) else { return }
-            refreshIdleState()
-        }
-    }
-
     /// Whether playback gets the peek, by its own preference.
     var showsMediaInPeek: Bool { hasLiveActivity && settings.preferences.peekWhilePlaying }
-
-    /// How many agents the peek shows: working ones always, and open ones
-    /// only when nothing is playing.
-    ///
-    /// A working agent outranks playback — the run is the transient thing you
-    /// want to see the end of, and music will still be playing in ten minutes.
-    /// An agent that is merely open is not news, and letting it outrank
-    /// playback hid every YouTube video behind a still "Claude · Codex" strip
-    /// for as long as the desktop apps were open.
-    var peekAgentCount: Int {
-        if workingAgentCount > 0 { return workingAgentCount }
-        return showsMediaInPeek ? 0 : openAgentCount
-    }
 
     @Published var customLiveActivityCount = 0 {
         didSet {
@@ -108,19 +98,47 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
-    /// What the peek is carrying, which is what decides its width.
+    /// What the peek is carrying, which is what decides its width — and, since
+    /// `PeekView` renders from this, what it shows.
     ///
     /// Direct hardware feedback outranks a banner, which outranks live progress,
     /// agents and playback: the more immediate signal gets the limited space.
+    ///
+    /// Each source is gated by its own preference *here*, the same way
+    /// `idleState` gates it. They used to disagree: the meeting service also
+    /// runs for Smart Profiles with "Upcoming meetings" switched off, and an
+    /// ungated meeting then took over a peek that was open for playback.
     var peekContent: PeekContent {
         if systemHUD != nil { return .systemHUD }
         if privacyActivity.isActive { return .privacy }
         if banner != nil { return .banner }
-        if hasFocusTimer { return .focus }
-        if hasUpcomingMeeting { return .meeting }
-        if customLiveActivityCount > 0 { return .live }
-        if peekAgentCount > 0 { return .agent(agents: peekAgentCount) }
+        if showsFocusTimer { return .focus }
+        if showsUpcomingMeeting { return .meeting }
+        if showsLiveActivities { return .live }
+        if showsAgents { return .agent(agents: workingAgentCount) }
         return .media
+    }
+
+    private var showsFocusTimer: Bool {
+        hasFocusTimer && settings.preferences.focusTimerEnabled
+    }
+
+    private var showsUpcomingMeeting: Bool {
+        hasUpcomingMeeting && settings.preferences.upcomingMeetingsEnabled
+    }
+
+    /// The live-activity watcher runs while the Live tab is enabled, which a
+    /// Smart Profile can decide independently of the global preference.
+    private var showsLiveActivities: Bool {
+        customLiveActivityCount > 0 && settings.isTabEnabled(.live)
+    }
+
+    /// An agent working is not gated behind the *media* peek preference —
+    /// someone who turned off "peek while playing" was asking not to see album
+    /// art over the menu bar, which says nothing about whether they want to know
+    /// their agent is still running.
+    private var showsAgents: Bool {
+        workingAgentCount > 0 && settings.preferences.agentActivityEnabled
     }
 
     init(settings: SettingsStore, events: EventCenter, screen: NSScreen) {
@@ -133,9 +151,12 @@ final class NotchViewModel: ObservableObject {
             .sink { [weak self] event in self?.show(banner: event) }
             .store(in: &cancellables)
 
-        settings.$preferences
-            .map(\.peekWhilePlaying)
-            .removeDuplicates()
+        // `idleState` reads several feature preferences back out of the store,
+        // so this has to run after the new value is stored, not from `willSet`.
+        settings.preferencesDidChange
+            .sink { [weak self] _ in self?.refreshIdleState() }
+            .store(in: &cancellables)
+        settings.activeProfileDidChange
             .sink { [weak self] _ in self?.refreshIdleState() }
             .store(in: &cancellables)
     }
@@ -204,9 +225,9 @@ final class NotchViewModel: ObservableObject {
         let triggerRect = geometry.hoverRect(for: .collapsed)
 
         if state.isExpanded {
-            if liveRect.contains(location) {
+            if NotchGeometry.pointer(location, isIn: liveRect) {
                 cancelPendingClose()
-            } else if !isPinned {
+            } else if !isPinned, !holdsOpenForKeyboard {
                 scheduleClose()
             }
             return
@@ -217,7 +238,8 @@ final class NotchViewModel: ObservableObject {
             return
         }
 
-        if triggerRect.contains(location) || liveRect.contains(location) {
+        if NotchGeometry.pointer(location, isIn: triggerRect)
+            || NotchGeometry.pointer(location, isIn: liveRect) {
             cancelPendingClose()
             scheduleOpen()
         } else {
@@ -242,6 +264,7 @@ final class NotchViewModel: ObservableObject {
 
     func collapse() {
         isPinned = false
+        holdsOpenForKeyboard = false
         cancelPendingOpen()
         cancelPendingClose()
         withAnimation(Motion.panel(settings.motion)) {
@@ -249,7 +272,7 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
-    /// Click on the collapsed notch: open and latch.
+    /// Open-and-latch, or close: the global shortcut and the menu-bar item.
     func toggle() {
         if state.isExpanded {
             collapse()
@@ -259,6 +282,34 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// A click on the panel itself.
+    ///
+    /// On the notch or a peek it opens and latches. On the open panel it only
+    /// latches: every click that missed a control — card padding, a label, a
+    /// gauge, the gap between list rows — used to fall through to `toggle()`
+    /// and slam the panel shut under the pointer. Closing is the close button,
+    /// Escape, the shortcut, or a click anywhere outside the panel.
+    func panelTapped() {
+        isPinned = true
+        cancelPendingClose()
+        guard !state.isExpanded else { return }
+        expand()
+    }
+
+    /// A click somewhere else on screen while the panel is open.
+    func clickedOutside() {
+        guard state.isExpanded, !isDropTargeted else { return }
+        collapse()
+    }
+
+    /// Reported by the window controller as the panel gains and loses keyboard
+    /// focus.
+    func setHoldsOpenForKeyboard(_ holds: Bool) {
+        guard holdsOpenForKeyboard != holds else { return }
+        holdsOpenForKeyboard = holds
+        if holds { cancelPendingClose() }
+    }
+
     func setPinned(_ pinned: Bool) {
         isPinned = pinned
         if !pinned { scheduleClose() }
@@ -266,7 +317,9 @@ final class NotchViewModel: ObservableObject {
 
     func dragEntered() {
         isDropTargeted = true
-        guard settings.preferences.shelfEnabled else { return }
+        // `isTabEnabled`, not the raw preference: a Smart Profile without the
+        // shelf would otherwise switch to a tab that has no chip in the strip.
+        guard settings.isTabEnabled(.shelf) else { return }
         tab = .shelf
         expand()
     }
@@ -283,17 +336,10 @@ final class NotchViewModel: ObservableObject {
     private var idleState: NotchState {
         if systemHUD != nil || banner != nil { return .peek }
         if privacyActivity.isActive { return .peek }
-        if hasFocusTimer, settings.preferences.focusTimerEnabled { return .peek }
-        if hasUpcomingMeeting, settings.preferences.upcomingMeetingsEnabled { return .peek }
-        // An agent working is not gated behind the *media* peek preference —
-        // someone who turned off "peek while playing" was asking not to see
-        // album art over the menu bar, which says nothing about whether they
-        // want to know their agent is still running.
-        if peekAgentCount > 0, settings.preferences.agentActivityEnabled { return .peek }
-        if customLiveActivityCount > 0,
-           settings.preferences.customLiveActivitiesEnabled { return .peek }
-        guard hasLiveActivity, settings.preferences.peekWhilePlaying else { return .collapsed }
-        return .peek
+        if showsFocusTimer || showsUpcomingMeeting || showsLiveActivities || showsAgents {
+            return .peek
+        }
+        return showsMediaInPeek ? .peek : .collapsed
     }
 
     private func refreshIdleState() {
@@ -314,7 +360,7 @@ final class NotchViewModel: ObservableObject {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.closeWorkItem = nil
-            guard !self.isPinned else { return }
+            guard !self.isPinned, !self.holdsOpenForKeyboard else { return }
             withAnimation(Motion.panel(self.settings.motion)) {
                 self.state = self.idleState
             }

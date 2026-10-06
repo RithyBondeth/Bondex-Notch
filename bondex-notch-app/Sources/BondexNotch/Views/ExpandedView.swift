@@ -25,37 +25,48 @@ struct ExpandedView: View {
 
     private var accent: Color { settings.effectiveAccentColor }
 
-    /// Keeps the tab strip clear of the hardware notch, which sits over the top
-    /// centre of the panel.
-    private var topInset: CGFloat { notch.geometry.notchSize.height + 4 }
+    private var notchWidth: CGFloat { notch.geometry.notchSize.width }
+
+    /// The band the hardware notch hangs into. Its height is the notch's, so
+    /// controls placed beside the notch line up with the menu bar items they
+    /// replace.
+    private var topBandHeight: CGFloat { max(notch.geometry.notchSize.height, 24) }
+
+    /// Room either side of the notch inside the content padding.
+    private var wingWidth: CGFloat {
+        max((notch.contentSize.width - notchWidth) / 2 - Theme.contentPadding, 0)
+    }
 
     var body: some View {
-        VStack(spacing: 8) {
-            if commandPalette.isPresented {
-                CommandPaletteView(environment: environment)
-                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
-            } else {
-                header
-                // A system `Divider` renders as a light separator tuned for a light
-                // window; on a near-black panel it reads as a bright scratch.
-                Rectangle()
-                    .fill(LinearGradient(
-                        colors: [.clear, Theme.hairline, .clear],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ))
-                    .frame(height: 1)
-                widget
-                    .frame(maxWidth: .infinity)
-                    // nil height means "as tall as the content" — that is what makes
-                    // the panel itself size to what it is showing.
-                    .frame(height: notch.tab.widgetHeight)
-                    // Swapping tabs is a content change, so it gets the content
-                    // curve rather than the panel's.
-                    .animation(Motion.content(settings.motion), value: notch.tab)
+        VStack(spacing: 6) {
+            topBand
+
+            VStack(spacing: 8) {
+                if commandPalette.isPresented {
+                    CommandPaletteView(environment: environment)
+                        .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                } else {
+                    tabStrip
+                    // A system `Divider` renders as a light separator tuned for a light
+                    // window; on a near-black panel it reads as a bright scratch.
+                    Rectangle()
+                        .fill(LinearGradient(
+                            colors: [.clear, Theme.hairline, .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ))
+                        .frame(height: 1)
+                    widget
+                        .frame(maxWidth: .infinity)
+                        // nil height means "as tall as the content" — that is what makes
+                        // the panel itself size to what it is showing.
+                        .frame(height: notch.tab.widgetHeight)
+                        // Swapping tabs is a content change, so it gets the content
+                        // curve rather than the panel's.
+                        .animation(Motion.content(settings.motion), value: notch.tab)
+                }
             }
         }
-        .padding(.top, topInset)
         .padding(.horizontal, Theme.contentPadding)
         .padding(.bottom, Theme.contentPadding)
         .foregroundStyle(Theme.primaryText)
@@ -68,59 +79,101 @@ struct ExpandedView: View {
         )
     }
 
-    // MARK: Header
+    // MARK: Top band
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 2) {
-                ForEach(environment.availableTabs) { tab in
-                    TabChip(
-                        tab: tab,
-                        isSelected: notch.tab == tab,
-                        accent: accent
-                    ) {
-                        withAnimation(Motion.content(settings.motion)) { notch.tab = tab }
-                    }
+    /// The strip either side of the hardware notch.
+    ///
+    /// It used to be left empty — a black band the height of the menu bar above
+    /// a header row that had to carry the tabs *and* every control. The panel
+    /// controls live beside the notch now, where the menu bar items they cover
+    /// were, and the tab strip gets a row to itself.
+    private var topBand: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 6) {
+                NotchButton(systemImage: "gearshape.fill", size: 9, tint: Theme.secondaryText) {
+                    notch.collapse()
+                    environment.requestSettingsPage?(.general)
+                }
+                .help("Settings")
+                .accessibilityLabel("Open Settings")
+
+                if let profile = settings.activeProfile {
+                    Image(systemName: profile.systemImage)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(accent)
+                        .frame(width: 20, height: 20)
+                        .background(Circle().fill(accent.opacity(0.14)))
+                        .overlay(Circle().strokeBorder(accent.opacity(0.25), lineWidth: 0.7))
+                        .help("\(profile.displayName) profile active")
+                        .accessibilityLabel("\(profile.displayName) profile active")
+                        .transition(.scale.combined(with: .opacity))
+                }
+
+                if environment.privacyActivity.state.isActive {
+                    PrivacyActivityMarks(state: environment.privacyActivity.state)
+                        .help(environment.privacyActivity.state.accessibilityValue)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
-            .padding(3)
-            .background(Color.white.opacity(0.045), in: Capsule(style: .continuous))
-            .overlay(
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 0.7)
-            )
+            .frame(width: wingWidth, alignment: .leading)
 
-            Spacer(minLength: 6)
+            // Reserved for the hardware notch.
+            Color.clear.frame(width: notchWidth)
 
-            if let profile = settings.activeProfile {
-                Image(systemName: profile.systemImage)
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(accent)
-                    .frame(width: 20, height: 20)
-                    .background(Circle().fill(accent.opacity(0.14)))
-                    .overlay(Circle().strokeBorder(accent.opacity(0.25), lineWidth: 0.7))
-                    .help("\(profile.displayName) profile active")
-                    .accessibilityLabel("\(profile.displayName) profile active")
-                    .transition(.scale.combined(with: .opacity))
+            HStack(spacing: 6) {
+                NotchButton(
+                    systemImage: "magnifyingglass",
+                    size: 9,
+                    tint: commandPalette.isPresented ? accent : Theme.secondaryText
+                ) {
+                    if commandPalette.isPresented {
+                        commandPalette.dismiss()
+                    } else {
+                        environment.presentCommandPalette()
+                    }
+                }
+                .help("Command Palette (\(settings.preferences.commandPaletteShortcut.displayName))")
+                .accessibilityLabel(
+                    commandPalette.isPresented ? "Close Command Palette" : "Open Command Palette"
+                )
+
+                NotchButton(systemImage: "xmark", size: 9, tint: Theme.secondaryText) {
+                    notch.collapse()
+                }
+                .help("Close")
+                .accessibilityLabel("Close notch")
             }
-
-            if environment.privacyActivity.state.isActive {
-                PrivacyActivityMarks(state: environment.privacyActivity.state)
-                    .help(environment.privacyActivity.state.accessibilityValue)
-                    .transition(.scale.combined(with: .opacity))
-            }
-
-            NotchButton(systemImage: "magnifyingglass", size: 10, tint: Theme.secondaryText) {
-                environment.presentCommandPalette()
-            }
-            .help("Command Palette (\(settings.preferences.commandPaletteShortcut.displayName))")
-            .accessibilityLabel("Open Command Palette")
-
-            NotchButton(systemImage: "xmark", size: 10, tint: Theme.secondaryText) {
-                notch.collapse()
-            }
-            .accessibilityLabel("Close notch")
+            .frame(width: wingWidth, alignment: .trailing)
         }
+        .frame(height: topBandHeight)
+        .animation(Motion.content(settings.motion), value: settings.activeProfile?.id)
+        .animation(
+            Motion.content(settings.motion),
+            value: environment.privacyActivity.state.isActive
+        )
+    }
+
+    // MARK: Tabs
+
+    private var tabStrip: some View {
+        HStack(spacing: 2) {
+            ForEach(environment.availableTabs) { tab in
+                TabChip(
+                    tab: tab,
+                    isSelected: notch.tab == tab,
+                    accent: accent
+                ) {
+                    withAnimation(Motion.content(settings.motion)) { notch.tab = tab }
+                }
+            }
+        }
+        .padding(3)
+        .background(Color.white.opacity(0.045), in: Capsule(style: .continuous))
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(Color.white.opacity(0.07), lineWidth: 0.7)
+        )
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: Widget
