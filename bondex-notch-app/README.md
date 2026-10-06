@@ -177,10 +177,11 @@ An agent can declare detailed activity through one hook:
 "/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-idle claude
 ```
 
-Codex can use its structured hook payload directly, with the same command on
-`PreToolUse`, `Stop`, and `SessionEnd`:
+Claude Code and Codex can use their structured hook payloads directly, with the
+same command on every event:
 
 ```bash
+"/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-hook claude
 "/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" --agent-hook codex
 ```
 
@@ -189,6 +190,31 @@ become statuses such as `Running swift test`, patches name the file being edited
 and MCP or local tools get a readable tool name. Existing Codex hooks that pass
 the literal status `Working` are enriched the same way, preserving their hook
 trust approval.
+
+### Needs you
+
+When an agent stops to wait for you, the notch says so. A permission prompt
+(Claude Code's `Notification` or `PermissionRequest` event), a question
+(`AskUserQuestion`), a plan awaiting approval (`ExitPlanMode`) or Codex's
+`request_user_input` marks the agent as waiting. Other agents can do the same with
+`--agent-attention <agent> "what it needs"`. A waiting agent outranks every
+persistent peek apart from the camera and microphone indicator: its ring turns
+amber and pulses, and "Needs you" replaces its clock. In the panel, its row shows
+what it is waiting for. The next event from the agent clears it.
+
+Waiting is exempt from the 90-second staleness backstop — no heartbeat arrives
+while an agent is blocked on you, so it would otherwise vanish after a minute and
+a half of being ignored. It expires after 30 minutes instead.
+
+A macOS notification follows only if the wait is still unanswered after 20
+seconds, so working at the terminal does not ping you on every prompt. Runs of two
+minutes or more also notify when they finish. Both can be turned off in
+Settings › Widgets, and permission to notify is asked for the first time one is
+due. Claude Code's idle reminder ("waiting for your input" after a turn ends) is
+not a wait and is ignored.
+
+An approved tool keeps showing "Needs you" until the agent's next event. Adding
+the same command on `PostToolUse` clears it as soon as that tool finishes.
 
 Settings › Widgets shows the appropriate command with this installation's real
 binary path filled in, and a Copy button. Nothing depends on the developer's
@@ -209,10 +235,10 @@ Where those two lines go differs per agent, and Settings names the file for the
 three that were checked against their installed builds. All three borrow Claude
 Code's `{matcher, hooks:[{type, command}]}` shape; Gemini renames the events:
 
-| Agent | File | Busy / idle events |
+| Agent | File | Events |
 |---|---|---|
-| Claude Code | `~/.claude/settings.json` | `PreToolUse` / `Stop` |
-| Codex | `~/.codex/hooks.json` | `PreToolUse` / `Stop` |
+| Claude Code | `~/.claude/settings.json` | `UserPromptSubmit`, `PreToolUse`, `Notification`, `PermissionRequest`, `Stop`, `SessionEnd` (optionally `PostToolUse`) |
+| Codex | `~/.codex/hooks.json` | `PreToolUse`, `Stop`, `SessionEnd` |
 | Gemini CLI | `~/.gemini/settings.json` | `BeforeTool` / `AfterAgent` |
 
 Claude Code's CLI and desktop app read the same file, so wiring it once covers

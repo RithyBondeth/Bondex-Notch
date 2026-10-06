@@ -560,6 +560,25 @@ private struct WidgetSettings: View {
             }
 
             Section {
+                Toggle(
+                    "Notify when an agent needs you",
+                    isOn: binding(\.notifyWhenAgentNeedsYou)
+                )
+                Text("""
+                The notch turns amber the moment an agent stops for a permission \
+                prompt or a question. A macOS notification follows only if it is \
+                still waiting after 20 seconds, so you are not pinged while you \
+                are watching.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Toggle(
+                    "Notify when a long run finishes",
+                    isOn: binding(\.notifyWhenAgentRunFinishes)
+                )
+                Text("For runs of two minutes or more.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 AgentSetupHelp(environment: environment)
             } header: {
                 Text("Agent Activity")

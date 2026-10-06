@@ -23,7 +23,8 @@ struct AgentSetupHelp: View {
             Text("""
             Running agents appear automatically. Add the optional lifecycle \
             hooks below for detailed live statuses such as Thinking, Editing, \
-            and Running tests.
+            and Running tests — and to see when an agent stops to wait for you: \
+            a permission prompt, a question, or a plan to approve.
             """)
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -84,11 +85,14 @@ struct AgentSetupHelp: View {
     /// Other agents keep the portable explicit busy/idle pair.
     private func commands(for kind: AgentKind) -> String {
         let binary = Bundle.main.executableURL?.path ?? "/Applications/Bondex Notch.app/Contents/MacOS/BondexNotch"
-        if kind.id == AgentKind.codex.id {
-            return "\"\(binary)\" --agent-hook codex"
+        // Claude Code and Codex pass each event as JSON on stdin, so one command
+        // on every event covers working, waiting on you, and done.
+        if kind.id == AgentKind.codex.id || kind.id == AgentKind.claude.id {
+            return "\"\(binary)\" --agent-hook \(kind.id)"
         }
         return """
         "\(binary)" --agent-busy \(kind.id) "optional status"
+        "\(binary)" --agent-attention \(kind.id) "what it needs"
         "\(binary)" --agent-idle \(kind.id)
         """
     }

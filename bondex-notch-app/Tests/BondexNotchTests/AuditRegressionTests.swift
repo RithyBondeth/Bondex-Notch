@@ -381,7 +381,10 @@ final class AuditPureFunctionTests: XCTestCase {
             "tool_name": "request_user_input_async",
             "tool_input": [:]
         ])
-        XCTAssertEqual(AgentHookInput.action(from: data), .busy(status: "Waiting for input"))
+        XCTAssertEqual(
+            AgentHookInput.action(from: data),
+            .attention(message: "Waiting for your input")
+        )
     }
 }
 

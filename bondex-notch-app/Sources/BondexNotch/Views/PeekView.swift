@@ -147,7 +147,7 @@ struct PeekView: View {
             // opposite, so the pairing is positional and needs no explaining.
             HStack(spacing: 4) {
                 ForEach(workingAgents) { agent in
-                    AgentOrb(kind: agent.kind, size: 21, isAnimating: true)
+                    AgentOrb(kind: agent.kind, size: 21, needsAttention: agent.needsAttention)
                 }
             }
             .transition(.scale.combined(with: .opacity))
@@ -385,13 +385,26 @@ private struct AgentClock: View {
     let compact: Bool
 
     var body: some View {
-        Text(agent.startedAt, style: .timer)
-            .foregroundStyle(agent.kind.tint)
-            .font(.system(size: compact ? 9.5 : 11.5, weight: .semibold).monospacedDigit())
-            .lineLimit(1)
-            .fixedSize()
-            .accessibilityLabel(agent.kind.displayName)
-            .accessibilityValue("Working for \(agent.elapsed().clockString)")
+        Group {
+            if agent.needsAttention {
+                // In place of the clock: how long it has run is beside the
+                // point while it is stuck waiting for you.
+                Text("Needs you")
+                    .foregroundStyle(Theme.attention)
+            } else {
+                Text(agent.startedAt, style: .timer)
+                    .foregroundStyle(agent.kind.tint)
+            }
+        }
+        .font(.system(size: compact ? 9.5 : 11.5, weight: .semibold).monospacedDigit())
+        .lineLimit(1)
+        .fixedSize()
+        .accessibilityLabel(agent.kind.displayName)
+        .accessibilityValue(
+            agent.needsAttention
+                ? "Needs you: \(agent.status ?? "waiting")"
+                : "Working for \(agent.elapsed().clockString)"
+        )
     }
 }
 

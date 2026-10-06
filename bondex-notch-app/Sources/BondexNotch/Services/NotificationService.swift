@@ -62,18 +62,31 @@ final class NotificationService: NSObject, ObservableObject {
     /// Post an alert *and* record it in the in-app feed, so the two never drift.
     func post(title: String, body: String, kind: NotchEvent.Kind = .app) {
         events.post(NotchEvent(kind: kind, title: title, subtitle: body))
+        deliver(title: title, body: body)
+    }
 
-        guard let center, authorizationStatus == .authorized else { return }
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: nil
-        )
-        center.add(request)
+    /// A macOS notification only, for things the feed already has.
+    ///
+    /// Asks for permission the first time it is needed rather than at launch:
+    /// the first agent left waiting is the moment the prompt explains itself.
+    func deliver(title: String, body: String) {
+        guard let center else { return }
+        Task {
+            if authorizationStatus == .notDetermined {
+                _ = try? await center.requestAuthorization(options: [.alert, .sound])
+                await refreshStatus()
+            }
+            guard authorizationStatus == .authorized else { return }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            try? await center.add(UNNotificationRequest(
+                identifier: UUID().uuidString,
+                content: content,
+                trigger: nil
+            ))
+        }
     }
 }
 

@@ -125,14 +125,25 @@ final class AppEnvironment: ObservableObject {
         // Only agents a hook reports working reach the peek; ones that are
         // merely open are shown in the expanded panel alone.
         agents.$active
-            .map { $0.filter(\.isHookReported).count }
+            .map { active -> [Int] in
+                let working = active.filter(\.isHookReported)
+                return [working.count, working.filter(\.needsAttention).count]
+            }
             .removeDuplicates()
-            .sink { [weak self] working in
-                self?.isAgentWorking = working > 0
-                self?.notch.workingAgentCount = working
+            .sink { [weak self] counts in
+                self?.isAgentWorking = counts[0] > 0
+                self?.notch.workingAgentCount = counts[0]
+                self?.notch.attentionAgentCount = counts[1]
                 self?.refreshLiveActivity()
             }
             .store(in: &cancellables)
+
+        agents.onNeedsAttention = { [weak self] activity in
+            self?.agentNeedsAttention(activity)
+        }
+        agents.onFinished = { [weak self] kind, elapsed in
+            self?.agentFinished(kind, after: elapsed)
+        }
 
         // A turn that just ended has just written its usage, so the Agents tab
         // catches up now rather than at the next minute's scan.
@@ -303,6 +314,46 @@ final class AppEnvironment: ObservableObject {
 
     private var isPlaying = false
     private var isAgentWorking = false
+
+    /// How long a wait goes unanswered before a macOS notification follows it.
+    ///
+    /// The notch turns amber at once. A system notification on every permission
+    /// prompt, though, would ping someone who is watching the terminal and about
+    /// to click Allow — so it only follows a wait that nobody has answered, which
+    /// is the case where you are away or looking at another screen.
+    static let attentionNotificationDelay: TimeInterval = 20
+
+    /// Runs at least this long notify when they finish; shorter ones you were
+    /// almost certainly still watching.
+    static let finishedNotificationThreshold: TimeInterval = 120
+
+    private func agentNeedsAttention(_ activity: AgentActivity) {
+        guard settings.preferences.agentActivityEnabled else { return }
+        let name = activity.kind.displayName
+        let message = activity.status ?? "Waiting for you"
+        accessibilityAnnouncements.announce("\(name) needs you")
+
+        guard settings.preferences.notifyWhenAgentNeedsYou else { return }
+        let kind = activity.kind
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.attentionNotificationDelay) {
+            [weak self] in
+            guard let self,
+                  self.settings.preferences.notifyWhenAgentNeedsYou,
+                  self.agents.active.contains(where: { $0.kind == kind && $0.needsAttention })
+            else { return }
+            self.notifications.deliver(title: "\(name) needs you", body: message)
+        }
+    }
+
+    private func agentFinished(_ kind: AgentKind, after elapsed: TimeInterval) {
+        guard settings.preferences.agentActivityEnabled,
+              settings.preferences.notifyWhenAgentRunFinishes,
+              elapsed >= Self.finishedNotificationThreshold else { return }
+        notifications.deliver(
+            title: "\(kind.displayName) finished",
+            body: "Worked for \(elapsed.clockString)"
+        )
+    }
 
     /// `hasLiveActivity` stays about *playback* only; agent work is carried
     /// separately, because the two are gated by different preferences and need
