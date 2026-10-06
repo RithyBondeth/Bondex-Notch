@@ -23,7 +23,9 @@ struct ClipboardWidget: View {
         VStack(spacing: 7) {
             controls
 
-            if service.isEmpty {
+            if service.access != .allowed {
+                accessCard
+            } else if service.isEmpty {
                 EmptyStateView(
                     systemImage: service.isPaused ? "pause.circle" : "doc.on.clipboard",
                     title: service.isPaused ? "Capture paused" : "Clipboard is empty",
@@ -43,7 +45,65 @@ struct ClipboardWidget: View {
                 }
             }
         }
-        .onAppear { service.captureIfChanged() }
+        .onAppear {
+            service.refreshAccess()
+            service.captureIfChanged()
+        }
+    }
+
+    /// Why nothing is being kept, and the one thing to do about it.
+    private var accessCard: some View {
+        let (title, detail, action): (String, String, String) = {
+            switch service.access {
+            case .notYetAsked:
+                return (
+                    "Allow clipboard access",
+                    "macOS asks before Bondex can read what you copy. Allow it once, then set it to Allow in System Settings so it stops asking.",
+                    "Allow…"
+                )
+            case .asksEveryTime:
+                return (
+                    "macOS is asking every time",
+                    "Set Bondex Notch to Allow under Privacy & Security › Paste from Other Apps to keep a history.",
+                    "Open Settings"
+                )
+            case .denied, .allowed:
+                return (
+                    "Clipboard access is off",
+                    "Allow Bondex Notch under Privacy & Security › Paste from Other Apps to keep a history.",
+                    "Open Settings"
+                )
+            }
+        }()
+
+        return HStack(spacing: 10) {
+            Image(systemName: "hand.raised.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.attention)
+                .frame(width: 28, height: 28)
+                .background(Theme.attention.opacity(0.13), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                Text(detail)
+                    .font(.system(size: Theme.TextSize.caption))
+                    .foregroundStyle(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 6)
+            Button(action) {
+                if service.access == .notYetAsked {
+                    service.requestAccess()
+                } else {
+                    service.openPrivacySettings()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .tint(accent)
+        }
+        .notchRow()
     }
 
     private var controls: some View {

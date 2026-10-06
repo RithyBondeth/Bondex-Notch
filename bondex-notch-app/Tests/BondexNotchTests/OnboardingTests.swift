@@ -50,6 +50,7 @@ final class OnboardingTests: XCTestCase {
     /// the first time the feature reads.
     func testOnlyChosenPermissionsAreRequested() {
         var choices = OnboardingChoices(preferences: Preferences())
+        choices.clipboard = false
         choices.meetings = false
         choices.agents = true
         choices.agentNotifications = true
@@ -58,5 +59,18 @@ final class OnboardingTests: XCTestCase {
         choices.meetings = true
         choices.agentNotifications = false
         XCTAssertEqual(choices.permissionsToRequest, [.calendar])
+    }
+
+    /// macOS 15.4 asks before an app reads the clipboard, so choosing history
+    /// asks then — not on the first copy afterwards.
+    func testChoosingClipboardHistoryAsksForClipboardAccess() {
+        var choices = OnboardingChoices(preferences: Preferences())
+        choices.clipboard = true
+        XCTAssertEqual(
+            choices.permissionsToRequest.contains(.clipboard),
+            OnboardingChoices.clipboardNeedsPermission
+        )
+        choices.clipboard = false
+        XCTAssertFalse(choices.permissionsToRequest.contains(.clipboard))
     }
 }

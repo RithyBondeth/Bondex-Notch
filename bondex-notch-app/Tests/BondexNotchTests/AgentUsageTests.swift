@@ -463,6 +463,86 @@ final class AgentUsageLedgerTests: XCTestCase {
         XCTAssertEqual(today.byProvider[.claude]?.tokens.output, 400)
     }
 
+    // MARK: Cache
+
+    /// A restored ledger reports what the original did, and then reads only
+    /// what was appended — not the month it already counted.
+    func testARestoredLedgerCarriesOnWhereItStopped() throws {
+        let path = "claude/project/a.jsonl"
+        try write([claudeLine()], to: path)
+        let original = AgentUsageLedger()
+        original.scan(roots, now: now)
+        let archive = original.archive(appVersion: "1.0 (1)", roots: roots)
+
+        let encoded = try PropertyListEncoder().encode(archive)
+        let decoded = try PropertyListDecoder().decode(AgentUsageLedger.Archive.self, from: encoded)
+        let restored = try XCTUnwrap(
+            AgentUsageLedger(archive: decoded, appVersion: "1.0 (1)", roots: roots, now: now)
+        )
+        XCTAssertEqual(
+            restored.snapshot(now: now, claudeLimits: nil, calendar: utc).summary(for: .today),
+            original.snapshot(now: now, claudeLimits: nil, calendar: utc).summary(for: .today)
+        )
+        XCTAssertFalse(restored.hasUnsavedChanges)
+
+        // Nothing new: nothing is re-counted.
+        restored.scan(roots, now: now)
+        XCTAssertEqual(
+            restored.snapshot(now: now, claudeLimits: nil, calendar: utc).summary(for: .today).total.tokens.output,
+            200
+        )
+
+        try write([claudeLine(id: "msg_02", request: "req_02")], to: path, append: true)
+        restored.scan(roots, now: now)
+        XCTAssertEqual(
+            restored.snapshot(now: now, claudeLimits: nil, calendar: utc).summary(for: .today).total.tokens.output,
+            400
+        )
+        XCTAssertTrue(restored.hasUnsavedChanges)
+    }
+
+    /// A turn copied into a resumed session's new file must not count twice
+    /// just because the first count happened before a restart.
+    func testARestoredLedgerStillRecognisesRequestsItCounted() throws {
+        try write([claudeLine()], to: "claude/project/a.jsonl")
+        let original = AgentUsageLedger()
+        original.scan(roots, now: now)
+        let restored = try XCTUnwrap(AgentUsageLedger(
+            archive: original.archive(appVersion: "1", roots: roots),
+            appVersion: "1", roots: roots, now: now
+        ))
+
+        try write([claudeLine()], to: "claude/project/resumed.jsonl")
+        restored.scan(roots, now: now)
+        XCTAssertEqual(
+            restored.snapshot(now: now, claudeLimits: nil, calendar: utc).summary(for: .today).total.tokens.output,
+            200
+        )
+    }
+
+    /// Another build may parse or price differently; other folders are other
+    /// figures. Either one starts afresh.
+    func testACacheFromAnotherBuildOrFoldersIsIgnored() {
+        let archive = AgentUsageLedger().archive(appVersion: "1.0 (1)", roots: roots)
+        XCTAssertNil(AgentUsageLedger(archive: archive, appVersion: "1.1 (2)", roots: roots, now: now))
+        let elsewhere = AgentUsageRoots(
+            claude: [root.appendingPathComponent("other")],
+            codex: [],
+            claudeAppHistory: root.appendingPathComponent("none.json")
+        )
+        XCTAssertNil(AgentUsageLedger(archive: archive, appVersion: "1.0 (1)", roots: elsewhere, now: now))
+    }
+
+    /// An idle scan changes nothing, so it must not rewrite the cache.
+    func testAnIdleScanHasNothingToSave() throws {
+        try write([claudeLine()], to: "claude/project/a.jsonl")
+        let ledger = AgentUsageLedger()
+        ledger.scan(roots, now: now)
+        ledger.markSaved()
+        ledger.scan(roots, now: now)
+        XCTAssertFalse(ledger.hasUnsavedChanges)
+    }
+
     func testAHalfWrittenLineWaitsForItsNewline() throws {
         let path = "claude/project/live.jsonl"
         try write([claudeLine()], to: path)

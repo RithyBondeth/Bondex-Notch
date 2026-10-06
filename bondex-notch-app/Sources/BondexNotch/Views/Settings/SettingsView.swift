@@ -173,7 +173,7 @@ struct SettingsView: View {
     private var pageContent: some View {
         switch selection {
         case .general:
-            GeneralSettings(settings: settings)
+            GeneralSettings(environment: environment, settings: settings)
         case .widgets:
             WidgetSettings(environment: environment, settings: settings)
         case .profiles:
@@ -278,7 +278,41 @@ private extension Bundle {
 // MARK: - General
 
 private struct GeneralSettings: View {
+    @ObservedObject var environment: AppEnvironment
     @ObservedObject var settings: SettingsStore
+    @ObservedObject private var hotKeys: GlobalHotKeyService
+
+    init(environment: AppEnvironment, settings: SettingsStore) {
+        self.environment = environment
+        self.settings = settings
+        self.hotKeys = environment.globalHotKey
+    }
+
+    private func shortcutRow(
+        _ title: String,
+        isOn: Binding<Bool>,
+        hotKey: Binding<HotKey>,
+        defaultValue: HotKey,
+        action: GlobalHotKeyService.Action
+    ) -> some View {
+        let all: [(GlobalHotKeyService.Action, String, HotKey)] = [
+            (.panel, "opening the notch", settings.preferences.globalShortcut),
+            (.quickCapture, "Quick Capture", settings.preferences.quickCaptureShortcut),
+            (.commandPalette, "the Command Palette", settings.preferences.commandPaletteShortcut)
+        ]
+        return HStack(alignment: .firstTextBaseline) {
+            Toggle(title, isOn: isOn)
+            Spacer()
+            ShortcutRecorder(
+                hotKey: hotKey,
+                defaultValue: defaultValue,
+                others: all.filter { $0.0 != action }.map { (name: $0.1, hotKey: $0.2) },
+                isUnavailable: isOn.wrappedValue && hotKeys.unavailable.contains(action),
+                onRecordingChange: { environment.setShortcutsPaused($0) }
+            )
+            .disabled(!isOn.wrappedValue)
+        }
+    }
 
     var body: some View {
         Form {
@@ -349,33 +383,28 @@ private struct GeneralSettings: View {
             }
 
             Section("Keyboard & accessibility") {
-                Toggle("Global keyboard shortcut", isOn: binding(\.globalHotKeyEnabled))
-                Picker("Shortcut", selection: binding(\.globalShortcut)) {
-                    ForEach(GlobalShortcut.allCases) { shortcut in
-                        Text(shortcut.displayName).tag(shortcut)
-                    }
-                }
-                .disabled(!settings.preferences.globalHotKeyEnabled)
-
-                Toggle("Quick Capture shortcut", isOn: binding(\.quickCaptureHotKeyEnabled))
-                    .disabled(!settings.preferences.quickCaptureEnabled)
-                Picker("Quick Capture", selection: binding(\.quickCaptureShortcut)) {
-                    ForEach(QuickCaptureShortcut.allCases) { shortcut in
-                        Text(shortcut.displayName).tag(shortcut)
-                    }
-                }
-                .disabled(
-                    !settings.preferences.quickCaptureEnabled
-                        || !settings.preferences.quickCaptureHotKeyEnabled
+                shortcutRow(
+                    "Open the notch",
+                    isOn: binding(\.globalHotKeyEnabled),
+                    hotKey: binding(\.globalShortcut),
+                    defaultValue: Preferences().globalShortcut,
+                    action: .panel
                 )
-
-                Toggle("Command Palette shortcut", isOn: binding(\.commandPaletteHotKeyEnabled))
-                Picker("Command Palette", selection: binding(\.commandPaletteShortcut)) {
-                    ForEach(CommandPaletteShortcut.allCases) { shortcut in
-                        Text(shortcut.displayName).tag(shortcut)
-                    }
-                }
-                .disabled(!settings.preferences.commandPaletteHotKeyEnabled)
+                shortcutRow(
+                    "Quick Capture",
+                    isOn: binding(\.quickCaptureHotKeyEnabled),
+                    hotKey: binding(\.quickCaptureShortcut),
+                    defaultValue: Preferences().quickCaptureShortcut,
+                    action: .quickCapture
+                )
+                .disabled(!settings.preferences.quickCaptureEnabled)
+                shortcutRow(
+                    "Command Palette",
+                    isOn: binding(\.commandPaletteHotKeyEnabled),
+                    hotKey: binding(\.commandPaletteShortcut),
+                    defaultValue: Preferences().commandPaletteShortcut,
+                    action: .commandPalette
+                )
 
                 Toggle(
                     "Announce important updates with VoiceOver",
@@ -536,7 +565,7 @@ private struct WidgetSettings: View {
             }
 
             Section {
-                Text("Clipboard items stay in memory for this session and are never written to disk. Entries marked concealed or transient by password managers are ignored.")
+                Text("Clipboard items stay in memory for this session and are never written to disk. Entries marked concealed or transient by password managers are ignored. macOS asks before Bondex can read what you copy; set Bondex Notch to Allow under Privacy & Security › Paste from Other Apps to keep a history without being asked each time.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {

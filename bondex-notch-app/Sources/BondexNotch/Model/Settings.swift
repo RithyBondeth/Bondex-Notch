@@ -89,11 +89,11 @@ struct Preferences: Codable, Equatable {
 
     /// A permission-free registered chord, not a global key logger.
     var globalHotKeyEnabled = true
-    var globalShortcut: GlobalShortcut = .controlOptionSpace
+    var globalShortcut: HotKey = .controlOptionSpace
     var quickCaptureHotKeyEnabled = true
-    var quickCaptureShortcut: QuickCaptureShortcut = .controlOptionC
+    var quickCaptureShortcut: HotKey = .controlOptionC
     var commandPaletteHotKeyEnabled = true
-    var commandPaletteShortcut: CommandPaletteShortcut = .controlOptionP
+    var commandPaletteShortcut: HotKey = .controlOptionP
     var announceImportantUpdates = true
 
     var downloadsFolderBookmark: Data?

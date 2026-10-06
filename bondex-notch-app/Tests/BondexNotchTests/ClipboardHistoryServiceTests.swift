@@ -103,3 +103,53 @@ final class ClipboardHistoryServiceTests: XCTestCase {
         pasteboard.setString(value, forType: .string)
     }
 }
+
+/// macOS 15.4's pasteboard privacy: background capture must not read unless
+/// Bondex is allowed, or every copy raises an alert.
+@MainActor
+final class ClipboardAccessTests: XCTestCase {
+
+    private var pasteboard: NSPasteboard!
+
+    override func setUp() async throws {
+        pasteboard = NSPasteboard(name: NSPasteboard.Name("BondexClipboardAccess-\(UUID().uuidString)"))
+    }
+
+    override func tearDown() async throws {
+        pasteboard.releaseGlobally()
+    }
+
+    private func copy(_ text: String) {
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
+    func testNothingIsReadWhileMacOSWouldAsk() {
+        for access in [ClipboardAccess.notYetAsked, .asksEveryTime, .denied] {
+            let service = ClipboardHistoryService(pasteboard: pasteboard, readAccess: { _ in access })
+            copy("secret \(access)")
+            service.captureIfChanged()
+            XCTAssertTrue(service.items.isEmpty, "read the clipboard while \(access)")
+            XCTAssertEqual(service.access, access)
+        }
+    }
+
+    func testCaptureResumesOnceAllowed() {
+        var access = ClipboardAccess.asksEveryTime
+        let service = ClipboardHistoryService(pasteboard: pasteboard, readAccess: { _ in access })
+        copy("first")
+        service.captureIfChanged()
+        XCTAssertTrue(service.items.isEmpty)
+
+        access = .allowed
+        copy("second")
+        service.captureIfChanged()
+        XCTAssertEqual(service.items.map(\.title), ["second"])
+    }
+
+    /// Named pasteboards are always readable; only the general one asks.
+    func testAPrivatePasteboardIsAllowed() {
+        XCTAssertEqual(ClipboardAccess.current(for: pasteboard), .allowed)
+    }
+}
+

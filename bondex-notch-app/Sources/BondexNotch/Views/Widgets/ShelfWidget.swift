@@ -30,6 +30,9 @@ struct ShelfWidget: View {
                 grid
             }
         }
+        // A file shelved earlier may have moved since; find it before the
+        // tile is drawn as missing.
+        .onAppear { service.refreshLocations() }
     }
 
     private var header: some View {

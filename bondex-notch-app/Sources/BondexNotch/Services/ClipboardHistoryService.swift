@@ -73,10 +73,43 @@ struct ClipboardHistoryItem: Identifiable, Equatable {
 /// Session-local clipboard history. Nothing captured here is written to disk.
 /// Password managers can mark entries as concealed or transient; those entries
 /// are deliberately ignored.
+/// Whether macOS lets Bondex read what is copied, from macOS 15.4's
+/// pasteboard privacy.
+enum ClipboardAccess: Equatable {
+    /// Reads go through without asking: always the case before macOS 15.4,
+    /// and afterwards once the user sets Bondex to Allow.
+    case allowed
+    /// macOS has not asked yet. The first read raises its alert, and lists
+    /// Bondex in System Settings where it can be allowed for good.
+    case notYetAsked
+    /// macOS asks on every read — for a history that reads on every copy, an
+    /// alert each time something is copied.
+    case asksEveryTime
+    /// The user turned access off.
+    case denied
+
+    @MainActor
+    static func current(for pasteboard: NSPasteboard) -> ClipboardAccess {
+        guard #available(macOS 15.4, *) else { return .allowed }
+        switch pasteboard.accessBehavior {
+        case .alwaysAllow: return .allowed
+        case .default: return .notYetAsked
+        case .ask: return .asksEveryTime
+        case .alwaysDeny: return .denied
+        @unknown default: return .asksEveryTime
+        }
+    }
+}
+
 @MainActor
 final class ClipboardHistoryService: ObservableObject {
     @Published private(set) var items: [ClipboardHistoryItem] = []
     @Published private(set) var isPaused = false
+    /// Background capture only reads while this is `.allowed`. Otherwise it
+    /// watches the change count — which macOS does not treat as reading — and
+    /// leaves the contents alone, rather than raise an alert on every copy or
+    /// fail silently.
+    @Published private(set) var access: ClipboardAccess = .allowed
 
     private static let ignoredTypes = Set([
         NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"),
@@ -107,9 +140,16 @@ final class ClipboardHistoryService: ObservableObject {
     private var timer: Timer?
     private let thumbnails = NSCache<NSUUID, NSImage>()
 
-    init(pasteboard: NSPasteboard = .general, capacity: Int = 30) {
+    private let readAccess: @MainActor (NSPasteboard) -> ClipboardAccess
+
+    init(
+        pasteboard: NSPasteboard = .general,
+        capacity: Int = 30,
+        readAccess: @escaping @MainActor (NSPasteboard) -> ClipboardAccess = { ClipboardAccess.current(for: $0) }
+    ) {
         self.pasteboard = pasteboard
         self.capacity = max(capacity, 1)
+        self.readAccess = readAccess
         self.observedChangeCount = pasteboard.changeCount
     }
 
@@ -117,6 +157,7 @@ final class ClipboardHistoryService: ObservableObject {
 
     func start(interval: TimeInterval = 0.65) {
         guard timer == nil else { return }
+        refreshAccess()
         observedChangeCount = pasteboard.changeCount
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             onMainActor { self?.captureIfChanged() }
@@ -128,6 +169,33 @@ final class ClipboardHistoryService: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+    }
+
+    func refreshAccess() {
+        let next = readAccess(pasteboard)
+        if next != access { access = next }
+    }
+
+    /// Reads the clipboard once, in answer to the user asking for history.
+    ///
+    /// That read is what makes macOS ask for the first time and list Bondex
+    /// under Privacy & Security, where it can be set to Allow — Bondex cannot
+    /// be allowed there until it has asked once.
+    func requestAccess() {
+        _ = pasteboard.types
+        _ = pasteboard.string(forType: .string)
+        refreshAccess()
+        if access == .allowed {
+            observedChangeCount = pasteboard.changeCount
+            if !isPaused, !containsIgnoredType, let content = readContent() { insert(content) }
+        }
+    }
+
+    func openPrivacySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     func setPaused(_ paused: Bool) {
@@ -147,7 +215,10 @@ final class ClipboardHistoryService: ObservableObject {
         let changeCount = pasteboard.changeCount
         guard changeCount != observedChangeCount else { return }
         observedChangeCount = changeCount
-        guard !isPaused, !containsIgnoredType else { return }
+        // Checked on every copy: the user may have allowed access in System
+        // Settings since the last one.
+        refreshAccess()
+        guard access == .allowed, !isPaused, !containsIgnoredType else { return }
         guard let content = readContent() else { return }
         insert(content)
     }
