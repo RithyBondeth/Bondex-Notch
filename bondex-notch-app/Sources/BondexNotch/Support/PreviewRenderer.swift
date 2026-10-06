@@ -370,7 +370,55 @@ enum PreviewRenderer {
             }
         }
 
+        // The welcome window, a page at a time — on a fresh install it is the
+        // first thing anyone sees. From its own untouched preferences, since
+        // the shots above switched every tab on.
+        let welcomeSuite = "com.bondex.notch.preview.welcome"
+        let welcomeDefaults = UserDefaults(suiteName: welcomeSuite) ?? .standard
+        defer { welcomeDefaults.removePersistentDomain(forName: welcomeSuite) }
+        let fresh = AppEnvironment(screen: screen, defaults: welcomeDefaults)
+        fresh.activatesServices = false
+        fresh.globalHotKey.stop()
+        for page in OnboardingPage.allCases {
+            let view = OnboardingView(environment: fresh, initialPage: page) {}
+            if !renderWindow(view, size: OnboardingView.size,
+                             named: "welcome-\(page.rawValue + 1)", into: directory) {
+                failures += 1
+            }
+        }
+
         return failures == 0 ? 0 : 1
+    }
+
+    /// Renders an ordinary window's content, dark, the way Settings is.
+    private static func renderWindow<Content: View>(
+        _ content: Content,
+        size: NSSize,
+        named name: String,
+        into directory: URL
+    ) -> Bool {
+        let hosting = NSHostingView(rootView: content.frame(width: size.width, height: size.height))
+        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.appearance = NSAppearance(named: .darkAqua)
+        hosting.layoutSubtreeIfNeeded()
+        guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+            FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
+            return false
+        }
+        hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            FileHandle.standardError.write(Data("error: could not encode \(name)\n".utf8))
+            return false
+        }
+        let url = directory.appendingPathComponent("\(name).png")
+        do {
+            try png.write(to: url)
+            print("rendered \(url.path)")
+            return true
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return false
+        }
     }
 
     // MARK: Rendering

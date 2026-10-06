@@ -9,10 +9,16 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private let environment: AppEnvironment
     private let onOpenSettings: () -> Void
+    private let onShowWelcome: () -> Void
 
-    init(environment: AppEnvironment, onOpenSettings: @escaping () -> Void) {
+    init(
+        environment: AppEnvironment,
+        onOpenSettings: @escaping () -> Void,
+        onShowWelcome: @escaping () -> Void
+    ) {
         self.environment = environment
         self.onOpenSettings = onOpenSettings
+        self.onShowWelcome = onShowWelcome
         super.init()
     }
 
@@ -93,6 +99,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         feedback.target = self
         menu.addItem(feedback)
 
+        let welcome = NSMenuItem(
+            title: "Welcome Tour…",
+            action: #selector(showWelcome),
+            keyEquivalent: ""
+        )
+        welcome.target = self
+        menu.addItem(welcome)
+
         let settings = NSMenuItem(
             title: "Settings…",
             action: #selector(openSettings),
@@ -138,6 +152,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func openSettings() {
         onOpenSettings()
+    }
+
+    @objc private func showWelcome() {
+        onShowWelcome()
     }
 
     @objc private func openCommandPalette() {

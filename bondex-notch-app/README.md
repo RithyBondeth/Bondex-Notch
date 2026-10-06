@@ -500,6 +500,21 @@ JSON files in `~/.bondex-notch/live`; the app watches the directory with a
 dispatch source, so there is no polling when nothing changes. An abandoned
 activity expires after 24 hours.
 
+## First launch
+
+A new install opens a three-page welcome: how to use the notch (hover, click to
+keep it open, the global shortcut), what it should show, and a "Show me" button
+that opens it. The features page says what each choice will ask macOS for —
+Automation for media, the Downloads folder, the calendar, notifications — and
+nothing that raises a permission prompt starts until it is confirmed, so the
+first prompt anyone sees follows the screen that explains it. Calendar and
+notification access are requested when the choices are confirmed; Automation and
+Downloads are asked for by macOS the first time the feature reads.
+
+Closing the welcome early keeps the defaults. Installs that already have saved
+preferences never see it, and it can be reopened from the menu bar's Welcome
+Tour item.
+
 ## What macOS does and does not allow
 
 Two features in the original proposal cannot be built as literally described.

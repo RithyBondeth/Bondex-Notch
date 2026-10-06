@@ -98,6 +98,10 @@ struct Preferences: Codable, Equatable {
 
     var downloadsFolderBookmark: Data?
     var launchAtLogin = false
+    /// The welcome screen has been seen. Until it has, nothing that raises a
+    /// macOS permission prompt is started, so the first prompt someone sees
+    /// follows the screen that explains it.
+    var hasCompletedOnboarding = false
     /// Which display the notch lives on. Replaces the old
     /// `showNotchOnExternalDisplays` switch; see `SettingsStore.decode`.
     var notchDisplay: NotchDisplay = .followPointer
@@ -219,6 +223,11 @@ final class SettingsStore: ObservableObject {
         }
 
         merged.merge(stored) { _, stored in stored }
+        // Anyone with saved preferences was using Bondex before the welcome
+        // screen existed; it is for new installs, not for an update.
+        if stored["hasCompletedOnboarding"] == nil {
+            merged["hasCompletedOnboarding"] = true
+        }
         // `showNotchOnExternalDisplays: false` meant "only ever on the built-in
         // display"; carry that over rather than letting the new default move
         // someone's notch. `true` meant they wanted it on external displays
