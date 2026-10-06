@@ -183,7 +183,8 @@ enum AgentHookInput {
             return .attention(message: "Approve: \(status(tool: tool, input: input))")
         case "Notification":
             return notificationAction(object)
-        case "Stop", "SessionEnd":
+        // StopFailure: the turn ended on an API error, which sends no Stop.
+        case "Stop", "StopFailure", "SessionEnd":
             return .idle
         default:
             return .ignore
