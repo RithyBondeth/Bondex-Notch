@@ -62,7 +62,7 @@ final class AppEnvironment: ObservableObject {
         self.customActions = CustomActionService()
         self.files = FileActivityService(events: events)
         self.clipboard = ClipboardHistoryService()
-        self.shelf = ShelfService(events: events)
+        self.shelf = ShelfService(events: events, defaults: defaults)
         self.agents = AgentActivityService(events: events)
         self.agentUsage = AgentUsageService()
         self.liveActivities = LiveActivityService(events: events)
@@ -251,7 +251,9 @@ final class AppEnvironment: ObservableObject {
         files.stop()
         clipboard.stop()
         agents.stop()
-        agentUsage.stop()
+        // Suspended, not stopped: stopping deletes the usage cache, which is
+        // what the next launch reads instead of a month of logs.
+        agentUsage.suspend()
         liveActivities.stop()
         systemHUD.stop()
         deviceBatteries.stop()
@@ -370,7 +372,19 @@ final class AppEnvironment: ObservableObject {
 
     /// The shortcut set last handed to `globalHotKey`, so an unrelated
     /// preference change does not unregister and re-register every chord.
-    private var registeredShortcuts: [String]?
+    private var registeredShortcuts: [HotKey?]?
+
+    /// Set while Settings records a new shortcut. A registered global hot key
+    /// is taken by the system before any window sees it, so recording the
+    /// combination already in use would trigger it instead of recording it.
+    private var shortcutsPaused = false
+
+    func setShortcutsPaused(_ paused: Bool) {
+        guard shortcutsPaused != paused else { return }
+        shortcutsPaused = paused
+        registeredShortcuts = nil
+        applyWidgetActivation(settings.preferences)
+    }
 
     /// Brings every service in line with the current preferences.
     ///
@@ -429,18 +443,14 @@ final class AppEnvironment: ObservableObject {
         let paletteShortcut = preferences.commandPaletteHotKeyEnabled
             ? preferences.commandPaletteShortcut
             : nil
-        let shortcuts = [
-            panelShortcut?.rawValue ?? "-",
-            captureShortcut?.rawValue ?? "-",
-            paletteShortcut?.rawValue ?? "-"
-        ]
+        let shortcuts = shortcutsPaused ? [nil, nil, nil] : [panelShortcut, captureShortcut, paletteShortcut]
         if shortcuts != registeredShortcuts {
             registeredShortcuts = shortcuts
-            if panelShortcut != nil || captureShortcut != nil || paletteShortcut != nil {
+            if shortcuts.contains(where: { $0 != nil }) {
                 globalHotKey.start(
-                    shortcut: panelShortcut,
-                    quickCaptureShortcut: captureShortcut,
-                    commandPaletteShortcut: paletteShortcut
+                    shortcut: shortcuts[0],
+                    quickCaptureShortcut: shortcuts[1],
+                    commandPaletteShortcut: shortcuts[2]
                 )
             } else {
                 globalHotKey.stop()
@@ -501,6 +511,8 @@ final class AppEnvironment: ObservableObject {
                 if meetings.authorizationStatus != .fullAccess { meetings.requestAuthorization() }
             case .notifications:
                 notifications.requestAuthorization()
+            case .clipboard:
+                clipboard.requestAccess()
             }
         }
     }

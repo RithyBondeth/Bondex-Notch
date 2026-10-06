@@ -39,6 +39,8 @@ struct OnboardingChoices: Equatable {
     enum Permission: Equatable {
         case calendar
         case notifications
+        /// macOS 15.4 and later ask before an app reads the clipboard.
+        case clipboard
     }
 
     /// Permissions to ask for as soon as the choices are applied.
@@ -47,10 +49,16 @@ struct OnboardingChoices: Equatable {
     /// the first time a chosen feature reads a player or the folder, which is
     /// already the right moment — and asking for Automation up front is not
     /// possible, since it is granted per app.
+    static var clipboardNeedsPermission: Bool {
+        if #available(macOS 15.4, *) { return true }
+        return false
+    }
+
     var permissionsToRequest: [Permission] {
         var permissions: [Permission] = []
         if meetings { permissions.append(.calendar) }
         if agents && agentNotifications { permissions.append(.notifications) }
+        if clipboard, Self.clipboardNeedsPermission { permissions.append(.clipboard) }
         return permissions
     }
 }
@@ -65,7 +73,7 @@ struct OnboardingFeature: Identifiable {
     let asks: String?
     let choice: WritableKeyPath<OnboardingChoices, Bool>
 
-    static let all: [OnboardingFeature] = [
+    static var all: [OnboardingFeature] { [
         OnboardingFeature(
             id: "media",
             title: "Music and video",
@@ -95,7 +103,9 @@ struct OnboardingFeature: Identifiable {
             title: "Clipboard history",
             detail: "Recent copies, kept in memory only and never written to disk.",
             systemImage: "doc.on.clipboard.fill",
-            asks: nil,
+            asks: OnboardingChoices.clipboardNeedsPermission
+                ? "Asks to read what you copy"
+                : nil,
             choice: \.clipboard
         ),
         OnboardingFeature(
@@ -114,5 +124,5 @@ struct OnboardingFeature: Identifiable {
             asks: "Asks for calendar access",
             choice: \.meetings
         )
-    ]
+    ] }
 }

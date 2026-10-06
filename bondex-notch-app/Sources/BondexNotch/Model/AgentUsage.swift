@@ -5,7 +5,7 @@ import Foundation
 /// Closed, unlike `AgentKind`: usage depends on knowing where each tool keeps
 /// its logs and what their lines mean, and a guess at either would produce
 /// numbers that look authoritative and are not.
-enum UsageProvider: String, CaseIterable, Identifiable, Sendable {
+enum UsageProvider: String, CaseIterable, Identifiable, Sendable, Codable {
     case claude
     case codex
 
@@ -26,7 +26,7 @@ enum UsageProvider: String, CaseIterable, Identifiable, Sendable {
 /// `input` is *uncached* input only. OpenAI reports cached tokens as a subset
 /// of input, so the Codex parser subtracts them before they arrive here; that
 /// keeps one meaning per field and lets every total be a plain sum.
-struct TokenTally: Equatable, Sendable {
+struct TokenTally: Equatable, Sendable, Codable {
     var input = 0
     var output = 0
     var cacheWrite = 0
@@ -50,7 +50,7 @@ struct TokenTally: Equatable, Sendable {
 }
 
 /// Tokens plus what they would have cost at public API prices.
-struct UsageTally: Equatable, Sendable {
+struct UsageTally: Equatable, Sendable, Codable {
     var tokens = TokenTally()
     var cost: Double = 0
     /// Tokens from a model missing from the price table. They are counted but
@@ -69,7 +69,7 @@ struct UsageTally: Equatable, Sendable {
 }
 
 /// One plan allowance: a share used of a window that renews on a schedule.
-struct UsageLimitWindow: Identifiable, Equatable, Sendable {
+struct UsageLimitWindow: Identifiable, Equatable, Sendable, Codable {
     let id: String
     /// Length of the window, which is also how it is named.
     let minutes: Int
@@ -109,8 +109,8 @@ struct UsageLimitWindow: Identifiable, Equatable, Sendable {
 }
 
 /// The latest reading of a provider's plan allowances.
-struct ProviderLimits: Equatable, Sendable {
-    enum Source: Equatable, Sendable {
+struct ProviderLimits: Equatable, Sendable, Codable {
+    enum Source: Equatable, Sendable, Codable {
         /// The Claude desktop app's own record of the plan's limits.
         case claudeApp
         /// A rate-limit snapshot Codex writes into its session log each turn.
@@ -172,7 +172,7 @@ struct UsageBreakdownItem: Identifiable, Equatable, Sendable {
 }
 
 /// One agent session: where it ran and what it ran on.
-struct AgentSession: Identifiable, Equatable, Sendable {
+struct AgentSession: Identifiable, Equatable, Sendable, Codable {
     let id: String
     let provider: UsageProvider
     /// The folder the agent ran in, by name. Nil when the log did not say.

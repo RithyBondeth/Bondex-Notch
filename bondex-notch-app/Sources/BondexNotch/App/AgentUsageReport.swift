@@ -10,7 +10,12 @@ enum AgentUsageReport {
 
     static func run() -> Int32 {
         let started = Date()
-        let snapshot = AgentUsageScanner(roots: .standard()).scanNow()
+        // The same cache the tab uses, so a second run shows what a launch
+        // after the first costs.
+        let snapshot = AgentUsageScanner(
+            roots: .standard(),
+            cacheURL: AgentUsageScanner.standardCacheURL
+        ).scanNow()
         let elapsed = Date().timeIntervalSince(started)
         print(render(snapshot))
         print(String(format: "scanned in %.2fs", elapsed))

@@ -76,7 +76,7 @@ final class AgentUsageLedger {
         let model: String
     }
 
-    private struct Cursor {
+    fileprivate struct Cursor: Codable {
         var offset: UInt64 = 0
         var codex = CodexFileState()
     }
@@ -91,6 +91,12 @@ final class AgentUsageLedger {
     /// Claude request keys already counted, with the slot they landed in so the
     /// set can be trimmed along with the usage it guards.
     private var seenClaude: [String: Int] = [:]
+
+    /// Something was read or dropped since the last archive, so an idle minute
+    /// writes nothing to disk.
+    private(set) var hasUnsavedChanges = false
+
+    init() {}
 
     static func slot(for date: Date) -> Int {
         Int((date.timeIntervalSince1970 / slotLength).rounded(.down))
@@ -129,6 +135,7 @@ final class AgentUsageLedger {
             // middle of a line.
             cursor = Cursor()
         }
+        if cursor.offset != cursors[path]?.offset { hasUnsavedChanges = true }
         guard size > cursor.offset, let handle = try? FileHandle(forReadingFrom: file) else {
             cursors[path] = cursor
             return
@@ -149,6 +156,7 @@ final class AgentUsageLedger {
                 consumed += UInt64(used)
                 carry.removeSubrange(0..<used)
             }
+            if consumed != cursor.offset { hasUnsavedChanges = true }
             cursor.offset = consumed
         } catch {
             Log.agent.error("Could not read agent log: \(error.localizedDescription)")
@@ -201,6 +209,7 @@ final class AgentUsageLedger {
                     // session appends to an old one, so the newest reading wins
                     // by its own date rather than by arrival.
                     if limits.observedAt >= (codexLimits?.observedAt ?? .distantPast) {
+                        hasUnsavedChanges = true
                         codexLimits = limits
                         if let plan { codexPlan = plan }
                     }
@@ -212,6 +221,7 @@ final class AgentUsageLedger {
     private func add(_ tally: UsageTally, key: Key, session: String, at date: Date, now: Date) {
         // Clock skew happens; the far future does not.
         guard date > now.addingTimeInterval(-Self.horizon), date < now.addingTimeInterval(86_400) else { return }
+        hasUnsavedChanges = true
         slots[Self.slot(for: date), default: [:]][key, default: UsageTally()] += tally
 
         var entry = sessions[session] ?? AgentSession(id: session, provider: key.provider, lastActivity: date)
@@ -231,13 +241,101 @@ final class AgentUsageLedger {
 
     private func prune(before cutoff: Date) {
         let oldest = Self.slot(for: cutoff)
+        let before = (slots.count, sessions.count, seenClaude.count)
         slots = slots.filter { $0.key >= oldest }
         sessions = sessions.filter { $0.value.lastActivity >= cutoff }
         // Keys are kept a day longer than usage, so a resumed session copying
         // a just-expired request forward cannot count it again.
         let keyCutoff = oldest - Int(86_400 / Self.slotLength)
         seenClaude = seenClaude.filter { $0.value >= keyCutoff }
+        if before != (slots.count, sessions.count, seenClaude.count) { hasUnsavedChanges = true }
     }
+
+    // MARK: Archive
+
+    /// Everything a later launch needs to carry on where this one stopped.
+    ///
+    /// Without it every launch re-read a month of logs from the start —
+    /// measured at about five seconds of CPU on a heavy user's Mac — to arrive
+    /// at numbers it had already worked out. With it, a launch reads only what
+    /// the agents appended while the app was closed.
+    ///
+    /// Tied to the app's version and the log folders: a new build may parse or
+    /// price differently, and figures read from other folders are not these
+    /// folders' figures, so either one starts the scan afresh.
+    struct Archive: Codable {
+        static let currentFormat = 1
+
+        struct Slot: Codable {
+            var slot: Int
+            var provider: UsageProvider
+            var project: String
+            var model: String
+            var tally: UsageTally
+        }
+
+        var format = Archive.currentFormat
+        var appVersion: String
+        var roots: [String]
+        var slots: [Slot]
+        var hasLogs: [UsageProvider]
+        var codexLimits: ProviderLimits?
+        var codexPlan: String?
+        var sessions: [AgentSession]
+        fileprivate var cursors: [String: Cursor]
+        var seenClaude: [String: Int]
+    }
+
+    static func rootsIdentity(_ roots: AgentUsageRoots) -> [String] {
+        (roots.claude + roots.codex).map(\.standardizedFileURL.path).sorted()
+    }
+
+    func archive(appVersion: String, roots: AgentUsageRoots) -> Archive {
+        Archive(
+            appVersion: appVersion,
+            roots: Self.rootsIdentity(roots),
+            slots: slots.flatMap { slot, tallies in
+                tallies.map { key, tally in
+                    Archive.Slot(
+                        slot: slot,
+                        provider: key.provider,
+                        project: key.project,
+                        model: key.model,
+                        tally: tally
+                    )
+                }
+            },
+            hasLogs: Array(hasLogs),
+            codexLimits: codexLimits,
+            codexPlan: codexPlan,
+            sessions: Array(sessions.values),
+            cursors: cursors,
+            seenClaude: seenClaude
+        )
+    }
+
+    /// A ledger restored from `archive`, or nil when the archive belongs to
+    /// another build, another set of log folders, or another format.
+    convenience init?(archive: Archive, appVersion: String, roots: AgentUsageRoots, now: Date) {
+        guard archive.format == Archive.currentFormat,
+              archive.appVersion == appVersion,
+              archive.roots == Self.rootsIdentity(roots) else { return nil }
+        self.init()
+        for entry in archive.slots {
+            let key = Key(provider: entry.provider, project: entry.project, model: entry.model)
+            slots[entry.slot, default: [:]][key] = entry.tally
+        }
+        hasLogs = Set(archive.hasLogs)
+        codexLimits = archive.codexLimits
+        codexPlan = archive.codexPlan
+        sessions = Dictionary(uniqueKeysWithValues: archive.sessions.map { ($0.id, $0) })
+        cursors = archive.cursors
+        seenClaude = archive.seenClaude
+        prune(before: now.addingTimeInterval(-Self.horizon))
+        hasUnsavedChanges = false
+    }
+
+    func markSaved() { hasUnsavedChanges = false }
 
     /// Calls `body` for each complete line that contains one of `markers`, and
     /// returns how many bytes of complete lines there were.
@@ -384,18 +482,43 @@ final class AgentUsageScanner: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.bondex.notch.agent-usage", qos: .utility)
     private var ledger = AgentUsageLedger()
     private let roots: AgentUsageRoots
+    /// Where the ledger is kept between launches; nil to keep it in memory only.
+    private let cacheURL: URL?
+    private var hasRestored = false
+    private var lastSavedAt: Date?
+
+    /// How often a changing ledger is written back. Usage moves every minute
+    /// while an agent works; the cache only has to be close enough that the
+    /// next launch reads a few minutes of logs rather than a month.
+    static let saveInterval: TimeInterval = 5 * 60
+
+    static var standardCacheURL: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.bondex.notch", isDirectory: true)
+            .appendingPathComponent("agent-usage.plist")
+    }
+
+    private static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "0"
+        let build = info?["CFBundleVersion"] as? String ?? "0"
+        return "\(short) (\(build))"
+    }
     /// `~/.claude.json` can run to megabytes of project history, so it is
     /// only reread when it changes.
     private var profileModified: Date?
     private var claudePlan: String?
 
-    init(roots: AgentUsageRoots) {
+    init(roots: AgentUsageRoots, cacheURL: URL? = nil) {
         self.roots = roots
+        self.cacheURL = cacheURL
     }
 
     func scan(now: Date = Date(), completion: @escaping @Sendable (AgentUsageSnapshot) -> Void) {
         queue.async { [self] in
+            restoreIfNeeded(now: now)
             ledger.scan(roots, now: now)
+            saveIfDue(now: now)
             let claudeLimits = (try? Data(contentsOf: roots.claudeAppHistory))
                 .flatMap(ClaudeAppLimitsReader.samples(from:))
                 .flatMap { ClaudeAppLimitsReader.limits(from: $0, now: now) }
@@ -412,12 +535,56 @@ final class AgentUsageScanner: @unchecked Sendable {
         claudePlan = (try? Data(contentsOf: url, options: .mappedIfSafe)).flatMap(ClaudePlanReader.plan(from:))
     }
 
-    /// Drops everything read, so a stopped feature holds no usage in memory.
-    func reset() {
+    /// Drops everything read, so a stopped feature holds no usage in memory —
+    /// or on disk, when the feature itself was switched off.
+    func reset(deletingCache: Bool = true) {
         queue.async { [self] in
             ledger = AgentUsageLedger()
             profileModified = nil
             claudePlan = nil
+            hasRestored = false
+            lastSavedAt = nil
+            if deletingCache, let cacheURL { try? FileManager.default.removeItem(at: cacheURL) }
+        }
+    }
+
+    /// Writes any unsaved progress now. Called on the way out, so the next
+    /// launch starts from the last scan rather than the last periodic save.
+    func flush() {
+        queue.sync { saveIfDue(now: Date(), force: true) }
+    }
+
+    private func restoreIfNeeded(now: Date) {
+        guard !hasRestored else { return }
+        hasRestored = true
+        guard let cacheURL,
+              let data = try? Data(contentsOf: cacheURL),
+              let archive = try? PropertyListDecoder().decode(AgentUsageLedger.Archive.self, from: data),
+              let restored = AgentUsageLedger(
+                  archive: archive, appVersion: Self.appVersion, roots: roots, now: now
+              )
+        else { return }
+        ledger = restored
+        lastSavedAt = now
+    }
+
+    private func saveIfDue(now: Date, force: Bool = false) {
+        guard let cacheURL, ledger.hasUnsavedChanges else { return }
+        if !force, let lastSavedAt, now.timeIntervalSince(lastSavedAt) < Self.saveInterval { return }
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .binary
+        guard let data = try? encoder.encode(
+            ledger.archive(appVersion: Self.appVersion, roots: roots)
+        ) else { return }
+        do {
+            try FileManager.default.createDirectory(
+                at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            try data.write(to: cacheURL, options: .atomic)
+            ledger.markSaved()
+            lastSavedAt = now
+        } catch {
+            Log.agent.error("Could not save the agent usage cache: \(error.localizedDescription)")
         }
     }
 
@@ -467,8 +634,8 @@ final class AgentUsageService: ObservableObject {
     /// Bumped on stop, so a scan that finishes afterwards cannot publish.
     private var generation = 0
 
-    init(roots: AgentUsageRoots = .standard()) {
-        scanner = AgentUsageScanner(roots: roots)
+    init(roots: AgentUsageRoots = .standard(), cacheURL: URL? = AgentUsageScanner.standardCacheURL) {
+        scanner = AgentUsageScanner(roots: roots, cacheURL: cacheURL)
     }
 
     func start() {
@@ -483,15 +650,27 @@ final class AgentUsageService: ObservableObject {
         self.timer = timer
     }
 
+    /// The Agents tab was switched off: forget everything, including the cache.
     func stop() {
         guard isRunning else { return }
+        halt()
+        scanner.reset(deletingCache: true)
+        snapshot = .empty
+    }
+
+    /// The app is quitting: stop scanning and keep what was read for next time.
+    func suspend() {
+        guard isRunning else { return }
+        halt()
+        scanner.flush()
+    }
+
+    private func halt() {
         isRunning = false
         generation += 1
         timer?.invalidate()
         timer = nil
         isScanning = false
-        scanner.reset()
-        snapshot = .empty
     }
 
     /// Scans now, unless a scan is already running.

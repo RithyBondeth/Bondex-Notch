@@ -216,7 +216,7 @@ enum ClaudeLogParser {
 // MARK: - Codex
 
 /// What a Codex session log has said so far, carried between lines of one file.
-struct CodexFileState: Equatable {
+struct CodexFileState: Equatable, Codable {
     /// Set by `turn_context` lines; usage lines do not repeat it.
     var model: String?
     /// The folder the session started in, from `session_meta` or the first

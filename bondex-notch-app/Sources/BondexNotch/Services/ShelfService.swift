@@ -4,8 +4,10 @@ import UniformTypeIdentifiers
 
 struct ShelfItem: Identifiable, Equatable {
     let id = UUID()
-    let url: URL
+    var url: URL
     let addedAt: Date
+    /// Finds the file again after it moves or is renamed, and across launches.
+    var bookmark: Data?
 
     var name: String { url.lastPathComponent }
     var icon: NSImage { NSWorkspace.shared.icon(forFile: url.path) }
@@ -20,11 +22,12 @@ struct ShelfItem: Identifiable, Equatable {
     }
 }
 
-/// A temporary tray. Drag files onto the notch to park them, drag them out
-/// wherever they need to go.
+/// A tray that outlasts a restart. Drag files onto the notch to park them,
+/// drag them out wherever they need to go.
 ///
-/// Finder URLs are held in place. Image-only drops are materialized in the
-/// app's temporary directory and deleted when their shelf item is removed.
+/// Finder files stay where they are and are remembered by bookmark, so one
+/// that moves or is renamed is found again. Image-only drops are copied into
+/// Application Support and deleted when their shelf item is removed.
 @MainActor
 final class ShelfService: ObservableObject {
 
@@ -37,14 +40,32 @@ final class ShelfService: ObservableObject {
 
     private let events: EventCenter
     private let maxItems = 20
+    /// Where the shelf is kept between launches; nil keeps it in memory only.
+    private let defaults: UserDefaults?
+    private static let defaultsKey = "com.bondex.notch.shelf"
 
-    private static var temporaryDropDirectory: URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("Bondex Notch Shelf", isDirectory: true)
+    /// Copies the shelf made of dropped image data — a screenshot thumbnail,
+    /// an image dragged out of a browser — which have no file of their own.
+    ///
+    /// Application Support rather than the temporary folder: the shelf
+    /// survives a restart, and macOS empties the temporary folder on its own
+    /// schedule, which would leave restored tiles pointing at nothing.
+    private static var copiesDirectory: URL {
+        (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory)
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.bondex.notch", isDirectory: true)
+            .appendingPathComponent("Shelf", isDirectory: true)
     }
 
-    init(events: EventCenter) {
+    private struct StoredItem: Codable {
+        var bookmark: Data
+        var addedAt: Date
+    }
+
+    init(events: EventCenter, defaults: UserDefaults? = nil) {
         self.events = events
+        self.defaults = defaults
+        restore()
     }
 
     var isEmpty: Bool { items.isEmpty }
@@ -59,12 +80,15 @@ final class ShelfService: ObservableObject {
         guard !fresh.isEmpty else { return 0 }
 
         let now = Date()
-        items.insert(contentsOf: fresh.map { ShelfItem(url: $0, addedAt: now) }, at: 0)
+        items.insert(contentsOf: fresh.map {
+            ShelfItem(url: $0, addedAt: now, bookmark: Self.bookmark(for: $0))
+        }, at: 0)
         if items.count > maxItems {
             let overflow = items.suffix(from: maxItems)
-            overflow.forEach { removeTemporaryCopy(at: $0.url) }
+            overflow.forEach { removeShelfCopy(at: $0.url) }
             items.removeLast(items.count - maxItems)
         }
+        persist()
 
         events.post(NotchEvent(
             kind: .shelf,
@@ -81,19 +105,87 @@ final class ShelfService: ObservableObject {
     }
 
     func pruneMissingItems() {
+        refreshLocations()
         let missing = items.filter { !$0.existsOnDisk }
-        missing.forEach { removeTemporaryCopy(at: $0.url) }
+        missing.forEach { removeShelfCopy(at: $0.url) }
         items.removeAll { !$0.existsOnDisk }
+        persist()
     }
 
     func remove(_ item: ShelfItem) {
         items.removeAll { $0.id == item.id }
-        removeTemporaryCopy(at: item.url)
+        removeShelfCopy(at: item.url)
+        persist()
     }
 
     func clear() {
-        items.forEach { removeTemporaryCopy(at: $0.url) }
+        items.forEach { removeShelfCopy(at: $0.url) }
         items.removeAll()
+        persist()
+    }
+
+    /// Follows files that moved or were renamed since they were shelved.
+    ///
+    /// A tile used to keep the path it was dropped with, so moving the file
+    /// left it marked missing for good. The bookmark finds it at its new path.
+    func refreshLocations() {
+        var changed = false
+        for index in items.indices where !items[index].existsOnDisk {
+            guard let bookmark = items[index].bookmark,
+                  let (url, fresh) = Self.resolve(bookmark) else { continue }
+            items[index].url = url
+            items[index].bookmark = fresh
+            changed = true
+        }
+        if changed { persist() }
+    }
+
+    // MARK: Persistence
+
+    private func restore() {
+        guard let data = defaults?.data(forKey: Self.defaultsKey),
+              let stored = try? JSONDecoder().decode([StoredItem].self, from: data) else { return }
+        // A file that can no longer be found at all is dropped quietly; one
+        // that merely moved comes back at its new path.
+        items = stored.compactMap { entry in
+            guard let (url, bookmark) = Self.resolve(entry.bookmark),
+                  FileManager.default.fileExists(atPath: url.path) else { return nil }
+            return ShelfItem(url: url, addedAt: entry.addedAt, bookmark: bookmark)
+        }
+        if items.count != stored.count { persist() }
+    }
+
+    private func persist() {
+        guard let defaults else { return }
+        let stored = items.compactMap { item -> StoredItem? in
+            guard let bookmark = item.bookmark ?? Self.bookmark(for: item.url) else { return nil }
+            return StoredItem(bookmark: bookmark, addedAt: item.addedAt)
+        }
+        guard let data = try? JSONEncoder().encode(stored) else { return }
+        defaults.set(data, forKey: Self.defaultsKey)
+    }
+
+    private static func bookmark(for url: URL) -> Data? {
+        try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+    }
+
+    /// The bookmark's file, and the bookmark to keep — a fresh one if the old
+    /// had gone stale.
+    private static func resolve(_ bookmark: Data) -> (URL, Data)? {
+        var isStale = false
+        guard let url = try? URL(
+            resolvingBookmarkData: bookmark,
+            options: [.withoutUI, .withoutMounting],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        ), !isInTrash(url) else { return nil }
+        return (url, isStale ? (Self.bookmark(for: url) ?? bookmark) : bookmark)
+    }
+
+    /// A bookmark follows a file into the Trash too. Deleting it in Finder is
+    /// a move there, and should take the tile with it.
+    static func isInTrash(_ url: URL) -> Bool {
+        url.standardizedFileURL.pathComponents.contains { $0 == ".Trash" || $0 == ".Trashes" }
     }
 
     func reveal(_ item: ShelfItem) {
@@ -164,7 +256,7 @@ final class ShelfService: ObservableObject {
     }
 
     /// Turns an image-only drag (notably the floating macOS screenshot
-    /// thumbnail) into a temporary file so the rest of the shelf can keep its
+    /// thumbnail) into a file of the shelf's own so the rest of it can keep its
     /// URL-based model and drag the item back out normally.
     private static func materializeImage(from provider: NSItemProvider) async -> URL? {
         guard let identifier = preferredImageIdentifier(from: provider) else { return nil }
@@ -176,7 +268,7 @@ final class ShelfService: ObservableObject {
 
         let type = UTType(identifier)
         let fileExtension = type?.preferredFilenameExtension ?? "png"
-        let directory = temporaryDropDirectory
+        let directory = copiesDirectory
         let filename = "Screenshot-\(UUID().uuidString.prefix(8)).\(fileExtension)"
         let url = directory.appendingPathComponent(filename)
 
@@ -202,13 +294,15 @@ final class ShelfService: ObservableObject {
             ?? identifiers.first
     }
 
-    private func removeTemporaryCopy(at url: URL) {
-        guard Self.isTemporaryCopy(url) else { return }
+    private func removeShelfCopy(at url: URL) {
+        guard Self.isShelfCopy(url) else { return }
         try? FileManager.default.removeItem(at: url)
     }
 
-    static func isTemporaryCopy(_ url: URL) -> Bool {
-        let directory = temporaryDropDirectory.standardizedFileURL.path
+    /// Whether the file is one the shelf made itself, and so is the shelf's
+    /// to delete when its tile goes.
+    static func isShelfCopy(_ url: URL) -> Bool {
+        let directory = copiesDirectory.standardizedFileURL.path
         let candidate = url.standardizedFileURL.path
         return candidate.hasPrefix(directory + "/")
     }
