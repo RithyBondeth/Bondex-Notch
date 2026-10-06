@@ -167,10 +167,17 @@ xmllint --noout "$OUT/appcast.xml" || fail "the appcast is not valid XML"
 "$SPARKLE_BIN/sign_update" ${SIGN_KEY_ARGS[@]+"${SIGN_KEY_ARGS[@]}"} "$OUT/appcast.xml" >/dev/null \
   || fail "sign_update could not sign the appcast"
 
+# The checksum goes at the foot of the GitHub release notes, as 1.0.0's did,
+# so a download can be checked by hand.
+SHA256="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
+GITHUB_NOTES="$OUT/release-notes.md"
+{ cat "$NOTES"; printf '\n**SHA-256:** `%s`\n' "$SHA256"; } > "$GITHUB_NOTES"
+
 if [[ "$DRY_RUN" == true ]]; then
   echo "==> Dry run: nothing published"
   echo "    $DMG"
   echo "    $OUT/appcast.xml"
+  echo "    $GITHUB_NOTES (SHA-256 $SHA256)"
   exit 0
 fi
 
@@ -182,7 +189,7 @@ git push origin "$TAG"
 gh release create "$TAG" "$DMG" "$OUT/appcast.xml" \
   --repo "$REPO" \
   --title "Bondex Notch $VERSION" \
-  --notes-file "$NOTES" \
+  --notes-file "$GITHUB_NOTES" \
   --verify-tag
 
 echo "==> Released https://github.com/$REPO/releases/tag/$TAG"
