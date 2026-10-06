@@ -18,6 +18,11 @@ final class AgentAttentionHookTests: XCTestCase {
         ]), .attention(message: "Approve: Running swift test"))
     }
 
+    /// A turn that dies on an API error sends StopFailure instead of Stop.
+    func testATurnThatFailedIsIdle() throws {
+        XCTAssertEqual(try action(["hook_event_name": "StopFailure"]), .idle)
+    }
+
     func testAPermissionPromptNotificationNeedsYou() throws {
         XCTAssertEqual(try action([
             "hook_event_name": "Notification",

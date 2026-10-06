@@ -204,9 +204,9 @@ trust approval.
 ### Needs you
 
 When an agent stops to wait for you, the notch says so. A permission prompt
-(Claude Code's `Notification` or `PermissionRequest` event), a question
-(`AskUserQuestion`), a plan awaiting approval (`ExitPlanMode`) or Codex's
-`request_user_input` marks the agent as waiting. Other agents can do the same with
+(Claude Code's `Notification` event, or `PermissionRequest` in Claude Code and
+Codex), a question (`AskUserQuestion`), a plan awaiting approval
+(`ExitPlanMode`) or Codex's `request_user_input` marks the agent as waiting. Other agents can do the same with
 `--agent-attention <agent> "what it needs"`. A waiting agent outranks every
 persistent peek apart from the camera and microphone indicator: its ring turns
 amber and pulses, and "Needs you" replaces its clock. In the panel, its row shows
@@ -223,14 +223,32 @@ Settings › Widgets, and permission to notify is asked for the first time one i
 due. Claude Code's idle reminder ("waiting for your input" after a turn ends) is
 not a wait and is ignored.
 
-An approved tool keeps showing "Needs you" until the agent's next event. Adding
-the same command on `PostToolUse` clears it as soon as that tool finishes.
+The setup includes `PostToolUse`, so an approved tool stops showing "Needs you"
+as soon as it finishes rather than at the agent's next event.
 
-Settings › Widgets shows the appropriate command with this installation's real
-binary path filled in, and a Copy button. Nothing depends on the developer's
-project directory or username. Explicit integrations wire `--agent-busy` per
-tool call and `--agent-idle` at the end of a turn; Codex uses `--agent-hook` for
-both.
+### Hook setup
+
+For Claude Code and Codex, Settings › Widgets sets the hooks up itself. **Set
+Up** adds one `--agent-hook` command per event, with this copy of the app's
+real path, to the agent's own file. Each time Settings opens it checks them
+again and offers **Update** when events are missing — typically a setup from
+before "Needs you" — or **Use This Copy** when they run a copy of the app that
+has moved or no longer exists. Both failures are otherwise silent: the notch
+just never lights up. **Remove Bondex Hooks** takes out Bondex's hooks and
+nothing else.
+
+The file is edited, not rewritten. Keys keep their order, numbers their
+spelling and the file its indent, so a file laid out the way the agents write
+theirs changes only by the lines added; the original is kept beside it as
+`<name>.bondex-backup`. Existing hooks keep their position, which matters to
+Codex: it keys hook trust on position, and holds back new or changed hooks until
+they are reviewed. A linked file is edited through the link, and its permissions
+are kept. A file that is not plain JSON (one with comments, say) is left
+untouched, and Settings shows the command to add by hand instead.
+
+Other agents get the commands to paste, with the binary path filled in. Explicit
+integrations wire `--agent-busy` per tool call and `--agent-idle` at the end of
+a turn.
 
 Any agent name works, not just the ones Bondex ships artwork for — an unknown
 agent shows up under the generic mark with the name it gave. A closed list would
@@ -241,14 +259,13 @@ outside the signal directory. A malformed name exits non-zero with a message
 rather than being ignored — a hook fires dozens of times a turn, which is where a
 silent misreading does the most damage.
 
-Where those two lines go differs per agent, and Settings names the file for the
-three that were checked against their installed builds. All three borrow Claude
+The events were read off each agent's installed build. All three borrow Claude
 Code's `{matcher, hooks:[{type, command}]}` shape; Gemini renames the events:
 
 | Agent | File | Events |
 |---|---|---|
-| Claude Code | `~/.claude/settings.json` | `UserPromptSubmit`, `PreToolUse`, `Notification`, `PermissionRequest`, `Stop`, `SessionEnd` (optionally `PostToolUse`) |
-| Codex | `~/.codex/hooks.json` | `PreToolUse`, `Stop`, `SessionEnd` |
+| Claude Code | `~/.claude/settings.json` (or `CLAUDE_CONFIG_DIR`) | `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Notification`, `Stop`, `StopFailure`, `SessionEnd` |
+| Codex | `~/.codex/hooks.json` (or `CODEX_HOME`) | `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Stop`, `SessionEnd` |
 | Gemini CLI | `~/.gemini/settings.json` | `BeforeTool` / `AfterAgent` |
 
 Claude Code's CLI and desktop app read the same file, so wiring it once covers
@@ -666,6 +683,9 @@ rasterised, and `ScrollView` renders empty — `NotchRootView` and
   hooks are verified firing. Everything on the Bondex side remains
   agent-agnostic, so this is a question of where each agent reads its hooks from,
   not of the indicator.
+- Codex's `PermissionRequest` and `PostToolUse` hooks come from its build's own
+  event list but have not yet been seen firing; its approval payload is assumed
+  to match Claude Code's, and falls back to "Needs your approval" if it does not.
 - The opencode mark is a placeholder — a block cursor standing in until the real
   artwork is to hand.
 - Downloads without a sidecar file report bytes received and live rate, not a
