@@ -3,13 +3,14 @@ import AppIntents
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private var environment: AppEnvironment?
     private var windowController: NotchWindowController?
     private var menuBar: MenuBarController?
     private var settingsWindow: NSWindow?
     private var settingsHosting: NSHostingController<SettingsView>?
+    private var welcomeWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Agent app: no Dock icon, no app menu.
@@ -34,15 +35,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.show(on: screen)
         self.windowController = windowController
 
-        let menuBar = MenuBarController(environment: environment) { [weak self] in
-            self?.showSettings()
-        }
+        let menuBar = MenuBarController(
+            environment: environment,
+            onOpenSettings: { [weak self] in self?.showSettings() },
+            onShowWelcome: { [weak self] in self?.showWelcome() }
+        )
         menuBar.install()
         self.menuBar = menuBar
 
         environment.start()
         BondexNotchShortcuts.updateAppShortcutParameters()
+        if environment.needsOnboarding { showWelcome() }
         Log.app.info("Bondex Notch launched")
+    }
+
+    // MARK: Welcome
+
+    private func showWelcome() {
+        guard let environment else { return }
+        if let welcomeWindow {
+            welcomeWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let view = OnboardingView(environment: environment) { [weak self] in
+            self?.welcomeWindow?.close()
+        }
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.title = "Welcome to Bondex Notch"
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        window.backgroundColor = NSColor(calibratedRed: 0.055, green: 0.06, blue: 0.075, alpha: 1)
+        window.setContentSize(OnboardingView.size)
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        welcomeWindow = window
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === welcomeWindow else { return }
+        // Closed before the features page was confirmed: start with the
+        // defaults rather than leave every permission-gated feature off, and
+        // do not show the tour again — it is in the menu bar.
+        if let environment, environment.needsOnboarding {
+            environment.completeOnboarding(OnboardingChoices(preferences: environment.settings.preferences))
+        }
+        welcomeWindow = nil
     }
 
     func applicationWillTerminate(_ notification: Notification) {

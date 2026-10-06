@@ -381,9 +381,14 @@ final class AppEnvironment: ObservableObject {
     private func applyWidgetActivation(_ preferences: Preferences) {
         guard activatesServices else { return }
         focusTimer.isEnabled = preferences.focusTimerEnabled
+        // Media polling (Automation, per app), Downloads and the calendar all
+        // raise macOS permission prompts on first use. Until the welcome screen
+        // has explained them, none of them starts — otherwise a new user's
+        // first sight of Bondex was a stack of unexplained dialogs.
+        let mayAskForPermissions = preferences.hasCompletedOnboarding
         // Set before starting: it decides whether the first poll scans tabs.
         nowPlaying.includeBrowsers = preferences.browserMediaEnabled
-        if settings.isTabEnabled(.music) {
+        if mayAskForPermissions, settings.isTabEnabled(.music) {
             nowPlaying.start()
         } else {
             nowPlaying.stop()
@@ -442,7 +447,8 @@ final class AppEnvironment: ObservableObject {
             }
         }
 
-        if preferences.upcomingMeetingsEnabled || smartProfiles.needsMeetingContext {
+        if mayAskForPermissions,
+           preferences.upcomingMeetingsEnabled || smartProfiles.needsMeetingContext {
             meetings.start()
         } else {
             meetings.stop()
@@ -472,10 +478,30 @@ final class AppEnvironment: ObservableObject {
             clipboard.stop()
         }
 
-        if settings.isTabEnabled(.files) {
+        if mayAskForPermissions, settings.isTabEnabled(.files) {
             files.start()
         } else {
             files.stop()
+        }
+    }
+
+    // MARK: Welcome
+
+    var needsOnboarding: Bool { !settings.preferences.hasCompletedOnboarding }
+
+    /// Applies the welcome screen's choices in one change, which starts the
+    /// chosen services, then asks for the permissions they need up front.
+    func completeOnboarding(_ choices: OnboardingChoices) {
+        var preferences = settings.preferences
+        choices.apply(to: &preferences)
+        settings.preferences = preferences
+        for permission in choices.permissionsToRequest {
+            switch permission {
+            case .calendar:
+                if meetings.authorizationStatus != .fullAccess { meetings.requestAuthorization() }
+            case .notifications:
+                notifications.requestAuthorization()
+            }
         }
     }
 
