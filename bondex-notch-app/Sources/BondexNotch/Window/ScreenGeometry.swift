@@ -1,5 +1,67 @@
 import AppKit
 
+/// Which display the notch panel belongs on.
+///
+/// Pure, so the rules can be checked without a second monitor attached.
+enum NotchPlacement {
+
+    struct Display: Equatable {
+        let id: CGDirectDisplayID
+        let frame: CGRect
+        /// The laptop's own panel, notched or not.
+        let isBuiltIn: Bool
+
+        init(id: CGDirectDisplayID, frame: CGRect, isBuiltIn: Bool) {
+            self.id = id
+            self.frame = frame
+            self.isBuiltIn = isBuiltIn
+        }
+
+        init?(_ screen: NSScreen) {
+            guard let id = screen.displayID else { return nil }
+            self.init(
+                id: id,
+                frame: screen.frame,
+                isBuiltIn: CGDisplayIsBuiltin(id) != 0 || screen.safeAreaInsets.top > 0
+            )
+        }
+    }
+
+    /// The display for `mode`, or nil when the panel should be hidden.
+    ///
+    /// - Parameters:
+    ///   - pointer: `NSEvent.mouseLocation`, consulted when following it.
+    ///   - main: the system's main display, the fallback when nothing else
+    ///     decides.
+    static func target(
+        for mode: NotchDisplay,
+        among displays: [Display],
+        pointer: CGPoint?,
+        main: Display?
+    ) -> Display? {
+        let builtIn = displays.first(where: \.isBuiltIn)
+        switch mode {
+        case .builtInOnly:
+            return builtIn
+        case .builtIn:
+            return builtIn ?? main ?? displays.first
+        case .followPointer:
+            if let pointer,
+               let under = displays.first(where: { NotchGeometry.pointer(pointer, isIn: $0.frame) }) {
+                return under
+            }
+            return builtIn ?? main ?? displays.first
+        }
+    }
+}
+
+extension NSScreen {
+    /// The Core Graphics display this screen draws on.
+    var displayID: CGDirectDisplayID? {
+        deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
+}
+
 /// Measures the hardware notch (or synthesises one) and derives every frame the
 /// panel uses.
 ///
@@ -38,12 +100,25 @@ struct NotchGeometry: Equatable {
 
         // No notch: use a pill roughly the size of a notch so the interaction is
         // identical on external and older displays.
-        let menuBarHeight = max(frame.height - (screen.visibleFrame.maxY), 24)
         return NotchGeometry(
-            notchSize: CGSize(width: 190, height: min(menuBarHeight, 32)),
+            notchSize: CGSize(
+                width: 190,
+                height: syntheticNotchHeight(frame: frame, visibleFrame: screen.visibleFrame)
+            ),
             hasHardwareNotch: false,
             screenFrame: frame
         )
+    }
+
+    /// The stand-in notch matches the menu bar, which is the strip between the
+    /// top of the display and the top of its visible frame.
+    ///
+    /// Measured from the display's own top edge. This used to subtract from
+    /// the display's *height*, which is only right for a display whose origin
+    /// is at y = 0 — on a monitor arranged above the laptop it came out
+    /// negative, and the pill fell to its floor whatever the menu bar's size.
+    static func syntheticNotchHeight(frame: CGRect, visibleFrame: CGRect) -> CGFloat {
+        min(max(frame.maxY - visibleFrame.maxY, 24), 32)
     }
 
     // MARK: Content sizes

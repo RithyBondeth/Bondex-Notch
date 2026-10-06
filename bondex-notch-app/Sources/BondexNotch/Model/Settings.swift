@@ -98,7 +98,44 @@ struct Preferences: Codable, Equatable {
 
     var downloadsFolderBookmark: Data?
     var launchAtLogin = false
-    var showNotchOnExternalDisplays = true
+    /// Which display the notch lives on. Replaces the old
+    /// `showNotchOnExternalDisplays` switch; see `SettingsStore.decode`.
+    var notchDisplay: NotchDisplay = .followPointer
+}
+
+/// Where the notch panel appears when there is more than one display.
+enum NotchDisplay: String, CaseIterable, Codable, Identifiable {
+    /// The display the pointer is on — the one you are working on.
+    case followPointer
+    /// The built-in display, or the main display while the lid is closed.
+    case builtIn
+    /// The built-in display, and nowhere while the lid is closed.
+    case builtInOnly
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .followPointer: return "The display you're using"
+        case .builtIn: return "The built-in display"
+        case .builtInOnly: return "The built-in display only"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .followPointer:
+            return """
+            Moves to whichever display the pointer settles on, so agent clocks, \
+            volume feedback and Quick Capture are where you are looking. Aim at \
+            the top centre of another display and it moves at once.
+            """
+        case .builtIn:
+            return "Stays on your Mac's display, and moves to the main display while the lid is closed."
+        case .builtInOnly:
+            return "Stays on your Mac's display, and is hidden while the lid is closed."
+        }
+    }
 }
 
 @MainActor
@@ -182,6 +219,13 @@ final class SettingsStore: ObservableObject {
         }
 
         merged.merge(stored) { _, stored in stored }
+        // `showNotchOnExternalDisplays: false` meant "only ever on the built-in
+        // display"; carry that over rather than letting the new default move
+        // someone's notch. `true` meant they wanted it on external displays
+        // too, which following the pointer delivers.
+        if stored["notchDisplay"] == nil, stored["showNotchOnExternalDisplays"] as? Bool == false {
+            merged["notchDisplay"] = NotchDisplay.builtInOnly.rawValue
+        }
         guard let mergedData = try? JSONSerialization.data(withJSONObject: merged) else {
             return nil
         }

@@ -321,8 +321,12 @@ private struct GeneralSettings: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Toggle("Show synthetic notch on external displays", isOn: binding(\.showNotchOnExternalDisplays))
-                Text("When turned off, the notch only appears on your Mac's built-in display.")
+                Picker("Show the notch on", selection: binding(\.notchDisplay)) {
+                    ForEach(NotchDisplay.allCases) { display in
+                        Text(display.displayName).tag(display)
+                    }
+                }
+                Text(settings.preferences.notchDisplay.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
