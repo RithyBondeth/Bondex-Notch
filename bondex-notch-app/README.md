@@ -92,6 +92,16 @@ from.
 synthetic 190×32 pill so the interaction is identical everywhere. Everything is
 re-derived on `didChangeScreenParametersNotification`.
 
+With more than one display, Settings › General › "Show the notch on" decides
+where the panel lives (`NotchPlacement`). By default it follows the pointer: once
+the pointer has stayed on another display for about half a second, the notch
+fades across to it — immediately if the pointer is pushed into that display's
+top centre, and never while the panel is open or a drag is over it. "The
+built-in display" keeps it on the laptop (falling back to the main display with
+the lid closed), and "The built-in display only" hides it with the lid closed.
+The old "Show synthetic notch on external displays" switch migrates: off becomes
+built-in only.
+
 ### States
 
 | State | Size | When |
