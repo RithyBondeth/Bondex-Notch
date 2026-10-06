@@ -91,6 +91,27 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        // An update a scheduled check found waits here instead of popping up
+        // over whatever the person is doing.
+        if let version = environment.updates.waitingVersion {
+            let install = NSMenuItem(
+                title: "Update to \(version)…",
+                action: #selector(checkForUpdates),
+                keyEquivalent: ""
+            )
+            install.target = self
+            install.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil)
+            menu.addItem(install)
+        } else if environment.updates.isConfigured {
+            let check = NSMenuItem(
+                title: "Check for Updates…",
+                action: environment.updates.canCheck ? #selector(checkForUpdates) : nil,
+                keyEquivalent: ""
+            )
+            check.target = self
+            menu.addItem(check)
+        }
+
         let feedback = NSMenuItem(
             title: "Send Feedback…",
             action: #selector(sendFeedback),
@@ -124,6 +145,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         )
         quit.target = self
         menu.addItem(quit)
+    }
+
+    @objc private func checkForUpdates() {
+        environment.updates.checkNow()
     }
 
     @objc private func sendFeedback() {
