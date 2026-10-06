@@ -86,6 +86,19 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// Of the working agents, how many have stopped to wait on the user — a
+    /// permission prompt, a question, a plan to approve.
+    ///
+    /// These outrank every other persistent peek: a running timer or a song
+    /// will carry on without you, but a blocked agent is wasting its time until
+    /// you answer.
+    @Published var attentionAgentCount = 0 {
+        didSet {
+            guard (attentionAgentCount > 0) != (oldValue > 0) else { return }
+            refreshIdleState()
+        }
+    }
+
     /// Whether playback gets the peek, by its own preference.
     var showsMediaInPeek: Bool { hasLiveActivity && settings.preferences.peekWhilePlaying }
 
@@ -124,6 +137,7 @@ final class NotchViewModel: ObservableObject {
         if systemHUD != nil { return .systemHUD }
         if privacyActivity.isActive { return .privacy }
         if banner != nil { return .banner }
+        if showsAgentAttention { return .agent(agents: workingAgentCount) }
         if showsFocusTimer { return .focus }
         if showsUpcomingMeeting { return .meeting }
         if showsLiveActivities { return .live }
@@ -151,6 +165,10 @@ final class NotchViewModel: ObservableObject {
     /// their agent is still running.
     private var showsAgents: Bool {
         workingAgentCount > 0 && settings.preferences.agentActivityEnabled
+    }
+
+    private var showsAgentAttention: Bool {
+        attentionAgentCount > 0 && settings.preferences.agentActivityEnabled
     }
 
     init(settings: SettingsStore, events: EventCenter, screen: NSScreen) {

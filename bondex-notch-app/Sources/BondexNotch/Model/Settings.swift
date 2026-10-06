@@ -47,6 +47,11 @@ struct Preferences: Codable, Equatable {
     var shelfEnabled = true
     /// Show a mark beside the notch while Claude Code or Codex is working.
     var agentActivityEnabled = true
+    /// A macOS notification when an agent has been waiting on you, unanswered,
+    /// for a little while.
+    var notifyWhenAgentNeedsYou = true
+    /// A macOS notification when a long agent run finishes.
+    var notifyWhenAgentRunFinishes = true
     /// The Agents tab: plan limits, spend and trends read from local agent logs.
     var agentUsageEnabled = true
     var agentUsageRange: UsageRange = .today

@@ -293,6 +293,22 @@ enum PreviewRenderer {
         environment.notch.expand()
         if !render(environment, named: "expanded-home-agents", into: directory) { failures += 1 }
 
+        // One agent stopped at a permission prompt while another works: the
+        // waiting one leads, amber, with "Needs you" in place of its clock.
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Approve: Running swift test",
+                needsAttention: true
+            ),
+            AgentActivity(kind: .codex, startedAt: Date().addingTimeInterval(-52), status: "Running tests")
+        ])
+        if !render(environment, named: "expanded-home-attention", into: directory) { failures += 1 }
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agent-attention", into: directory) { failures += 1 }
+        environment.notch.expand()
+
         // Every mark Bondex ships, which is the only way to check the artwork:
         // the drawn marks are geometry, so a mistake in one is invisible until
         // it is rasterised, and no ordinary session has five agents running.

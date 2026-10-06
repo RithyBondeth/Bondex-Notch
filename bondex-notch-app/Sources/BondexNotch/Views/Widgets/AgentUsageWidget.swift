@@ -121,10 +121,12 @@ struct AgentUsageWidget: View {
             // A hook only says *which agent* is working, so it is credited to
             // that agent's most recent session, and only if that session wrote
             // to its log recently enough to plausibly be the one.
+            var waiting = false
             if !claimed.contains(kind),
                let agent = working.first(where: { $0.kind == kind }),
                now.timeIntervalSince(session.lastActivity) < 15 * 60 {
                 live = agent.status ?? "Working"
+                waiting = agent.needsAttention
                 claimed.insert(kind)
             }
             return SessionsCard.Row(
@@ -133,7 +135,8 @@ struct AgentUsageWidget: View {
                 project: session.project,
                 model: session.model.map(AgentModelName.display),
                 lastActivity: session.lastActivity,
-                liveStatus: live
+                liveStatus: live,
+                needsAttention: waiting
             )
         }
         rows += working
@@ -145,7 +148,8 @@ struct AgentUsageWidget: View {
                     project: nil,
                     model: nil,
                     lastActivity: nil,
-                    liveStatus: agent.status ?? "Working"
+                    liveStatus: agent.status ?? "Working",
+                    needsAttention: agent.needsAttention
                 )
             }
 
@@ -536,6 +540,8 @@ private struct SessionsCard: View {
         let lastActivity: Date?
         /// What a hook says the agent is doing right now, if it is working.
         let liveStatus: String?
+        /// The agent is stopped, waiting on the user.
+        var needsAttention = false
     }
 
     let rows: [Row]
@@ -589,7 +595,7 @@ private struct SessionRow: View {
                 if row.liveStatus != nil {
                     // The same mark the peek shows, spinning while the agent
                     // works, so a running session reads as running here too.
-                    AgentOrb(kind: row.kind, size: 20)
+                    AgentOrb(kind: row.kind, size: 20, needsAttention: row.needsAttention)
                 } else {
                     PixelMark(kind: row.kind)
                         .frame(width: 13, height: 13)
@@ -606,7 +612,7 @@ private struct SessionRow: View {
                 if let status = row.liveStatus {
                     Text(status)
                         .font(.system(size: Theme.TextSize.footnote, weight: .medium))
-                        .foregroundStyle(row.kind.tint)
+                        .foregroundStyle(row.needsAttention ? Theme.attention : row.kind.tint)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 } else if let model = row.model {
@@ -620,7 +626,10 @@ private struct SessionRow: View {
             Spacer(minLength: 4)
 
             Group {
-                if row.liveStatus != nil {
+                if row.needsAttention {
+                    Text("Needs you")
+                        .foregroundStyle(Theme.attention)
+                } else if row.liveStatus != nil {
                     Text(row.model ?? "Working")
                 } else if let last = row.lastActivity {
                     Text(last.shortRelativeString(from: now))

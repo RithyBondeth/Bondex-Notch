@@ -75,6 +75,10 @@ enum Theme {
         )
     }
     static let primaryText = Color.white
+    /// An agent waiting on you. Amber: urgent enough to catch the eye beside
+    /// the menu bar, without the alarm of red, and distinct from every agent's
+    /// own tint.
+    static let attention = Color(red: 1.0, green: 0.72, blue: 0.22)
     static var secondaryText: Color {
         Color.white.opacity(
             NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 0.86 : 0.68

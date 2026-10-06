@@ -116,9 +116,12 @@ struct AgentKind: Hashable, Identifiable, Sendable {
     var hookConfigHint: String? {
         switch id {
         case Self.claude.id:
-            return "~/.claude/settings.json → hooks.PreToolUse / hooks.Stop"
+            return """
+            ~/.claude/settings.json → hooks.UserPromptSubmit / PreToolUse / \
+            Notification / PermissionRequest / Stop
+            """
         case Self.codex.id:
-            return "~/.codex/hooks.json → hooks.PreToolUse / hooks.Stop"
+            return "~/.codex/hooks.json → hooks.PreToolUse / hooks.Stop / hooks.SessionEnd"
         case Self.gemini.id:
             return "~/.gemini/settings.json → hooks.BeforeTool / hooks.AfterAgent"
         default:
@@ -137,6 +140,9 @@ struct AgentActivity: Identifiable, Equatable {
     /// True when a lifecycle hook reported real work. False means Bondex only
     /// knows that the process is open, which must not be presented as thinking.
     var isHookReported = true
+    /// Stopped and waiting on the user: a permission prompt, a question, a plan
+    /// to approve. `status` then says what it is waiting for.
+    var needsAttention = false
 
     var id: String { kind.id }
 
@@ -177,7 +183,21 @@ final class AgentActivityService: ObservableObject {
     /// removes the file the moment a turn ends, so this only matters when an
     /// agent is killed mid-run. Too short and a long single tool call — a test
     /// suite, a build — would blink the indicator out halfway through.
-    static let staleAfter: TimeInterval = 90
+    nonisolated static let staleAfter: TimeInterval = 90
+
+    /// The backstop for an agent waiting on the user.
+    ///
+    /// Much longer, because waiting is exactly when no heartbeat arrives: the
+    /// agent is blocked until someone answers. Held to the ordinary 90 seconds,
+    /// "needs you" would vanish from the notch after a minute and a half of
+    /// being ignored — the moment it matters most. Still finite, so an agent
+    /// killed at a prompt does not haunt the notch forever.
+    nonisolated static let attentionStaleAfter: TimeInterval = 30 * 60
+
+    /// Called when an agent starts waiting on the user, once per wait.
+    var onNeedsAttention: ((AgentActivity) -> Void)?
+    /// Called when a run ends, with how long it took.
+    var onFinished: ((AgentKind, TimeInterval) -> Void)?
 
     /// Where an agent declares itself busy.
     ///
@@ -198,6 +218,8 @@ final class AgentActivityService: ObservableObject {
     private var presentAgents: Set<AgentKind> = []
     private var presenceStartedAt: [AgentKind: Date] = [:]
     private var workingStartedAt: [AgentKind: Date] = [:]
+    /// Agents already reported as waiting, so each wait is announced once.
+    private var waitingAgents: Set<AgentKind> = []
 
     init(events: EventCenter) {
         self.events = events
@@ -242,6 +264,7 @@ final class AgentActivityService: ObservableObject {
         presentAgents.removeAll()
         presenceStartedAt.removeAll()
         workingStartedAt.removeAll()
+        waitingAgents.removeAll()
         active = []
     }
 
@@ -281,7 +304,7 @@ final class AgentActivityService: ObservableObject {
 
         for kind in Self.signalledAgents() {
             guard let signal = Self.readSignal(for: kind),
-                  now.timeIntervalSince(signal.date) < Self.staleAfter
+                  Self.isFresh(signal, at: now)
             else { continue }
 
             // The *file's* date is a heartbeat that moves on every tool call, so
@@ -289,7 +312,12 @@ final class AgentActivityService: ObservableObject {
             // clock in the peek would reset itself every few seconds.
             let started = workingStartedAt[kind] ?? signal.date
             workingStartedAt[kind] = started
-            fresh.append(AgentActivity(kind: kind, startedAt: started, status: signal.status))
+            fresh.append(AgentActivity(
+                kind: kind,
+                startedAt: started,
+                status: signal.status,
+                needsAttention: signal.needsAttention
+            ))
         }
 
         // Anything that was working and is no longer reporting has finished.
@@ -316,11 +344,41 @@ final class AgentActivityService: ObservableObject {
             presenceStartedAt.removeValue(forKey: kind)
         }
 
-        // Most recently started first, so the agent you just set going is the one
-        // nearest the notch.
-        fresh.sort { $0.startedAt > $1.startedAt }
+        // An agent waiting on you first; then most recently started, so the
+        // agent you just set going is the one nearest the notch.
+        fresh.sort {
+            if $0.needsAttention != $1.needsAttention { return $0.needsAttention }
+            return $0.startedAt > $1.startedAt
+        }
+        announceNewWaits(in: fresh)
         if fresh != active { active = fresh }
         scheduleExpiry()
+    }
+
+    /// Whether a signal still describes a live agent.
+    nonisolated static func isFresh(
+        _ signal: (date: Date, status: String?, needsAttention: Bool),
+        at now: Date
+    ) -> Bool {
+        now.timeIntervalSince(signal.date)
+            < (signal.needsAttention ? attentionStaleAfter : staleAfter)
+    }
+
+    private func announceNewWaits(in activities: [AgentActivity]) {
+        let waiting = Set(activities.filter(\.needsAttention).map(\.kind))
+        for activity in activities
+        where activity.needsAttention && !waitingAgents.contains(activity.kind) {
+            // Into the feed, so a wait you missed leaves a trace; not as a
+            // banner, because the peek is already showing it.
+            events.post(NotchEvent(
+                kind: .agent,
+                title: "\(activity.kind.displayName) needs you",
+                subtitle: activity.status,
+                agent: activity.kind
+            ))
+            onNeedsAttention?(activity)
+        }
+        waitingAgents = waiting
     }
 
     /// Every agent with a signal file present.
@@ -353,6 +411,7 @@ final class AgentActivityService: ObservableObject {
     private func finish(_ kind: AgentKind) {
         guard let started = workingStartedAt.removeValue(forKey: kind) else { return }
         let elapsed = Date().timeIntervalSince(started)
+        onFinished?(kind, elapsed)
         // Anything this short is not a piece of work worth a line in the feed.
         guard elapsed >= 20 else { return }
         events.post(NotchEvent(
@@ -368,18 +427,24 @@ final class AgentActivityService: ObservableObject {
     nonisolated static func readSignal(
         for kind: AgentKind,
         fileManager: FileManager = .default
-    ) -> (date: Date, status: String?)? {
+    ) -> (date: Date, status: String?, needsAttention: Bool)? {
         let url = signalDirectory.appendingPathComponent(kind.id)
         guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
               let date = values.contentModificationDate
         else { return nil }
 
-        let status = (try? String(contentsOf: url, encoding: .utf8))?
-            .split(separator: "\n").first
+        // Line one is the status. A second line of exactly `attention` marks a
+        // wait; files written before this existed have no second line and read
+        // as ordinary work.
+        let lines = ((try? String(contentsOf: url, encoding: .utf8)) ?? "")
+            .split(separator: "\n", omittingEmptySubsequences: false)
             .map { $0.trimmingCharacters(in: .whitespaces) }
-            .flatMap { $0.isEmpty ? nil : String($0.prefix(60)) }
-        return (date, status)
+        let status = lines.first.flatMap { $0.isEmpty ? nil : String($0.prefix(60)) }
+        let needsAttention = lines.count > 1 && lines[1] == attentionMarker
+        return (date, status, needsAttention)
     }
+
+    private nonisolated static let attentionMarker = "attention"
 
     // MARK: Writing (the CLI side)
 
@@ -389,9 +454,25 @@ final class AgentActivityService: ObservableObject {
             at: signalDirectory, withIntermediateDirectories: true
         )
         let url = signalDirectory.appendingPathComponent(kind.id)
-        try (status ?? "").write(to: url, atomically: true, encoding: .utf8)
+        // One line only: the second line is where a wait is marked, and only
+        // the first is ever shown anyway.
+        let firstLine = status?.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
+        try firstLine.write(to: url, atomically: true, encoding: .utf8)
         // An atomic write replaces the file, so its modification date is now —
         // which is exactly the heartbeat the watcher reads.
+    }
+
+    /// Marks an agent as waiting on the user. Called by `--agent-attention`,
+    /// and by `--agent-hook` for a permission prompt or a question. The next
+    /// busy or idle signal replaces it.
+    nonisolated static func markNeedsAttention(_ kind: AgentKind, message: String?) throws {
+        try FileManager.default.createDirectory(
+            at: signalDirectory, withIntermediateDirectories: true
+        )
+        let url = signalDirectory.appendingPathComponent(kind.id)
+        let firstLine = (message ?? "Needs you")
+            .split(whereSeparator: \.isNewline).first.map(String.init) ?? "Needs you"
+        try "\(firstLine)\n\(attentionMarker)".write(to: url, atomically: true, encoding: .utf8)
     }
 
     /// Marks an agent idle. Called by `--agent-idle`, from a `Stop` hook.

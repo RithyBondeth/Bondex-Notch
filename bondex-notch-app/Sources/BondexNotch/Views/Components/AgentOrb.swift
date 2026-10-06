@@ -23,6 +23,9 @@ struct AgentOrb: View {
     /// Ring off, glyph still: used where the mark is a label rather than a
     /// report of live work.
     var isAnimating = true
+    /// Waiting on the user: a whole amber ring, pulsing, and no sweep — the
+    /// agent is not working, it is blocked until you answer.
+    var needsAttention = false
 
     @Environment(\.isRenderingOffscreen) private var isRenderingOffscreen
 
@@ -31,11 +34,16 @@ struct AgentOrb: View {
             // `ImageRenderer` cannot rasterise an `NSViewRepresentable`, so the
             // preview tool gets a still of the same composition.
             ZStack {
-                Circle().stroke(kind.tint.opacity(0.28), lineWidth: 1.5)
-                Circle()
-                    .trim(from: 0, to: 0.3)
-                    .stroke(kind.tint, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
+                Circle().stroke(
+                    needsAttention ? Theme.attention : kind.tint.opacity(0.28),
+                    lineWidth: 1.5
+                )
+                if !needsAttention {
+                    Circle()
+                        .trim(from: 0, to: 0.3)
+                        .stroke(kind.tint, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
                 PixelMark(kind: kind)
                     .frame(width: size * 0.62)
             }
@@ -44,8 +52,8 @@ struct AgentOrb: View {
             AgentOrbLayers(
                 kind: kind,
                 size: size,
-                isAnimating: isAnimating
-                    && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                mode: needsAttention ? .attention : (isAnimating ? .working : .still),
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             )
                 .frame(width: size, height: size)
         }
@@ -81,14 +89,15 @@ private struct AgentMarkShape: Shape {
 private struct AgentOrbLayers: NSViewRepresentable {
     var kind: AgentKind
     var size: CGFloat
-    var isAnimating: Bool
+    var mode: AgentOrbView.Mode
+    var reduceMotion: Bool
 
     func makeNSView(context: Context) -> AgentOrbView {
         AgentOrbView(kind: kind, size: size)
     }
 
     func updateNSView(_ view: AgentOrbView, context: Context) {
-        view.update(kind: kind, isAnimating: isAnimating)
+        view.update(kind: kind, mode: mode, reduceMotion: reduceMotion)
     }
 
     func sizeThatFits(
@@ -102,13 +111,23 @@ private struct AgentOrbLayers: NSViewRepresentable {
 
 final class AgentOrbView: NSView {
 
+    enum Mode: Equatable {
+        /// A label: ring and glyph at rest.
+        case still
+        /// Live work: the sweep turns and the glyph breathes.
+        case working
+        /// Waiting on the user: a full amber ring that pulses, glyph at rest.
+        case attention
+    }
+
     private let track = CAShapeLayer()
     private let sweep = CAShapeLayer()
     private let glyph = CAShapeLayer()
 
     private var kind: AgentKind
     private let size: CGFloat
-    private var isAnimating = false
+    private var mode: Mode = .still
+    private var reduceMotion = false
 
     init(kind: AgentKind, size: CGFloat) {
         self.kind = kind
@@ -172,27 +191,60 @@ final class AgentOrbView: NSView {
         CATransaction.commit()
     }
 
-    func update(kind newKind: AgentKind, isAnimating animating: Bool) {
-        if newKind != kind {
+    func update(kind newKind: AgentKind, mode newMode: Mode, reduceMotion newReduceMotion: Bool) {
+        let kindChanged = newKind != kind
+        if kindChanged {
             kind = newKind
-            applyTint()
             applyGlyph()
         }
-        guard animating != isAnimating else { return }
-        isAnimating = animating
-        animating ? start() : stop()
+        guard kindChanged || newMode != mode || newReduceMotion != reduceMotion else { return }
+        let previous = mode
+        mode = newMode
+        reduceMotion = newReduceMotion
+        applyTint()
+        if previous != .still { stop() }
+        switch mode {
+        case .still: break
+        case .working: if !reduceMotion { start() }
+        case .attention: startAttention()
+        }
     }
 
     private func applyTint() {
         let tint = NSColor(kind.tint)
+        let attention = NSColor(Theme.attention)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        track.strokeColor = tint.withAlphaComponent(0.22).cgColor
-        sweep.strokeColor = tint.cgColor
-        // Only part of the circle is stroked; rotating that is the sweep.
-        sweep.strokeStart = 0
-        sweep.strokeEnd = 0.28
+        if mode == .attention {
+            track.strokeColor = attention.withAlphaComponent(0.3).cgColor
+            sweep.strokeColor = attention.cgColor
+            // The whole ring, so it reads as a closed circle — a stop — rather
+            // than as the working sweep frozen mid-turn.
+            sweep.strokeStart = 0
+            sweep.strokeEnd = 1
+        } else {
+            track.strokeColor = tint.withAlphaComponent(0.22).cgColor
+            sweep.strokeColor = tint.cgColor
+            // Only part of the circle is stroked; rotating that is the sweep.
+            sweep.strokeStart = 0
+            sweep.strokeEnd = 0.28
+        }
         CATransaction.commit()
+    }
+
+    /// A slow pulse of the amber ring. Core Animation, like the sweep, so a
+    /// prompt left waiting for half an hour costs the app nothing per frame.
+    /// With Reduce Motion the ring simply stays lit.
+    private func startAttention() {
+        guard !reduceMotion else { return }
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1
+        pulse.toValue = 0.35
+        pulse.duration = 0.85
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        sweep.add(pulse, forKey: "pulse")
     }
 
     /// Every mark is a path now, including the ones that are drawn as lines —
@@ -266,6 +318,10 @@ final class AgentOrbView: NSView {
 
     private func stop() {
         sweep.removeAnimation(forKey: "spin")
+        sweep.removeAnimation(forKey: "pulse")
+        // A spin removed mid-turn leaves the model at rest, so the sweep starts
+        // from the top again next time rather than wherever it stopped.
+        sweep.setValue(0, forKeyPath: "transform.rotation.z")
         glyph.removeAnimation(forKey: "breath")
         // Settle back to rest rather than freezing mid-breath at whatever scale
         // the loop happened to have reached.

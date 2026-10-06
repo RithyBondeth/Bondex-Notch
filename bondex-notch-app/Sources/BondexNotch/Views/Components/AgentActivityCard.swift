@@ -71,7 +71,12 @@ struct AgentActivityCard: View {
         HStack(spacing: 10) {
             // The same mark the peek was showing a moment ago, spinning only
             // while a hook reports real work.
-            AgentOrb(kind: agent.kind, size: 26, isAnimating: agent.isHookReported)
+            AgentOrb(
+                kind: agent.kind,
+                size: 26,
+                isAnimating: agent.isHookReported,
+                needsAttention: agent.needsAttention
+            )
 
             VStack(alignment: .leading, spacing: 1) {
                 let session = session(for: agent)
@@ -103,9 +108,12 @@ struct AgentActivityCard: View {
                 // What it is doing, when the agent bothered to say. This is the
                 // part no heuristic could ever have recovered, and it is the
                 // reason the signal file carries a payload at all.
-                Text(agent.status ?? "Working")
-                    .font(.system(size: Theme.TextSize.footnote))
-                    .foregroundStyle(Theme.secondaryText)
+                Text(agent.status ?? (agent.needsAttention ? "Waiting for you" : "Working"))
+                    .font(.system(
+                        size: Theme.TextSize.footnote,
+                        weight: agent.needsAttention ? .medium : .regular
+                    ))
+                    .foregroundStyle(agent.needsAttention ? Theme.attention : Theme.secondaryText)
                     .lineLimit(1)
                     // Middle, not tail: "Editing PeekView.swift" cut at the tail
                     // becomes "Editing…", which drops the only word worth
@@ -120,11 +128,22 @@ struct AgentActivityCard: View {
             // you whether to go and look. One tick a second — the panel is only
             // on screen while you are looking at it, and a seconds clock gains
             // nothing from finer steps.
-            TimelineView(.periodic(from: .now, by: 1)) { timeline in
-                Text(agent.elapsed(at: timeline.date).clockString)
-                    .font(.system(size: Theme.TextSize.body, weight: .medium).monospacedDigit())
-                    .foregroundStyle(agent.kind.tint)
+            if agent.needsAttention {
+                Text("Needs you")
+                    .font(.system(size: Theme.TextSize.caption, weight: .semibold))
+                    .foregroundStyle(Theme.attention)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2.5)
+                    .background(Capsule().fill(Theme.attention.opacity(0.14)))
+                    .overlay(Capsule().strokeBorder(Theme.attention.opacity(0.3), lineWidth: 0.7))
                     .fixedSize()
+            } else {
+                TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                    Text(agent.elapsed(at: timeline.date).clockString)
+                        .font(.system(size: Theme.TextSize.body, weight: .medium).monospacedDigit())
+                        .foregroundStyle(agent.kind.tint)
+                        .fixedSize()
+                }
             }
         }
     }
