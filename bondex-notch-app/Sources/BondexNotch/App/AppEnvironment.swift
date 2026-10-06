@@ -29,6 +29,7 @@ final class AppEnvironment: ObservableObject {
     let agentUsage: AgentUsageService
     let liveActivities: LiveActivityService
     let notifications: NotificationService
+    let updates: UpdateService
     let notch: NotchViewModel
 
     /// Installed by the window controller so a global shortcut can make the
@@ -67,6 +68,7 @@ final class AppEnvironment: ObservableObject {
         self.agentUsage = AgentUsageService()
         self.liveActivities = LiveActivityService(events: events)
         self.notifications = NotificationService(events: events)
+        self.updates = UpdateService()
         self.notch = NotchViewModel(settings: settings, events: events, screen: screen)
 
         wire()
@@ -237,6 +239,9 @@ final class AppEnvironment: ObservableObject {
     func start() {
         notifications.start()
         smartProfiles.start()
+        // Inert unless this is a release build that carries a feed and a key;
+        // even then it checks nothing until the person has agreed to it.
+        updates.start()
         applyWidgetActivation(settings.preferences)
     }
 

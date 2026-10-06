@@ -3,7 +3,7 @@
 A native macOS utility that turns the display notch into a live view of what
 your Mac is doing — music, downloads, system status, and a drag-and-drop shelf.
 
-Swift 6 · SwiftUI · AppKit · no third-party dependencies.
+Swift 6 · SwiftUI · AppKit · one dependency, [Sparkle](https://sparkle-project.org), for updates.
 
 ## Build and run
 
@@ -44,6 +44,64 @@ For a faster build targeting only the current Mac during development:
 `swift build` alone produces a working executable, but run it from the bundle —
 several system frameworks (notably `UNUserNotificationCenter`) need a real
 bundle identifier.
+
+## Releases and updates
+
+Copies downloaded from a release update themselves through Sparkle. Each
+release carries an `appcast.xml` beside its DMG, and installed copies ask for
+`releases/latest/download/appcast.xml`, which GitHub redirects to the newest
+one — so publishing a release is what offers the update, and nothing else is
+hosted. Checking is opt-in: Sparkle asks on the second launch, and Settings ›
+General can change the answer, check now, or show when it last checked. A
+check is one request for the appcast; Sparkle's system profile is off. An
+update found in the background waits in the menu bar menu rather than opening
+a window over your work.
+
+Every download is verified against the EdDSA public key built into the app,
+and the appcast itself is signed (`SURequireSignedFeed`), so neither can be
+swapped. That is also why no Apple Developer ID is needed. Only a DMG build
+carries the feed: `build-app.sh` on its own, debug or release, produces a copy
+that never replaces itself.
+
+Once, on the Mac that publishes releases:
+
+```bash
+./scripts/setup-release-signing.sh
+```
+
+It creates two keys, and every later release must use both — back them up as
+it says:
+
+- **"Bondex Notch Local Signing"**, a self-signed code-signing certificate.
+  macOS remembers permission grants against the signing identity. An ad-hoc
+  signature is a hash of one build, so every rebuild and every update had to be
+  granted Automation, Downloads and clipboard access again; a certificate stays
+  the same. `build-app.sh` uses it whenever it is in the keychain, so
+  development builds keep their grants too.
+- **Sparkle's update key**. The private half stays in the keychain; the public
+  half goes in `Resources/SparklePublicKey.txt`, which is committed.
+
+Then, from an up-to-date `main`:
+
+```bash
+./scripts/release.sh 1.1.0 --notes notes.md
+```
+
+It refuses to run on a dirty tree, an existing or older version, failing
+tests, an ad-hoc signature, or a keychain key that doesn't match the committed
+one. Then it builds the universal DMG into `build/release/` (never touching
+`build/Bondex Notch.app`), signs it and the appcast, tags `v1.1.0` and creates
+the GitHub release. `--dry-run` does everything but the tag and the release.
+
+The certificate is not an Apple Developer ID, so a first install still needs
+**Open Anyway** in Privacy & Security. With a Developer ID, set
+`SIGN_IDENTITY="Developer ID Application: …"` and a `notarytool
+store-credentials` profile in `NOTARY_PROFILE`. The app is then signed with the
+hardened runtime and `Resources/BondexNotch.entitlements` (Apple Events and the
+calendar, which the hardened runtime otherwise blocks), and the DMG is
+notarized and stapled. Installed copies take that update as usual — the update
+key is unchanged — and ask for their permissions once more, since the signing
+identity changed.
 
 ## Architecture
 
@@ -631,8 +689,10 @@ All five are optional and requested only when the relevant widget is enabled.
 | Calendar | Upcoming meetings and meeting profile rules | enabling Upcoming meetings |
 | Paste from Other Apps (macOS 15.4+) | Clipboard history | the welcome, or Allow in the Clipboard tab |
 
-Ad-hoc signatures change on every rebuild, so macOS treats each build as a new
-app and re-prompts. Sign with a stable Developer ID identity to keep grants.
+Grants are tied to the signing identity. An ad-hoc signature changes on every
+build, so macOS treats each one as a new app and asks again; with the identity
+from `scripts/setup-release-signing.sh` they carry across rebuilds and updates
+(see *Releases and updates*).
 
 ## License
 

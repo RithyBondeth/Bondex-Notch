@@ -281,11 +281,64 @@ private struct GeneralSettings: View {
     @ObservedObject var environment: AppEnvironment
     @ObservedObject var settings: SettingsStore
     @ObservedObject private var hotKeys: GlobalHotKeyService
+    @ObservedObject private var updates: UpdateService
 
     init(environment: AppEnvironment, settings: SettingsStore) {
         self.environment = environment
         self.settings = settings
         self.hotKeys = environment.globalHotKey
+        self.updates = environment.updates
+    }
+
+    private var versionText: String {
+        // A bare `swift build` binary has no Info.plist, so no version to show.
+        guard let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else {
+            return "Bondex Notch"
+        }
+        return "Bondex Notch \(version)"
+    }
+
+    private var lastCheckText: String {
+        guard let date = updates.lastCheck else { return "\(versionText) · not checked yet" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return "\(versionText) · checked \(formatter.localizedString(for: date, relativeTo: Date()))"
+    }
+
+    private var updatesSection: some View {
+        Section("Updates") {
+            if updates.isConfigured {
+                Toggle(
+                    "Check for updates automatically",
+                    isOn: Binding(
+                        get: { updates.automaticallyChecks },
+                        set: { updates.setAutomaticallyChecks($0) }
+                    )
+                )
+                HStack {
+                    Text(lastCheckText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button(updates.waitingVersion.map { "Update to \($0)…" } ?? "Check Now") {
+                        updates.checkNow()
+                    }
+                    .disabled(!updates.canCheck)
+                }
+                Text("""
+                Asks GitHub for the latest release about once a day. Nothing \
+                about this Mac is sent, and every download is checked against \
+                the key built into the app before it is installed.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("\(versionText). This copy was built from source, so it does not update itself.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func shortcutRow(
@@ -364,6 +417,8 @@ private struct GeneralSettings: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            updatesSection
 
             Section("Feedback & support") {
                 HStack {

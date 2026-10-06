@@ -8,6 +8,16 @@
 #
 # Usage:
 #   ./scripts/build-app.sh [debug|release] [--universal]
+#
+# Environment:
+#   BUILD_DIR        where the bundle goes (default: build/)
+#   BONDEX_VERSION   version to stamp (default: the latest v* tag)
+#   BONDEX_UPDATES=1 build an updatable copy: adds Sparkle's feed and key.
+#                    build-dmg.sh sets it; a developer's own build never
+#                    updates itself.
+#   SIGN_IDENTITY    codesign identity (default: "Bondex Notch Local Signing"
+#                    when it is in the keychain, otherwise ad-hoc)
+#   SIGN_KEYCHAIN    keychain to find it in (default: the search list), for CI
 
 set -euo pipefail
 
@@ -38,7 +48,10 @@ fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Bondex Notch"
-BUNDLE="$ROOT/build/$APP_NAME.app"
+BUILD_DIR="${BUILD_DIR:-$ROOT/build}"
+BUNDLE="$BUILD_DIR/$APP_NAME.app"
+LOCAL_IDENTITY="Bondex Notch Local Signing"
+FEED_URL="https://github.com/RithyBondeth/Bondex-Notch/releases/latest/download/appcast.xml"
 
 cd "$ROOT"
 
@@ -58,10 +71,40 @@ fi
 
 echo "==> Assembling $APP_NAME.app"
 rm -rf "$BUNDLE"
-mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
+mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources" "$BUNDLE/Contents/Frameworks"
 
 cp "$EXECUTABLE" "$BUNDLE/Contents/MacOS/BondexNotch"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
+
+# Sparkle, found through the @executable_path/../Frameworks run path set in
+# Package.swift. Its XPC services exist for sandboxed apps; this one is not
+# sandboxed, so they would only be more code to sign.
+ditto "$BIN_PATH/Sparkle.framework" "$BUNDLE/Contents/Frameworks/Sparkle.framework"
+rm -rf "$BUNDLE/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices" \
+  "$BUNDLE/Contents/Frameworks/Sparkle.framework/XPCServices"
+
+PLIST="$BUNDLE/Contents/Info.plist"
+VERSION="${BONDEX_VERSION:-}"
+if [[ -z "$VERSION" ]]; then
+  VERSION="$(git -C "$ROOT" describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//' || true)"
+fi
+if [[ -n "$VERSION" ]]; then
+  # Sparkle compares CFBundleVersion, so both carry the release number.
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$PLIST"
+fi
+
+if [[ "${BONDEX_UPDATES:-}" == "1" ]]; then
+  PUBLIC_KEY="$(tr -d '[:space:]' < "$ROOT/Resources/SparklePublicKey.txt" 2>/dev/null || true)"
+  if [[ -z "$PUBLIC_KEY" ]]; then
+    echo "error: Resources/SparklePublicKey.txt is missing; run scripts/setup-release-signing.sh" >&2
+    exit 1
+  fi
+  /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $FEED_URL" "$PLIST"
+  /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $PUBLIC_KEY" "$PLIST"
+  # The appcast is signed with the same key, so a tampered feed is refused.
+  /usr/libexec/PlistBuddy -c "Add :SURequireSignedFeed bool true" "$PLIST"
+fi
 cp "$ROOT/Resources/AppIcon.icns" "$BUNDLE/Contents/Resources/AppIcon.icns"
 cp -R "$ROOT/Resources/PreviewAssets" "$BUNDLE/Contents/Resources/PreviewAssets"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
@@ -118,12 +161,48 @@ if [[ ! -f "$BUNDLE/Contents/Resources/Metadata.appintents/extract.actionsdata" 
   exit 1
 fi
 
-# Ad-hoc signature. Enough for local runs and for TCC to remember grants for
-# this build; replace with a Developer ID identity before distributing, or the
-# grants reset on every rebuild.
-echo "==> Signing (ad-hoc)"
-codesign --force --sign - --timestamp=none "$BUNDLE" >/dev/null 2>&1 || {
-  echo "warning: ad-hoc signing failed; the app will still run locally" >&2
+# macOS remembers permission grants against the signature's identity. An
+# ad-hoc signature is a hash of this exact build, so every rebuild — and every
+# release — looked like a different app and had to be granted Automation,
+# Downloads and clipboard access again. A certificate, even a self-signed one
+# from scripts/setup-release-signing.sh, stays the same across builds.
+IDENTITY="${SIGN_IDENTITY:-}"
+if [[ -z "$IDENTITY" ]] && security find-identity -p codesigning ${SIGN_KEYCHAIN:+"$SIGN_KEYCHAIN"} 2>/dev/null \
+    | grep -qF "\"$LOCAL_IDENTITY\""; then
+  IDENTITY="$LOCAL_IDENTITY"
+fi
+IDENTITY="${IDENTITY:--}"
+
+SIGN_ARGS=(--force --sign "$IDENTITY")
+if [[ -n "${SIGN_KEYCHAIN:-}" ]]; then
+  SIGN_ARGS+=(--keychain "$SIGN_KEYCHAIN")
+fi
+APP_SIGN_ARGS=()
+if [[ "$IDENTITY" == "Developer ID Application:"* ]]; then
+  # Notarization requires the hardened runtime and a secure timestamp.
+  SIGN_ARGS+=(--options runtime --timestamp)
+  APP_SIGN_ARGS=(--entitlements "$ROOT/Resources/BondexNotch.entitlements")
+else
+  SIGN_ARGS+=(--timestamp=none)
+fi
+
+echo "==> Signing (${IDENTITY/#-/ad-hoc})"
+sign() {
+  if ! codesign "$@" >/dev/null 2>&1; then
+    if [[ "$IDENTITY" == "-" ]]; then
+      echo "warning: ad-hoc signing failed for ${*: -1}; the app will still run locally" >&2
+    else
+      echo "error: signing with \"$IDENTITY\" failed for ${*: -1}" >&2
+      codesign "$@" || true
+      exit 1
+    fi
+  fi
 }
+# Inside out: a bundle's signature covers the code nested in it.
+FRAMEWORK="$BUNDLE/Contents/Frameworks/Sparkle.framework"
+sign "${SIGN_ARGS[@]}" "$FRAMEWORK/Versions/B/Autoupdate"
+sign "${SIGN_ARGS[@]}" "$FRAMEWORK/Versions/B/Updater.app"
+sign "${SIGN_ARGS[@]}" "$FRAMEWORK"
+sign "${SIGN_ARGS[@]}" ${APP_SIGN_ARGS[@]+"${APP_SIGN_ARGS[@]}"} "$BUNDLE"
 
 echo "==> Built $BUNDLE"
