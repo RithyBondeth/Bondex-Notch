@@ -44,12 +44,7 @@ struct LiveActivityWidget: View {
                         activity: activity,
                         accent: settings.effectiveAccentColor
                     )
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 9)
-                    .background(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(Theme.surfaceElevated)
-                    )
+                    .notchRow()
                 }
             }
         }
@@ -78,12 +73,12 @@ private struct LiveActivityRow: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(activity.title)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.body, weight: .semibold))
                     .foregroundStyle(Theme.primaryText)
                     .lineLimit(1)
                 if let subtitle = activity.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9.5))
+                        .font(.system(size: Theme.TextSize.caption))
                         .foregroundStyle(Theme.secondaryText)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -94,11 +89,11 @@ private struct LiveActivityRow: View {
 
             if let trailingText {
                 Text(trailingText)
-                    .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold).monospacedDigit())
                     .foregroundStyle(accent)
             } else if let progress = activity.progress {
                 Text("\(Int(progress * 100))%")
-                    .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold).monospacedDigit())
                     .foregroundStyle(accent)
             }
         }

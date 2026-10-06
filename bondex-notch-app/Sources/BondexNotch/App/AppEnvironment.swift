@@ -70,6 +70,7 @@ final class AppEnvironment: ObservableObject {
         self.notch = NotchViewModel(settings: settings, events: events, screen: screen)
 
         wire()
+        notch.tabOrder = availableTabs
     }
 
     private func wire() {
@@ -212,11 +213,14 @@ final class AppEnvironment: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// A tab that was just switched off — directly, or by a profile that does
-    /// not include it — must not stay on screen with no chip selected.
+    /// Keeps the panel's idea of the tab strip current. A tab that was just
+    /// switched off — directly, or by a profile that does not include it — must
+    /// not stay on screen with no chip selected.
     private func repairSelectedTab() {
-        guard !availableTabs.contains(notch.tab) else { return }
-        notch.tab = availableTabs.first ?? .home
+        let tabs = availableTabs
+        notch.tabOrder = tabs
+        guard !tabs.contains(notch.tab) else { return }
+        notch.tab = tabs.first ?? .home
     }
 
     func start() {

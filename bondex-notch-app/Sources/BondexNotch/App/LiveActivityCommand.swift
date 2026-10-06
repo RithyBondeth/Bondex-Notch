@@ -93,6 +93,7 @@ enum LiveActivityCommand: Equatable {
                 try LiveActivityService.startActivity(
                     id: id, title: title, subtitle: subtitle, progress: progress
                 )
+                Self.warnIfLiveActivitiesAreOff()
             case .update(let id, let title, let subtitle, let progress):
                 try LiveActivityService.updateActivity(
                     id: id, title: title, subtitle: subtitle, progress: progress
@@ -105,6 +106,20 @@ enum LiveActivityCommand: Equatable {
             FileHandle.standardError.write(Data("bondex: \(error.localizedDescription)\n".utf8))
             return 1
         }
+    }
+
+    /// Live activities are off by default, and a script that starts one while
+    /// they are would otherwise succeed and show nothing, with no clue why.
+    /// Only said when no Smart Profile is in play, since a profile can switch
+    /// the Live tab on while the app runs.
+    private static func warnIfLiveActivitiesAreOff() {
+        let preferences = SettingsStore.storedPreferences()
+        guard preferences.smartProfileMode == .off,
+              !preferences.customLiveActivitiesEnabled else { return }
+        FileHandle.standardError.write(Data("""
+        bondex: live activities are turned off, so this will not appear yet.         Turn on "Custom live activities" in Settings › Widgets.
+
+        """.utf8))
     }
 
     private static func clean(_ value: String, limit: Int) -> String {

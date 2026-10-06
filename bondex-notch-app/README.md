@@ -115,9 +115,17 @@ getting it wrong is not obvious: the panel mask simply cuts the bottom off
 whatever overflowed, which reads as inconsistent padding rather than as clipping.
 Both directions were shipped and reported before this was measured instead —
 Home clipped its gauges once a media row appeared, and Music sat in dead space
-whenever the height was raised enough to fix Home. Tabs that scroll opt out with
-`NotchTab.widgetHeight`, because a panel that resized as feed items arrived and
-aged out would be worse than one that stays put.
+whenever the height was raised enough to fix Home. List tabs are measured too,
+up to a cap (`NotchTab.widgetHeight`) past which they scroll. They used to be
+held at exactly that height, which left two clipboard items floating in a
+list-sized gap; items arrive while the panel is closed, so a list rarely changes
+size while you are looking at it. The cap is applied by `HeightCap`, because a
+`.frame(maxHeight:)` grows to its maximum whenever it is offered more.
+
+Switching tabs slides the new widget in from the side of the strip it was picked
+from, and the selection pill slides between chips. Every label uses the five-step
+`Theme.TextSize` scale, list rows share `notchRow()`, and radii come from
+`Theme.Radius`, so widgets read as one surface rather than eleven.
 
 ### Agent activity
 
@@ -307,7 +315,9 @@ Appearance settings apply live and persist as part of the version-tolerant
 preferences blob. Users can choose a preset or custom accent, pure-black,
 gradient, or accent-tinted panel treatment, panel width, opacity, bottom-corner
 and top-flare geometry, rim and shadow strength, and animation speed. Widget
-settings also control which tabs exist and their left-to-right order. CPU,
+settings also control which tabs exist and their left-to-right order. New
+installs start with Home, Agents, Capture, Music, Clipboard and Shelf; System,
+Live, Files, Activity and Shortcuts are one toggle away. CPU,
 memory, battery, and network throughput live together in a dedicated System tab;
 an optional compact summary can also be shown on Home. The AppKit window always
 reserves the maximum footprint, so changing the width or shape does not resize
@@ -382,7 +392,8 @@ and every tile exposes its purpose to VoiceOver.
 ### Focus timer and meetings
 
 Home includes a restart-safe focus timer with start, pause, resume, and cancel
-controls. An active timer lives compactly beside the notch and is also available
+controls. Idle, it is a small chip at the foot of Home; a running session gets a
+card at the top. An active timer lives compactly beside the notch and is also available
 from the menu-bar menu. Scripts and Shortcuts can control the running app:
 
 ```bash
@@ -441,6 +452,9 @@ Bondex without an SDK:
 "/path/to/Bondex Notch.app/Contents/MacOS/BondexNotch" \
   --live-finish build --message "Build succeeded"
 ```
+
+Live activities are off by default: turn on "Custom live activities" in
+Settings › Widgets. `--live-start` says so on stderr while they are off.
 
 Progress is a number from `0` to `1`. IDs use letters, digits, `-`, and `_` and
 identify the activity across updates. Active items appear in the persistent

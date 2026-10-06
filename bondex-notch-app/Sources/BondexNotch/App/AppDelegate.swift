@@ -86,6 +86,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hosting = NSHostingController(rootView: view)
 
         let window = NSWindow(contentViewController: hosting)
+        // Settings is designed dark. `.preferredColorScheme` covers the SwiftUI
+        // views, but the AppKit pieces — text-field placeholders and caret,
+        // menus, focus rings — take the window's appearance, which otherwise
+        // follows a Light-mode system and draws them for a white window.
+        window.appearance = NSAppearance(named: .darkAqua)
         window.title = "Bondex Notch Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.titleVisibility = .hidden

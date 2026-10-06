@@ -36,7 +36,7 @@ struct QuickCaptureWidget: View {
             } else if let error = intelligence.errorMessage,
                       settings.preferences.appleIntelligenceCaptureEnabled {
                 Text(error)
-                    .font(.system(size: 8.5, weight: .medium))
+                    .font(.system(size: Theme.TextSize.micro, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -145,44 +145,41 @@ struct QuickCaptureWidget: View {
     private var inputField: some View {
         if isRenderingOffscreen {
             Text(mode == .capture ? "Capture a note or link…" : "Search captures")
-                .font(.system(size: 10))
+                .font(.system(size: Theme.TextSize.footnote))
                 .foregroundStyle(Theme.tertiaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else if mode == .capture {
-            TextField("Capture a note or link…", text: $service.draft)
+            TextField("", text: $service.draft)
                 .textFieldStyle(.plain)
-                .font(.system(size: 10.5))
+                .font(.system(size: Theme.TextSize.footnote))
+                .notchPlaceholder(
+                    "Capture a note or link…",
+                    isShown: service.draft.isEmpty,
+                    font: .system(size: Theme.TextSize.footnote)
+                )
                 .focused($focusedField, equals: .capture)
                 .onSubmit { saveDraft() }
                 .accessibilityLabel("Quick Capture text")
         } else {
-            TextField("Search captures", text: $query)
+            TextField("", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 10.5))
+                .font(.system(size: Theme.TextSize.footnote))
+                .notchPlaceholder(
+                    "Search captures",
+                    isShown: query.isEmpty,
+                    font: .system(size: Theme.TextSize.footnote)
+                )
                 .focused($focusedField, equals: .search)
                 .accessibilityLabel("Search Quick Captures")
         }
     }
 
     private var listHeader: some View {
-        HStack(spacing: 8) {
-            Text("\(filteredItems.count) capture\(filteredItems.count == 1 ? "" : "s")")
-                .font(.system(size: 9.5, weight: .semibold))
-                .foregroundStyle(Theme.tertiaryText)
-
-            Spacer()
-
+        NotchListHeader("\(filteredItems.count) capture\(filteredItems.count == 1 ? "" : "s")") {
             if mode == .capture {
-                Button("Search") { beginSearch() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(Theme.secondaryText)
+                NotchTextButton("Search") { beginSearch() }
             }
-
-            Button("Clear") { service.clear() }
-                .buttonStyle(.plain)
-                .font(.system(size: 9.5, weight: .medium))
-                .foregroundStyle(Theme.secondaryText)
+            NotchTextButton("Clear") { service.clear() }
         }
     }
 
@@ -193,12 +190,12 @@ struct QuickCaptureWidget: View {
                 .foregroundStyle(accent)
 
             Text(enhancement.title)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                 .lineLimit(1)
 
             if !enhancement.tags.isEmpty {
                 Text(enhancement.tags.map { "#" + $0 }.joined(separator: "  "))
-                    .font(.system(size: 8.5, weight: .medium))
+                    .font(.system(size: Theme.TextSize.micro, weight: .medium))
                     .foregroundStyle(Theme.tertiaryText)
                     .lineLimit(1)
             }
@@ -224,15 +221,15 @@ struct QuickCaptureWidget: View {
                         .font(.system(size: 10.5, weight: .semibold))
                         .foregroundStyle(accent)
                         .frame(width: 25, height: 25)
-                        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: Theme.Radius.control))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(item.title)
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                             .foregroundStyle(Theme.primaryText)
                             .lineLimit(1)
                         Text(item.detail)
-                            .font(.system(size: 9))
+                            .font(.system(size: Theme.TextSize.caption))
                             .foregroundStyle(Theme.tertiaryText)
                             .lineLimit(1)
                     }
@@ -259,12 +256,7 @@ struct QuickCaptureWidget: View {
             }
             .accessibilityLabel("Remove \(item.title)")
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Theme.surfaceElevated)
-        )
+        .notchRow()
         .contextMenu {
             Button("Copy") { service.copy(item) }
             if item.isLink, let url = URL(string: item.text) {

@@ -62,15 +62,8 @@ struct ActivityWidget: View {
 
     private var feed: some View {
         VStack(spacing: 6) {
-            HStack {
-                Text("Recent")
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundStyle(Theme.tertiaryText)
-                Spacer()
-                Button("Clear") { events.clear() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(Theme.secondaryText)
+            NotchListHeader("Recent") {
+                NotchTextButton("Clear") { events.clear() }
             }
 
             ScrollingStack(spacing: 5) {
@@ -88,12 +81,12 @@ struct ActivityWidget: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(event.title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: Theme.TextSize.body, weight: .medium))
                     .foregroundStyle(Theme.primaryText)
                     .lineLimit(1)
                 if let subtitle = event.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9.5))
+                        .font(.system(size: Theme.TextSize.caption))
                         .foregroundStyle(Theme.tertiaryText)
                         .lineLimit(1)
                 }
@@ -102,14 +95,9 @@ struct ActivityWidget: View {
             Spacer(minLength: 4)
 
             Text(event.date, style: .time)
-                .font(.system(size: 9).monospacedDigit())
+                .font(.system(size: Theme.TextSize.caption).monospacedDigit())
                 .foregroundStyle(Theme.tertiaryText)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Theme.surfaceElevated)
-        )
+        .notchRow()
     }
 }

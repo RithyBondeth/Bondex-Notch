@@ -57,6 +57,23 @@ struct NowPlaying: Equatable {
             && lhs.artworkURL == rhs.artworkURL
     }
 
+    /// True when `next` is this sample carried forward in time: the same track
+    /// in the same state, at a position the projection already predicts.
+    ///
+    /// Publishing such a sample changes nothing anyone can see — every view
+    /// that shows a position advances it from `sampledAt` — but it still
+    /// re-rendered every observer, the peek included, once a second for as
+    /// long as anything played.
+    func continues(as next: NowPlaying) -> Bool {
+        trackKey == next.trackKey
+            && isPlaying == next.isPlaying
+            && supportsTransport == next.supportsTransport
+            && abs(duration - next.duration) < 0.5
+            && artwork === next.artwork
+            && artworkURL == next.artworkURL
+            && abs(position(at: next.sampledAt) - next.position) < 1.5
+    }
+
     /// Identity of the *track*, ignoring transport position. Used to decide when
     /// to refetch artwork and when to announce a change.
     var trackKey: String {
@@ -229,6 +246,12 @@ final class NowPlayingService: ObservableObject {
             ))
         }
 
+        if let current = nowPlaying, current.continues(as: track) {
+            // Keep the earlier sample: it projects to the same position, and
+            // replacing it would redraw the whole panel for nothing.
+            fetchArtworkIfNeeded(for: current)
+            return
+        }
         nowPlaying = track
         fetchArtworkIfNeeded(for: track)
     }

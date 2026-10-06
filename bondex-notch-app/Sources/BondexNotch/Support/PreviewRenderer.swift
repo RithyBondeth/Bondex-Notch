@@ -112,6 +112,9 @@ enum PreviewRenderer {
 
         for tab in NotchTab.allCases {
             if tab == .live { environment.liveActivities.seedForPreview([liveSample]) }
+            // New installs start with a short tab list; switch each tab on for
+            // its own shot so the strip shows it selected, as it would be in use.
+            if !environment.settings.isTabEnabled(tab) { environment.toggleWidget(tab) }
             environment.notch.tab = tab
             environment.notch.expand()
             if !render(environment, named: "expanded-\(tab.rawValue)", into: directory) {

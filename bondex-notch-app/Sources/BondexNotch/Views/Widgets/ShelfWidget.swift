@@ -33,23 +33,11 @@ struct ShelfWidget: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Text("\(service.items.count) item\(service.items.count == 1 ? "" : "s")")
-                .font(.system(size: 9.5, weight: .semibold))
-                .foregroundStyle(Theme.tertiaryText)
-
+        NotchListHeader("\(service.items.count) item\(service.items.count == 1 ? "" : "s")") {
             if service.hasMissingItems {
-                Button("Prune missing") { service.pruneMissingItems() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(Color.orange)
+                NotchTextButton("Prune missing", tint: .orange) { service.pruneMissingItems() }
             }
-
-            Spacer()
-            Button("Clear") { service.clear() }
-                .buttonStyle(.plain)
-                .font(.system(size: 9.5, weight: .medium))
-                .foregroundStyle(Theme.secondaryText)
+            NotchTextButton("Clear") { service.clear() }
         }
     }
 
@@ -69,7 +57,7 @@ struct ShelfWidget: View {
                 .opacity(item.existsOnDisk ? 1.0 : 0.45)
 
             Text(item.name)
-                .font(.system(size: 9))
+                .font(.system(size: Theme.TextSize.caption))
                 .foregroundStyle(item.existsOnDisk ? Theme.secondaryText : Theme.tertiaryText)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -77,7 +65,7 @@ struct ShelfWidget: View {
 
             if !item.existsOnDisk {
                 Text("Missing")
-                    .font(.system(size: 7.5, weight: .bold))
+                    .font(.system(size: Theme.TextSize.micro, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
@@ -87,7 +75,7 @@ struct ShelfWidget: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 .fill(Theme.surfaceElevated)
         )
         .overlay(alignment: .topTrailing) {

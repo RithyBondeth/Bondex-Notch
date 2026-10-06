@@ -421,3 +421,100 @@ final class FocusTimerRegressionTests: XCTestCase {
         XCTAssertFalse(timer.snapshot.isActive)
     }
 }
+
+// MARK: - UI polish
+
+final class PlaybackPublishingTests: XCTestCase {
+
+    private func sample(
+        title: String = "Blinding Lights",
+        isPlaying: Bool = true,
+        position: TimeInterval,
+        at date: Date
+    ) -> NowPlaying {
+        NowPlaying(
+            source: .spotify,
+            title: title,
+            artist: "The Weeknd",
+            album: "After Hours",
+            isPlaying: isPlaying,
+            duration: 200,
+            position: position,
+            artwork: nil,
+            sampledAt: date
+        )
+    }
+
+    /// A poll a second later, a second further on, changes nothing anyone can
+    /// see, and must not redraw the panel.
+    func testPlaybackMovingOnIsNotANewSample() {
+        let start = Date()
+        let first = sample(position: 78, at: start)
+        let next = sample(position: 79.1, at: start.addingTimeInterval(1))
+        XCTAssertTrue(first.continues(as: next))
+    }
+
+    func testASeekIsANewSample() {
+        let start = Date()
+        let first = sample(position: 78, at: start)
+        XCTAssertFalse(first.continues(as: sample(position: 140, at: start.addingTimeInterval(1))))
+    }
+
+    func testPausingIsANewSample() {
+        let start = Date()
+        let first = sample(position: 78, at: start)
+        XCTAssertFalse(first.continues(
+            as: sample(isPlaying: false, position: 79, at: start.addingTimeInterval(1))
+        ))
+    }
+
+    func testAnotherTrackIsANewSample() {
+        let start = Date()
+        let first = sample(position: 78, at: start)
+        XCTAssertFalse(first.continues(
+            as: sample(title: "Save Your Tears", position: 0, at: start.addingTimeInterval(1))
+        ))
+    }
+}
+
+@MainActor
+final class TabPolishTests: XCTestCase {
+
+    /// New installs start with the everyday set; the rest are a toggle away.
+    func testNewInstallsStartWithTheEverydayTabs() throws {
+        let suite = "com.bondex.notch.tests.default-tabs.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = SettingsStore(defaults: defaults)
+
+        let enabled = store.orderedTabs.filter(store.isTabEnabled)
+        XCTAssertEqual(enabled, [.home, .agents, .capture, .music, .clipboard, .shelf])
+    }
+
+    /// Someone who already chose their tabs keeps them: stored values win over
+    /// the new defaults.
+    func testExistingChoicesSurviveTheNewDefaults() throws {
+        let stored = #"{"systemWidgetEnabled":true,"activityFeedEnabled":true}"#
+        let decoded = try XCTUnwrap(SettingsStore.decode(Data(stored.utf8)))
+        XCTAssertTrue(decoded.systemWidgetEnabled)
+        XCTAssertTrue(decoded.activityFeedEnabled)
+        XCTAssertFalse(decoded.fileActivityEnabled)
+    }
+
+    func testTabChangesKnowWhichWayTheyMove() throws {
+        let suite = "com.bondex.notch.tests.tab-direction.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let notch = NotchViewModel(
+            settings: SettingsStore(defaults: defaults),
+            events: EventCenter(),
+            screen: try XCTUnwrap(NSScreen.main)
+        )
+        notch.tabOrder = [.home, .capture, .music, .clipboard]
+
+        notch.tab = .music
+        XCTAssertTrue(notch.tabAdvances)
+        notch.tab = .capture
+        XCTAssertFalse(notch.tabAdvances)
+    }
+}

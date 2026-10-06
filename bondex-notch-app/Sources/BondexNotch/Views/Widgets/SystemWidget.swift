@@ -66,13 +66,13 @@ struct SystemWidget: View {
             ZStack {
                 ProgressRing(value: value, tint: tint, lineWidth: 3.5)
                 Text("\(Int(value * 100))%")
-                    .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold).monospacedDigit())
                     .foregroundStyle(Theme.primaryText)
             }
             .frame(width: compact ? 28 : 38, height: compact ? 28 : 38)
 
             Text(title)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
         }
         .frame(maxWidth: .infinity)
@@ -98,7 +98,7 @@ struct SystemWidget: View {
             .frame(width: compact ? 28 : 38, height: compact ? 28 : 38)
 
             Text(batteryCaption)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
                 .lineLimit(1)
         }
@@ -129,7 +129,7 @@ struct SystemWidget: View {
                 tint: Theme.secondaryText
             )
             Text("Network")
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -176,12 +176,12 @@ struct SystemWidget: View {
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(accent)
                 Text("Device batteries")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
                     .foregroundStyle(Theme.primaryText)
                 Spacer()
                 if !batteryDisplays.isEmpty {
                     Text("\(batteryDisplays.count) device\(batteryDisplays.count == 1 ? "" : "s")")
-                        .font(.system(size: 8.5, weight: .medium))
+                        .font(.system(size: Theme.TextSize.micro, weight: .medium))
                         .foregroundStyle(Theme.tertiaryText)
                 }
             }
@@ -191,7 +191,7 @@ struct SystemWidget: View {
                     Image(systemName: "battery.0percent")
                     Text("No battery-powered devices detected")
                 }
-                .font(.system(size: 9.5, weight: .medium))
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
                 .foregroundStyle(Theme.secondaryText)
                 .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
                 .accessibilityElement(children: .combine)
@@ -202,7 +202,7 @@ struct SystemWidget: View {
                     }
                     if batteryDisplays.count > 4 {
                         Text("+\(batteryDisplays.count - 4)")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                             .foregroundStyle(Theme.secondaryText)
                             .frame(width: 24)
                             .accessibilityLabel("\(batteryDisplays.count - 4) more devices")
@@ -226,12 +226,12 @@ struct SystemWidget: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                     .foregroundStyle(Theme.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
                 Text("\(Int((device.level * 100).rounded()))%")
-                    .font(.system(size: 9, weight: .medium).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.caption, weight: .medium).monospacedDigit())
                     .foregroundStyle(tint)
             }
         }
@@ -261,7 +261,7 @@ struct SystemWidget: View {
                 .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(tint)
             Text(rateString(rate))
-                .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                .font(.system(size: Theme.TextSize.footnote, weight: .semibold).monospacedDigit())
                 .foregroundStyle(Theme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)

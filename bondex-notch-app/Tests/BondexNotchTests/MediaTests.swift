@@ -259,13 +259,13 @@ final class ExpandedSizingTests: XCTestCase {
         XCTAssertNil(NotchTab.system.widgetHeight)
     }
 
-    func testListTabsKeepAStableArea() {
-        // A panel that resized as feed items arrived and aged out would be worse
-        // than one that stays put.
+    func testListTabsAreCappedSoALongHistoryScrolls() {
+        // List tabs size to their rows, but stop and scroll at a cap, so a long
+        // history cannot push the panel past its ceiling.
         for tab in [
             NotchTab.capture, .shortcuts, .live, .files, .activity, .clipboard, .shelf
         ] {
-            XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) would resize as its list changed")
+            XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) has no cap and could outgrow the panel")
         }
     }
 

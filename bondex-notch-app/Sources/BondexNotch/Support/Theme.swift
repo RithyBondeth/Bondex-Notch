@@ -166,6 +166,36 @@ enum Theme {
     /// have one.
     static let compactCardPadding: CGFloat = 8
     static let widgetSpacing: CGFloat = 8
+
+    /// The panel's type scale.
+    ///
+    /// Every label uses one of these five steps. Sizes had drifted to a dozen
+    /// values half a point apart from widget to widget — 9 here, 9.5 there,
+    /// 10 beside 10.5 — which reads as slightly-off rather than as hierarchy.
+    /// Symbol sizes are not part of this: they are tuned to the frames they sit
+    /// in. Hero figures (the spend total, gauge readouts) stay bespoke.
+    enum TextSize {
+        /// Badges, tags, the smallest annotations.
+        static let micro: CGFloat = 8.5
+        /// Secondary lines: subtitles, counts, timestamps, list headers.
+        static let caption: CGFloat = 9.5
+        /// Row titles and inline controls.
+        static let footnote: CGFloat = 10.5
+        /// Card titles and primary values.
+        static let body: CGFloat = 11.5
+        /// The largest text in the panel: player titles, the palette field.
+        static let title: CGFloat = 13
+    }
+
+    /// Corner radii, from the outermost surface inwards.
+    enum Radius {
+        /// Cards: a widget's own surface.
+        static let card: CGFloat = 13
+        /// Rows inside a list, and tiles.
+        static let row: CGFloat = 10
+        /// Small controls and thumbnails inside a row.
+        static let control: CGFloat = 7
+    }
 }
 
 extension Color {
@@ -219,10 +249,10 @@ extension View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),
-                in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [Color.white.opacity(0.20), Theme.hairline.opacity(0.7)],
@@ -233,5 +263,94 @@ extension View {
                     )
             )
             .shadow(color: .black.opacity(0.18), radius: 7, y: 3)
+    }
+}
+
+extension View {
+    /// A row inside a list tab: flatter than a card, so a column of them reads
+    /// as one list rather than a stack of separate surfaces.
+    ///
+    /// Clipboard, Capture, Activity, Live and Files each drew their own version,
+    /// with paddings of 5–7pt, radii of 9–13pt and a card's shadow on some.
+    func notchRow() -> some View {
+        self.padding(.vertical, 6)
+            .padding(.horizontal, 9)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                    .fill(Theme.surfaceElevated)
+            )
+    }
+}
+
+/// The count-and-actions line above a list.
+struct NotchListHeader<Actions: View>: View {
+    let title: String
+    @ViewBuilder var actions: () -> Actions
+
+    init(_ title: String, @ViewBuilder actions: @escaping () -> Actions) {
+        self.title = title
+        self.actions = actions
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.system(size: Theme.TextSize.caption, weight: .semibold))
+                .foregroundStyle(Theme.tertiaryText)
+            Spacer(minLength: 6)
+            actions()
+        }
+    }
+}
+
+extension NotchListHeader where Actions == EmptyView {
+    init(_ title: String) {
+        self.init(title) { EmptyView() }
+    }
+}
+
+/// A text-only action in a list header: "Clear", "Search".
+struct NotchTextButton: View {
+    let title: String
+    var tint: Color = Theme.secondaryText
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    init(_ title: String, tint: Color = Theme.secondaryText, action: @escaping () -> Void) {
+        self.title = title
+        self.tint = tint
+        self.action = action
+    }
+
+    var body: some View {
+        Button(title, action: action)
+            .buttonStyle(.plain)
+            .font(.system(size: Theme.TextSize.caption, weight: .medium))
+            .foregroundStyle(isHovering ? Theme.primaryText : tint)
+            .onHover { isHovering = $0 }
+            .animation(Motion.hover, value: isHovering)
+    }
+}
+
+extension View {
+    /// Draws a text field's placeholder in the panel's own text colour.
+    ///
+    /// Apply to a `TextField` created with an empty title. The system
+    /// placeholder colour is tuned for an ordinary window: in Light mode it is
+    /// near-black, and even in Dark mode it is a faint grey that all but
+    /// disappears on the panel's near-black fields. Drawn behind the field, so
+    /// focus, submit and typing all still belong to the field itself.
+    func notchPlaceholder(_ placeholder: String, isShown: Bool, font: Font) -> some View {
+        background(alignment: .leading) {
+            if isShown {
+                Text(placeholder)
+                    .font(font)
+                    .foregroundStyle(Theme.tertiaryText)
+                    .lineLimit(1)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
     }
 }

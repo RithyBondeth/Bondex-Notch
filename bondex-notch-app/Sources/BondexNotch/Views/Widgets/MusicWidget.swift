@@ -48,7 +48,7 @@ struct MusicWidget: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(track.title.isEmpty ? "Unknown Track" : track.title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.title, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(2)
                         .truncationMode(.tail)
@@ -56,7 +56,7 @@ struct MusicWidget: View {
 
                     HStack(spacing: 6) {
                         Text(subtitle(for: track))
-                            .font(.system(size: 11))
+                            .font(.system(size: Theme.TextSize.body))
                             .foregroundStyle(Theme.secondaryText)
                             .lineLimit(1)
                         sourceBadge(track)
@@ -89,7 +89,7 @@ struct MusicWidget: View {
                     .accessibilityLabel("Next")
                 } else {
                     Text("Playing in \(track.source.displayName)")
-                        .font(.system(size: 10))
+                        .font(.system(size: Theme.TextSize.footnote))
                         .foregroundStyle(Theme.tertiaryText)
                         .lineLimit(1)
                 }
@@ -113,7 +113,7 @@ struct MusicWidget: View {
     @ViewBuilder
     private func sourceBadge(_ track: NowPlaying) -> some View {
         Text(track.source.displayName)
-            .font(.system(size: 8.5, weight: .semibold))
+            .font(.system(size: Theme.TextSize.micro, weight: .semibold))
             .foregroundStyle(Theme.secondaryText)
             .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
@@ -131,7 +131,7 @@ struct MusicWidget: View {
                     .fill(Color.red)
                     .frame(width: 5, height: 5)
                 Text("Live")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                     .foregroundStyle(Theme.secondaryText)
                 Spacer()
             }
@@ -155,7 +155,7 @@ struct MusicWidget: View {
                         Spacer()
                         Text(track.duration.clockString)
                     }
-                    .font(.system(size: 9, weight: .medium).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.caption, weight: .medium).monospacedDigit())
                     .foregroundStyle(Theme.tertiaryText)
                 }
             }

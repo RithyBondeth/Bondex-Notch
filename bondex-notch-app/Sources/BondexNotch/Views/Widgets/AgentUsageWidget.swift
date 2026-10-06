@@ -53,7 +53,7 @@ struct AgentUsageWidget: View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small)
             Text("Reading agent logs…")
-                .font(.system(size: 11.5, weight: .medium))
+                .font(.system(size: Theme.TextSize.body, weight: .medium))
                 .foregroundStyle(Theme.secondaryText)
         }
         .frame(maxWidth: .infinity)
@@ -185,13 +185,13 @@ private struct CardHeader<Accessory: View>: View {
                     .frame(width: 15)
             }
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: Theme.TextSize.title, weight: .semibold))
                 .foregroundStyle(Theme.primaryText)
                 .lineLimit(1)
                 .fixedSize()
             if let detail {
                 Text(detail)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: Theme.TextSize.body, weight: .medium))
                     .foregroundStyle(Theme.tertiaryText)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -281,7 +281,7 @@ private struct ProviderUsageCard: View {
             ) {
                 if let plan = status.plan {
                     Text(plan)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
                         .foregroundStyle(tint)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2.5)
@@ -296,7 +296,7 @@ private struct ProviderUsageCard: View {
                 }
                 if now.timeIntervalSince(limits.observedAt) > Self.freshness {
                     Text("Updated \(limits.observedAt.shortRelativeString(from: now))")
-                        .font(.system(size: 10))
+                        .font(.system(size: Theme.TextSize.footnote))
                         .foregroundStyle(Theme.tertiaryText)
                 }
             } else {
@@ -316,11 +316,11 @@ private struct ProviderUsageCard: View {
                     .font(.system(size: 18, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(Theme.primaryText)
                 Text("tokens today")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: Theme.TextSize.footnote))
                     .foregroundStyle(Theme.tertiaryText)
             }
             Text(limitsHint)
-                .font(.system(size: 10))
+                .font(.system(size: Theme.TextSize.footnote))
                 .foregroundStyle(Theme.tertiaryText)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -346,7 +346,7 @@ private struct LimitRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
                 Text(window.label)
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(.system(size: Theme.TextSize.body, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
                 if let resetsAt = window.resetsAt {
@@ -354,14 +354,14 @@ private struct LimitRow: View {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 8, weight: .semibold))
                         Text(resetsAt.timeIntervalSince(now).countdownString)
-                            .font(.system(size: 10.5).monospacedDigit())
+                            .font(.system(size: Theme.TextSize.footnote).monospacedDigit())
                     }
                     .foregroundStyle(Theme.tertiaryText)
                     .help("Renews \(resetsAt.formatted(date: .abbreviated, time: .shortened))")
                 }
                 Spacer(minLength: 4)
                 Text("\(Int(window.usedPercent.rounded()))%")
-                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.title, weight: .semibold).monospacedDigit())
                     .foregroundStyle(isNearLimit ? Theme.limitWarning : Theme.primaryText)
             }
             LimitBar(
@@ -432,7 +432,7 @@ private struct SpendingCard: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Text("API value")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: Theme.TextSize.footnote))
                     .foregroundStyle(Theme.tertiaryText)
                     .fixedSize()
             }
@@ -453,10 +453,10 @@ private struct SpendingCard: View {
                             .fill(provider.kind.tint)
                             .frame(width: 6, height: 6)
                         Text(provider.displayName)
-                            .font(.system(size: 10.5))
+                            .font(.system(size: Theme.TextSize.footnote))
                             .foregroundStyle(Theme.secondaryText)
                         Text((summary.byProvider[provider]?.cost ?? 0).usdString)
-                            .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                            .font(.system(size: Theme.TextSize.footnote, weight: .semibold).monospacedDigit())
                             .foregroundStyle(Theme.primaryText)
                     }
                     .fixedSize()
@@ -464,7 +464,7 @@ private struct SpendingCard: View {
             }
 
             Text(detail)
-                .font(.system(size: 10.5))
+                .font(.system(size: Theme.TextSize.footnote))
                 .foregroundStyle(Theme.tertiaryText)
                 .lineLimit(1)
         }
@@ -551,7 +551,7 @@ private struct SessionsCard: View {
 
             if rows.isEmpty {
                 Text("No recent sessions")
-                    .font(.system(size: 11))
+                    .font(.system(size: Theme.TextSize.body))
                     .foregroundStyle(Theme.tertiaryText)
             }
             ForEach(rows) { row in
@@ -563,7 +563,7 @@ private struct SessionsCard: View {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 8.5, weight: .semibold))
                         Text("Show live work in the notch")
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                     }
                     .foregroundStyle(Theme.secondaryText)
                     .padding(.horizontal, 8)
@@ -599,19 +599,19 @@ private struct SessionRow: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.project ?? row.kind.displayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.title, weight: .semibold))
                     .foregroundStyle(Theme.primaryText)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let status = row.liveStatus {
                     Text(status)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                         .foregroundStyle(row.kind.tint)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 } else if let model = row.model {
                     Text(model)
-                        .font(.system(size: 10))
+                        .font(.system(size: Theme.TextSize.footnote))
                         .foregroundStyle(Theme.tertiaryText)
                         .lineLimit(1)
                 }
@@ -628,7 +628,7 @@ private struct SessionRow: View {
                     Text("—")
                 }
             }
-            .font(.system(size: 10.5).monospacedDigit())
+            .font(.system(size: Theme.TextSize.footnote).monospacedDigit())
             .foregroundStyle(Theme.tertiaryText)
             .lineLimit(1)
             .fixedSize()
@@ -681,7 +681,7 @@ private struct BreakdownCard: View {
                 )
                 Spacer(minLength: 4)
                 Text("\(summary.range.title) · \(summary.total.tokens.total.compactTokenString) tokens")
-                    .font(.system(size: 10.5).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.footnote).monospacedDigit())
                     .foregroundStyle(Theme.tertiaryText)
                     .lineLimit(1)
             }
@@ -755,7 +755,7 @@ private struct BreakdownCard: View {
         return HStack(spacing: spacing) {
             ForEach(Array(summary.trend.enumerated()), id: \.element.id) { index, bar in
                 Text(index % step == 0 ? label(for: bar.start) : "")
-                    .font(.system(size: 8.5).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.micro).monospacedDigit())
                     .foregroundStyle(Theme.tertiaryText)
                     .fixedSize()
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -786,7 +786,7 @@ private struct BreakdownCard: View {
     private func list(_ items: [UsageBreakdownItem], empty: String) -> some View {
         if items.isEmpty {
             Text(empty)
-                .font(.system(size: 11))
+                .font(.system(size: Theme.TextSize.body))
                 .foregroundStyle(Theme.tertiaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
@@ -805,7 +805,7 @@ private struct BreakdownCard: View {
                 if !others.isEmpty {
                     let rest = others.reduce(UsageTally()) { $0 + $1.tally }
                     Text("+\(others.count) more · \(rest.tokens.total.compactTokenString) tokens · \(rest.cost.usdString)")
-                        .font(.system(size: 9.5))
+                        .font(.system(size: Theme.TextSize.caption))
                         .foregroundStyle(Theme.tertiaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -827,7 +827,7 @@ private struct BreakdownRow: View {
                 .fill(tint)
                 .frame(width: 6, height: 6)
             Text(name)
-                .font(.system(size: 11.5, weight: .medium))
+                .font(.system(size: Theme.TextSize.body, weight: .medium))
                 .foregroundStyle(Theme.primaryText)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -842,11 +842,11 @@ private struct BreakdownRow: View {
             }
             .frame(width: 64, height: 4)
             Text(tally.tokens.total.compactTokenString)
-                .font(.system(size: 10.5).monospacedDigit())
+                .font(.system(size: Theme.TextSize.footnote).monospacedDigit())
                 .foregroundStyle(Theme.tertiaryText)
                 .frame(width: 38, alignment: .trailing)
             Text((tally.unpricedTokens > 0 && tally.cost == 0) ? "—" : tally.cost.usdString)
-                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                .font(.system(size: Theme.TextSize.body, weight: .semibold).monospacedDigit())
                 .foregroundStyle(Theme.primaryText)
                 .frame(width: 58, alignment: .trailing)
         }

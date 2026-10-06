@@ -66,15 +66,21 @@ struct CommandPaletteView: View {
 
             if isRenderingOffscreen {
                 Text("Search commands, captures, files…")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: Theme.TextSize.title, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                TextField("Search commands, captures, files…", text: $palette.query)
+                TextField("", text: $palette.query)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13, weight: .medium))
+                    .notchPlaceholder(
+                        "Search commands, captures, files…",
+                        isShown: palette.query.isEmpty,
+                        font: .system(size: Theme.TextSize.title, weight: .medium)
+                    )
+                    .font(.system(size: Theme.TextSize.title, weight: .medium))
                     .focused($searchIsFocused)
                     .onSubmit { environment.executeSelectedCommand() }
+                    .accessibilityLabel("Search commands, captures, files")
             }
 
             if !palette.query.isEmpty {
@@ -88,7 +94,7 @@ struct CommandPaletteView: View {
                 .accessibilityLabel("Clear search")
             } else {
                 Text(settings.preferences.commandPaletteShortcut.displayName)
-                    .font(.system(size: 9, weight: .semibold).monospaced())
+                    .font(.system(size: Theme.TextSize.caption, weight: .semibold).monospaced())
                     .foregroundStyle(Theme.tertiaryText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
@@ -114,9 +120,9 @@ struct CommandPaletteView: View {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
             Text("No matching command")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: Theme.TextSize.body, weight: .semibold))
             Text("Try an app, widget, capture, or settings page")
-                .font(.system(size: 9.5))
+                .font(.system(size: Theme.TextSize.caption))
                 .foregroundStyle(Theme.secondaryText)
         }
         .frame(maxWidth: .infinity, minHeight: 82)
@@ -132,7 +138,7 @@ struct CommandPaletteView: View {
                 .foregroundStyle(Theme.tertiaryText)
                 .accessibilityHint("Returns to the current notch widget")
         }
-        .font(.system(size: 9, weight: .medium))
+        .font(.system(size: Theme.TextSize.caption, weight: .medium))
         .foregroundStyle(Theme.tertiaryText)
         .padding(.horizontal, 3)
     }
@@ -163,11 +169,11 @@ private struct CommandPaletteRow: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(command.title)
-                        .font(.system(size: 11.5, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.body, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
                     Text(command.subtitle)
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: Theme.TextSize.caption, weight: .medium))
                         .foregroundStyle(Theme.secondaryText)
                         .lineLimit(1)
                 }
@@ -175,7 +181,7 @@ private struct CommandPaletteRow: View {
                 Spacer(minLength: 8)
 
                 Text(command.category)
-                    .font(.system(size: 8.5, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.micro, weight: .semibold))
                     .foregroundStyle(isSelected ? accent : Theme.tertiaryText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)

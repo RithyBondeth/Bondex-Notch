@@ -99,13 +99,15 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    /// Fixed height for this tab's widget area, or nil to size to its content.
+    /// The tallest this tab's widget area may grow, or nil for no cap.
     ///
-    /// The list tabs scroll inside a stable area: a panel that grew and shrank as
-    /// items arrived and aged out would be far more distracting than one that
-    /// stays put. Home, Music, and System are measured instead, so the panel is
-    /// exactly as tall as what they show and does not reserve room for the
-    /// tallest tab.
+    /// Every tab is as tall as its content, so the panel never reserves room for
+    /// the tallest one. The list tabs stop at this height and scroll beyond it,
+    /// so a long history cannot push the panel past its ceiling. They used to be
+    /// held at exactly this height, on the theory that a list changing size as
+    /// items arrived would be distracting — but items arrive while the panel is
+    /// closed (you copy, download and capture in other apps), and the fixed
+    /// height mostly showed two rows floating in a list-sized gap.
     var widgetHeight: CGFloat? {
         switch self {
         case .home, .agents, .music, .system: return nil

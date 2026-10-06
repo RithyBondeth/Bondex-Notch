@@ -27,12 +27,12 @@ struct FocusTimerCard: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(timer.snapshot.isActive ? "Focus session" : "Focus timer")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.body, weight: .semibold))
                     .foregroundStyle(Theme.primaryText)
                 Text(timer.snapshot.isActive
                      ? timer.snapshot.timeString
                      : "\(settings.preferences.defaultFocusMinutes) minutes")
-                    .font(.system(size: 10, weight: .medium).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.footnote, weight: .medium).monospacedDigit())
                     .foregroundStyle(Theme.secondaryText)
             }
 
@@ -86,11 +86,11 @@ struct UpcomingMeetingCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(meeting.title)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: Theme.TextSize.body, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
                     Text(meeting.relativeString())
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: Theme.TextSize.footnote, weight: .medium))
                         .foregroundStyle(Theme.secondaryText)
                 }
 
@@ -106,5 +106,59 @@ struct UpcomingMeetingCard: View {
             .notchCard(padding: Theme.compactCardPadding)
             .accessibilityElement(children: .contain)
         }
+    }
+}
+
+/// Home's idle form of the focus timer: one compact control instead of a card.
+///
+/// An idle timer used to be the first card on Home, so "Focus timer · 25
+/// minutes · Start" sat above agents and playback for everyone, including
+/// people who never use it. The card now appears only while a session runs,
+/// and starting one is this small button at the foot of the tab.
+struct FocusStartChip: View {
+    @ObservedObject private var timer: FocusTimerService
+    @ObservedObject private var settings: SettingsStore
+    @State private var isHovering = false
+
+    init(environment: AppEnvironment) {
+        self.timer = environment.focusTimer
+        self.settings = environment.settings
+    }
+
+    private var accent: Color { settings.effectiveAccentColor }
+
+    var body: some View {
+        Button {
+            timer.start(minutes: settings.preferences.defaultFocusMinutes)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "timer")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(accent)
+                Text("Focus")
+                    .font(.system(size: Theme.TextSize.caption, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                Text("\(settings.preferences.defaultFocusMinutes) min")
+                    .font(.system(size: Theme.TextSize.caption, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Theme.tertiaryText)
+            }
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(isHovering ? 0.1 : 0.055))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 0.7)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(Motion.hover, value: isHovering)
+        .help("Start a \(settings.preferences.defaultFocusMinutes)-minute focus session")
+        .accessibilityLabel("Start focus timer")
+        .accessibilityValue("\(settings.preferences.defaultFocusMinutes) minutes")
     }
 }
