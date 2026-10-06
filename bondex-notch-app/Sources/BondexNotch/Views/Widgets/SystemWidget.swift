@@ -279,8 +279,10 @@ struct SystemWidget: View {
     }
 
     private func rateString(_ bytesPerSecond: Double) -> String {
-        guard bytesPerSecond >= 1024 else { return "0 KB/s" }
-        return "\(Int64(bytesPerSecond).formattedBytes)/s"
+        guard bytesPerSecond.isFinite, bytesPerSecond >= 1024 else { return "0 KB/s" }
+        // `Int64(_:)` traps above Int64.max; a bogus sample must not take the
+        // whole app down with it.
+        return "\(Int64(min(bytesPerSecond, Double(Int64.max / 2))).formattedBytes)/s"
     }
 
     /// Green through amber to red as load climbs, so a glance is enough.

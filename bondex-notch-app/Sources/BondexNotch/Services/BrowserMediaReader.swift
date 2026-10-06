@@ -340,7 +340,7 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// that carry the marker, the same read costs ~185ms, and when nothing is
     /// playing it is a single `name of every window`.
     private func audibleWindowScript(for app: MediaApp, marker: String) -> String {
-        """
+        app.onlyWhileRunning("""
         tell application "\(app.scriptName)"
             set sep to (character id 1)
             set AppleScript's text item delimiters to sep
@@ -362,7 +362,7 @@ final class BrowserMediaReader: @unchecked Sendable {
             end repeat
             return out
         end tell
-        """
+        """)
     }
 
     /// Parses the `U`/`N`/`A` line triples the bulk scripts emit. Lists are joined
@@ -490,6 +490,11 @@ final class BrowserMediaReader: @unchecked Sendable {
     static let separator = "\u{01}"
 
     private func wrap(_ javaScript: String, for reference: TabRef) -> String {
+        let script = unguardedWrap(javaScript, for: reference)
+        return script.isEmpty ? "" : reference.app.onlyWhileRunning(script)
+    }
+
+    private func unguardedWrap(_ javaScript: String, for reference: TabRef) -> String {
         let literal = javaScript.appleScriptLiteral
         switch reference.app.engine {
         case .chromium:
@@ -519,7 +524,7 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// time, for the reason spelled out on `audibleWindowScript`.
     private func tabListScript(for app: MediaApp) -> String {
         if app.engine == .dia {
-            return """
+            return app.onlyWhileRunning("""
             tell application "\(app.scriptName)"
                 set sep to (character id 1)
                 set AppleScript's text item delimiters to sep
@@ -540,14 +545,14 @@ final class BrowserMediaReader: @unchecked Sendable {
                 end repeat
                 return out
             end tell
-            """
+            """)
         }
 
         let activeIndex = app.engine == .chromium
             ? "active tab index of window wi"
             : "index of current tab of window wi"
 
-        return """
+        return app.onlyWhileRunning("""
         tell application "\(app.scriptName)"
             set sep to (character id 1)
             set AppleScript's text item delimiters to sep
@@ -562,7 +567,7 @@ final class BrowserMediaReader: @unchecked Sendable {
             end repeat
             return out
         end tell
-        """
+        """)
     }
 
     /// Picks the media element the user most likely cares about: playing beats

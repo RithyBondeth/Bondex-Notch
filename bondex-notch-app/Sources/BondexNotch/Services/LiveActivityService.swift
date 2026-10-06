@@ -37,8 +37,9 @@ final class LiveActivityService: ObservableObject {
 
     init(events: EventCenter) { self.events = events }
 
+    /// Idempotent, because every preference change asks for it again.
     func start() {
-        stop()
+        guard source == nil else { return }
         try? FileManager.default.createDirectory(
             at: Self.signalDirectory, withIntermediateDirectories: true
         )

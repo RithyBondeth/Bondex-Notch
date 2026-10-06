@@ -207,8 +207,11 @@ final class AgentActivityService: ObservableObject {
 
     // MARK: Lifecycle
 
+    /// Idempotent. It is asked for again on every preference change, and a
+    /// restart forgot when each run began — so every working agent's clock in
+    /// the peek jumped back to the time since its last tool call.
     func start() {
-        stop()
+        guard presenceTimer == nil else { return }
         // Created eagerly: a directory watcher needs something to watch, and a
         // hook firing before the directory exists would otherwise be the one
         // signal that goes missing.

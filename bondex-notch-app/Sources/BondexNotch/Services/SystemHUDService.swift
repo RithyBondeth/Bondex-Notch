@@ -1,5 +1,6 @@
 import AppKit
 import AudioToolbox
+import CoreGraphics
 import CoreAudio
 import IOKit.graphics
 import IOKit.hidsystem
@@ -76,11 +77,11 @@ final class SystemHUDService {
             lastMuted = volume.isMuted
         }
 
+        // Brightness is sampled only to keep the baseline current, never to
+        // announce: with automatic brightness on, the ambient light sensor moves
+        // it in small steps all day, and each would pop the HUD over the menu
+        // bar. Brightness feedback comes from the brightness keys instead.
         if let brightness = Self.readDisplayBrightness() {
-            if announceChanges, let previous = observedDisplayBrightness,
-               abs(brightness - previous) >= 0.005 {
-                present(.init(kind: .brightness, level: brightness))
-            }
             observedDisplayBrightness = brightness
             lastDisplayBrightness = brightness
         }
@@ -166,11 +167,17 @@ final class SystemHUDService {
         }
     }
 
+    /// macOS animates a brightness-key step over a couple of hundred
+    /// milliseconds, so a read straight after the key lands mid-fade. The HUD
+    /// shows where the step is heading at once, then settles on the value the
+    /// system actually reached.
     private func showDisplayBrightness(delta: Double) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.045) { [weak self] in
-            guard let self else { return }
-            let level = Self.readDisplayBrightness()
-                ?? Self.clamp(self.lastDisplayBrightness + delta)
+        let predicted = Self.clamp(lastDisplayBrightness + delta)
+        lastDisplayBrightness = predicted
+        present(.init(kind: .brightness, level: predicted))
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) { [weak self] in
+            guard let self, let level = Self.readDisplayBrightness() else { return }
             self.lastDisplayBrightness = level
             self.observedDisplayBrightness = level
             self.present(.init(kind: .brightness, level: level))
@@ -255,7 +262,50 @@ final class SystemHUDService {
         return channels.reduce(0, +) / Float32(channels.count)
     }
 
+    /// The built-in display's brightness, as the Displays slider shows it.
+    ///
+    /// Apple silicon Macs have no `IODisplayConnect` service at all — the read
+    /// below found nothing on every one of them, so the HUD invented a level
+    /// from a 50% starting guess and showed it as fact. The values IORegistry
+    /// does publish there are not the slider (`brightness` stays at 50%,
+    /// `rawBrightness` is the panel's drive level), and there is no public API
+    /// for it. `DisplayServicesGetBrightness` is what the system uses; it is
+    /// looked up at run time and only ever read, and if it is missing the
+    /// public path is still tried.
     private static func readDisplayBrightness() -> Double? {
+        readBuiltInDisplayBrightness() ?? readDisplayConnectBrightness()
+    }
+
+    private typealias BrightnessReader = @convention(c) (
+        CGDirectDisplayID, UnsafeMutablePointer<Float>
+    ) -> Int32
+
+    private static let displayServicesBrightness: BrightnessReader? = {
+        guard let handle = dlopen(
+            "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices",
+            RTLD_LAZY
+        ), let symbol = dlsym(handle, "DisplayServicesGetBrightness") else { return nil }
+        return unsafeBitCast(symbol, to: BrightnessReader.self)
+    }()
+
+    private static func readBuiltInDisplayBrightness() -> Double? {
+        guard let read = displayServicesBrightness else { return nil }
+        var displays = [CGDirectDisplayID](repeating: 0, count: 16)
+        var count: UInt32 = 0
+        guard CGGetOnlineDisplayList(UInt32(displays.count), &displays, &count) == .success else {
+            return nil
+        }
+        for display in displays.prefix(Int(count)) where CGDisplayIsBuiltin(display) != 0 {
+            var value: Float = 0
+            if read(display, &value) == 0, value.isFinite {
+                return clamp(Double(value))
+            }
+        }
+        return nil
+    }
+
+    /// Intel Macs and displays that still expose the classic parameter.
+    private static func readDisplayConnectBrightness() -> Double? {
         var iterator: io_iterator_t = 0
         guard IOServiceGetMatchingServices(
             kIOMainPortDefault,

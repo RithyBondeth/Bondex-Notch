@@ -1,6 +1,5 @@
 import AppKit
 import AppIntents
-import Combine
 import SwiftUI
 
 @MainActor
@@ -11,7 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController?
     private var settingsWindow: NSWindow?
     private var settingsHosting: NSHostingController<SettingsView>?
-    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Agent app: no Dock icon, no app menu.
@@ -41,12 +39,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         menuBar.install()
         self.menuBar = menuBar
-
-        environment.settings.$preferences
-            .removeDuplicates()
-            .dropFirst()
-            .sink { [weak menuBar] _ in menuBar?.refresh() }
-            .store(in: &cancellables)
 
         environment.start()
         BondexNotchShortcuts.updateAppShortcutParameters()

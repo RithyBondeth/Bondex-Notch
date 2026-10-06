@@ -93,33 +93,50 @@ struct NotchGeometry: Equatable {
         CGSize(width: max(notchSize.width + 120, 240), height: peekHeight)
     }
 
+    // Every peek is a strip either side of the notch, and `PeekView` gives each
+    // side exactly half of what is left over — the middle is the camera
+    // housing, where nothing can be seen. So these widths are "notch + two
+    // wings", and each wing has to hold what that peek puts in it. They used
+    // to be sized as if the content could spill towards the middle, which it
+    // did: the volume rail and the start of a long banner line were drawn
+    // under the hardware notch, invisible on every Mac that has one.
+
     /// While a banner is up: wide enough to carry a readable line or two of text,
-    /// because a transient notification is nothing without its message.
+    /// because a transient notification is nothing without its message. Wings
+    /// of 150pt hold a 136pt line beside its padding — enough for
+    /// "Download complete · 7.4 GB" without losing the size.
     var bannerPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 230, 340), height: peekHeight)
+        CGSize(width: max(notchSize.width + 300, 440), height: peekHeight)
     }
 
+    /// Wings of 130pt: a title and a subtitle of up to 116pt.
     var livePeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 190, 320), height: peekHeight)
+        CGSize(width: max(notchSize.width + 260, 400), height: peekHeight)
     }
 
     /// Hardware controls need room for an icon, a readable meter and a value,
-    /// but should still feel lighter than a notification banner.
+    /// but should still feel lighter than a notification banner. Wings of 120pt
+    /// fit the 60pt rail, its value and the padding.
     var systemHUDPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 190, 320), height: peekHeight)
+        CGSize(width: max(notchSize.width + 240, 380), height: peekHeight)
     }
 
-    /// Privacy activity needs only one or two device marks and a short label.
-    var privacyPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 190, 320), height: peekHeight)
-    }
+    /// Privacy activity needs only one or two device marks and a short label,
+    /// and shares the hardware feedback's footprint so the two swap cleanly.
+    var privacyPeekSize: CGSize { systemHUDPeekSize }
 
     var focusPeekSize: CGSize {
         CGSize(width: max(notchSize.width + 165, 310), height: peekHeight)
     }
 
+    /// Same wings as live progress: a title line and "In 7 min".
     var meetingPeekSize: CGSize {
-        CGSize(width: max(notchSize.width + 205, 350), height: peekHeight)
+        CGSize(width: max(notchSize.width + 260, 400), height: peekHeight)
+    }
+
+    /// The width either side of the notch that a peek of `width` can draw in.
+    func peekWingWidth(forPeekWidth width: CGFloat) -> CGFloat {
+        max((width - notchSize.width) / 2, 0)
     }
 
     /// While agents are working: a mark for each one on the left, and their
@@ -221,6 +238,21 @@ struct NotchGeometry: Equatable {
 
     func screenRect(ofSize content: CGSize) -> CGRect {
         hitRect(ofSize: content).offsetBy(dx: windowFrame.origin.x, dy: windowFrame.origin.y)
+    }
+
+    /// Whether a pointer location (`NSEvent.mouseLocation`, or a click in a
+    /// non-flipped view) falls inside a rect.
+    ///
+    /// Not `CGRect.contains`, which treats the top edge as outside. Mouse
+    /// locations run from just above 0 up to *and including* the screen's
+    /// `maxY` — measured: a cursor pushed against the top of a 982pt-tall
+    /// display reports y = 982.0. Every rect here hangs from the top of the
+    /// screen, so `contains` rejected exactly the row the pointer lands on when
+    /// it is thrown at the notch, and the panel only opened if the pointer
+    /// stopped a pixel short. `NSMouseInRect` is AppKit's own rule for this:
+    /// top edge in, bottom edge out.
+    static func pointer(_ location: CGPoint, isIn rect: CGRect) -> Bool {
+        NSMouseInRect(location, rect, false)
     }
 
     func hoverRect(ofSize content: CGSize, isExpanded: Bool) -> CGRect {

@@ -70,7 +70,10 @@ struct NotchRootView: View {
             // canvas, so the transparent margins stay click-through.
             .frame(width: contentSize.width, height: contentSize.height, alignment: .top)
             .contentShape(Rectangle())
-            .onTapGesture { notch.toggle() }
+            // Opens the notch, or latches the open panel. Never closes it: on
+            // the expanded panel this catches every click that misses a
+            // control, and closing on those shut the panel under the pointer.
+            .onTapGesture { notch.panelTapped() }
             .modifier(ShelfDropModifier(environment: environment, isDisabled: isRenderingOffscreen))
 
             Spacer(minLength: 0)

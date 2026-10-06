@@ -121,16 +121,14 @@ final class AppEnvironment: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Only agents a hook reports working reach the peek; ones that are
+        // merely open are shown in the expanded panel alone.
         agents.$active
-            .map { active in
-                let working = active.filter(\.isHookReported).count
-                return [working, active.count - working]
-            }
+            .map { $0.filter(\.isHookReported).count }
             .removeDuplicates()
-            .sink { [weak self] counts in
-                self?.isAgentWorking = counts[0] > 0
-                self?.notch.workingAgentCount = counts[0]
-                self?.notch.openAgentCount = counts[1]
+            .sink { [weak self] working in
+                self?.isAgentWorking = working > 0
+                self?.notch.workingAgentCount = working
                 self?.refreshLiveActivity()
             }
             .store(in: &cancellables)
@@ -192,25 +190,33 @@ final class AppEnvironment: ObservableObject {
             }
             .store(in: &cancellables)
 
-        settings.$activeProfile
-            .removeDuplicates()
+        // Both of these consult the store again (`isTabEnabled`, `availableTabs`,
+        // the smart-profile context checks), so they subscribe to the
+        // after-the-fact publishers. `$preferences` / `$activeProfile` fire from
+        // `willSet`, which applied every widget toggle one change late.
+        settings.activeProfileDidChange
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.applyWidgetActivation(self.settings.preferences)
-                if !self.availableTabs.contains(self.notch.tab) {
-                    self.notch.tab = self.availableTabs.first ?? .home
-                }
+                self.repairSelectedTab()
             }
             .store(in: &cancellables)
 
         // Services are started and stopped as widgets are toggled, so a
         // disabled widget costs nothing at runtime.
-        settings.$preferences
-            .removeDuplicates()
+        settings.preferencesDidChange
             .sink { [weak self] preferences in
                 self?.applyWidgetActivation(preferences)
+                self?.repairSelectedTab()
             }
             .store(in: &cancellables)
+    }
+
+    /// A tab that was just switched off — directly, or by a profile that does
+    /// not include it — must not stay on screen with no chip selected.
+    private func repairSelectedTab() {
+        guard !availableTabs.contains(notch.tab) else { return }
+        notch.tab = availableTabs.first ?? .home
     }
 
     func start() {
@@ -224,6 +230,7 @@ final class AppEnvironment: ObservableObject {
     }
 
     private func stopProductServices() {
+        registeredShortcuts = nil
         nowPlaying.stop()
         metrics.stop()
         files.stop()
@@ -237,7 +244,10 @@ final class AppEnvironment: ObservableObject {
         meetings.stop()
         smartProfiles.stop()
         globalHotKey.stop()
-        if focusTimer.snapshot.isActive { focusTimer.cancel() }
+        // Suspended, not cancelled: the timer persists its end date so a session
+        // survives quitting and relaunching, and cancelling it here, on the way
+        // out, erased exactly what the restore path reads back.
+        focusTimer.suspend()
     }
 
     @discardableResult
@@ -297,7 +307,25 @@ final class AppEnvironment: ObservableObject {
         notch.hasLiveActivity = isPlaying
     }
 
+    /// Off for the offscreen preview tool, whose environment is seeded with
+    /// sample data: a preference write there must not start the real agent,
+    /// live-activity or Downloads watchers and mix this Mac's state into the
+    /// shots.
+    var activatesServices = true
+
+    /// The shortcut set last handed to `globalHotKey`, so an unrelated
+    /// preference change does not unregister and re-register every chord.
+    private var registeredShortcuts: [String]?
+
+    /// Brings every service in line with the current preferences.
+    ///
+    /// Runs on *every* preference change — a slider drag in Settings delivers
+    /// dozens — so each `start()` here must be a no-op for a service that is
+    /// already running. Restarting them instead reset the agent clocks, emptied
+    /// the Files tab, and re-polled every media app on each tick of a slider.
     private func applyWidgetActivation(_ preferences: Preferences) {
+        guard activatesServices else { return }
+        focusTimer.isEnabled = preferences.focusTimerEnabled
         // Set before starting: it decides whether the first poll scans tabs.
         nowPlaying.includeBrowsers = preferences.browserMediaEnabled
         if settings.isTabEnabled(.music) {
@@ -336,30 +364,33 @@ final class AppEnvironment: ObservableObject {
 
         let captureHotKeyEnabled = settings.isTabEnabled(.capture)
             && preferences.quickCaptureHotKeyEnabled
-        if preferences.globalHotKeyEnabled
-            || captureHotKeyEnabled
-            || preferences.commandPaletteHotKeyEnabled {
-            globalHotKey.start(
-                shortcut: preferences.globalHotKeyEnabled ? preferences.globalShortcut : nil,
-                quickCaptureShortcut: captureHotKeyEnabled
-                    ? preferences.quickCaptureShortcut
-                    : nil,
-                commandPaletteShortcut: preferences.commandPaletteHotKeyEnabled
-                    ? preferences.commandPaletteShortcut
-                    : nil
-            )
-        } else {
-            globalHotKey.stop()
+        let panelShortcut = preferences.globalHotKeyEnabled ? preferences.globalShortcut : nil
+        let captureShortcut = captureHotKeyEnabled ? preferences.quickCaptureShortcut : nil
+        let paletteShortcut = preferences.commandPaletteHotKeyEnabled
+            ? preferences.commandPaletteShortcut
+            : nil
+        let shortcuts = [
+            panelShortcut?.rawValue ?? "-",
+            captureShortcut?.rawValue ?? "-",
+            paletteShortcut?.rawValue ?? "-"
+        ]
+        if shortcuts != registeredShortcuts {
+            registeredShortcuts = shortcuts
+            if panelShortcut != nil || captureShortcut != nil || paletteShortcut != nil {
+                globalHotKey.start(
+                    shortcut: panelShortcut,
+                    quickCaptureShortcut: captureShortcut,
+                    commandPaletteShortcut: paletteShortcut
+                )
+            } else {
+                globalHotKey.stop()
+            }
         }
 
         if preferences.upcomingMeetingsEnabled || smartProfiles.needsMeetingContext {
             meetings.start()
         } else {
             meetings.stop()
-        }
-
-        if !preferences.focusTimerEnabled, focusTimer.snapshot.isActive {
-            focusTimer.cancel()
         }
 
         if preferences.agentActivityEnabled {

@@ -12,7 +12,10 @@ import SwiftUI
 enum PreviewRenderer {
 
     static func run(outputDirectory: String) -> Int32 {
-        guard let screen = NSScreen.main else {
+        // The notched display when there is one, so the shots use a real
+        // notch's size rather than the stand-in pill.
+        guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
+            ?? NSScreen.main else {
             FileHandle.standardError.write(Data("error: no screen available\n".utf8))
             return 1
         }
@@ -34,6 +37,11 @@ enum PreviewRenderer {
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let environment = AppEnvironment(screen: screen, defaults: defaults)
+        // Every shot is seeded. Without this, the first preference the renderer
+        // writes starts the real watchers, and whatever agents, live activities
+        // or downloads this Mac happens to have leak into the "collapsed" and
+        // "playing" shots in place of the states they exist to show.
+        environment.activatesServices = false
         // Offscreen rendering should never claim the user's global shortcut.
         environment.globalHotKey.stop()
         seedSampleData(environment)
@@ -137,6 +145,9 @@ enum PreviewRenderer {
         }
         environment.quickCapture.cancelDraft()
 
+        // Truly nothing live: playback was seeded above, and left in place it
+        // turned this shot into a media peek.
+        environment.notch.hasLiveActivity = false
         environment.notch.collapse()
         if !render(environment, named: "collapsed", into: directory) { failures += 1 }
 
@@ -502,11 +513,21 @@ enum PreviewRenderer {
         into directory: URL
     ) -> Bool {
         let size = environment.notch.geometry.windowSize
+        let notchSize = environment.notch.geometry.notchSize
         let view = NotchRootView(environment: environment, isRenderingOffscreen: true)
             .frame(width: size.width, height: size.height)
             // The panel is transparent by design; a backdrop makes the
             // silhouette readable in a flat image.
             .background(Color(white: 0.18))
+            // Where the camera housing sits. On a real notched Mac nothing
+            // under this is visible, and without marking it a peek that drew
+            // its content there looked perfectly fine in every shot.
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.red.opacity(0.16))
+                    .overlay(Rectangle().strokeBorder(Color.red.opacity(0.55), lineWidth: 0.5))
+                    .frame(width: notchSize.width, height: notchSize.height)
+            }
             .environment(\.isRenderingOffscreen, true)
 
         let renderer = ImageRenderer(content: view)

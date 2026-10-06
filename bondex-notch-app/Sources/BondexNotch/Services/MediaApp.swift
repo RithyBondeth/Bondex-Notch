@@ -56,6 +56,22 @@ struct MediaApp: Equatable, Hashable, Sendable, Identifiable {
             .isEmpty
     }
 
+    /// Wraps a script so it does nothing unless the app is open.
+    ///
+    /// A bare `tell application` *launches* its target. The running check that
+    /// picks which apps to poll happens on the main actor a moment before the
+    /// script runs, and an app that is quitting is still listed — so quitting
+    /// Music, Spotify or a browser while it was playing had the next one-second
+    /// poll open it straight back up. `application id … is running` asks
+    /// without launching, inside the same script as the read.
+    func onlyWhileRunning(_ script: String) -> String {
+        """
+        if application id "\(bundleIdentifier)" is running then
+        \(script)
+        end if
+        """
+    }
+
     /// How the user lets Bondex read media in this browser.
     enum MediaAccessFix: Equatable, Sendable {
         /// The browser only allows it when launched with these arguments, so

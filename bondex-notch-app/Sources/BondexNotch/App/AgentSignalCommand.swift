@@ -173,7 +173,9 @@ enum AgentHookInput {
             return "Delegating work"
         case "update_plan":
             return "Updating the plan"
-        case "request_user_input":
+        case let name where name.hasPrefix("request_user_input"):
+            // Including Codex's `request_user_input_async`, which otherwise
+            // read as "Using request user input async".
             return "Waiting for input"
         default:
             let component = tool.split(separator: "__").last.map(String.init) ?? tool
