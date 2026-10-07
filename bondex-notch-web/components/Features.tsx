@@ -17,7 +17,7 @@ export default function Features() {
 
           <div className="grid">
             {features.map(({ icon, title, body }) => (
-              <article className="feature" key={icon}>
+              <article className="feature" key={title}>
                 <span className="feature__icon" data-icon={icon} aria-hidden="true" />
                 <h3>{title}</h3>
                 <p>{body}</p>

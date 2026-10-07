@@ -5,7 +5,7 @@ const trustItems = [
   ['Music', 'Native playback'],
   ['Spotify', 'Native playback'],
   ['Safari + Chrome', 'Browser audio'],
-  ['Codex + Claude', 'Agent activity'],
+  ['Codex + Claude', 'Activity + usage'],
   ['Quick Capture', 'Notes + links'],
   ['Shortcuts + scripts', 'Actions + activities'],
 ];
@@ -56,13 +56,14 @@ export default function FeatureShowcase() {
               <p className="label">01 · Agent awareness</p>
               <h3>Let your agents work. You&apos;ll know when they&apos;re done.</h3>
               <p>
-                Bondex shows which coding agent is active, the task it is working
-                through, and a running clock. Multiple agents appear side by side,
-                so parallel work never becomes mystery work.
+                The notch shows a running clock for every coding agent at work,
+                and Home names the task, project and model. The Agents tab adds
+                Claude Code and Codex plan limits, spend and recent sessions —
+                read from the logs on your Mac, never from an account.
               </p>
               <ul className="story__points">
-                <li>Explore the same ten tabs as the real Mac panel</li>
-                <li>Signal agents, run builds and simulate downloads</li>
+                <li>Explore the same eleven tabs as the real Mac panel</li>
+                <li>Signal agents, then check limits and spend on Agents</li>
                 <li>Control music, change accents and drop files onto Shelf</li>
               </ul>
             </div>

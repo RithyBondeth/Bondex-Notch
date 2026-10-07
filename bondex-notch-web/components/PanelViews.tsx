@@ -123,7 +123,7 @@ export default function PanelViews({
         <div className="agent-card">
           <span className="agent-orb agent-orb--codex agent-card__orb" aria-hidden="true" />
           <span className="card__text">
-            <b>Codex is working</b>
+            <b className="agent-card__title">Codex <small>bondex-web</small> <span className="real-model-chip">GPT-5.5 Codex</span></b>
             <em>Refining the landing page</em>
           </span>
           <span className="agent-card__time">03:42</span>

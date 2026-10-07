@@ -1039,6 +1039,8 @@ html[data-motion-ready="true"] .hero__title-b {
   box-shadow: none;
 }
 .agent-card .agent-card__orb::before { transform: scale(.78); }
+.agent-card__title { display: flex; align-items: center; gap: 5px; min-width: 0; white-space: nowrap; }
+.agent-card__title small { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-3, rgba(255,255,255,.5)); font-size: .82em; font-weight: 500; }
 .mini-progress {
   width: 62px;
   height: 3px;
@@ -2138,7 +2140,7 @@ button.real-empty { cursor:pointer; }
    grows per widget, and keeps its tabs inside one quiet capsule. */
 .real-product { min-height:0; padding:42px 18px 100px; }
 .real-panel-frame {
-  --panel-h: 390px;
+  --panel-h: 432px;
   position:relative;
   z-index:2;
   width:520px;
@@ -2146,6 +2148,7 @@ button.real-empty { cursor:pointer; }
   margin:0 auto;
   transition:height .28s var(--spring);
 }
+.real-panel-frame[data-tab="agents"] { --panel-h:490px; }
 .real-panel-frame[data-tab="capture"] { --panel-h:325px; }
 .real-panel-frame[data-tab="shortcuts"] { --panel-h:285px; }
 .real-panel-frame[data-tab="music"] { --panel-h:300px; }
@@ -2195,6 +2198,7 @@ button.real-empty { cursor:pointer; }
   box-shadow:0 0 12px color-mix(in srgb,var(--demo-accent) 12%,transparent);
 }
 .real-tabs button i { color:currentColor; font-size:9px; }
+.real-tab-svg { width:11px; height:11px; display:block; fill:currentColor; }
 .real-header > button,
 .real-header > .real-privacy { width:25px; height:25px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.07); border-radius:50%; background:rgba(255,255,255,.05); color:rgba(255,255,255,.62); font:600 9px/1 var(--mono); }
 .real-header > button { cursor:pointer; }
@@ -2226,6 +2230,95 @@ button.real-empty { cursor:pointer; }
 .real-home-transport button.is-main { background:#d5dae3; color:#07090c; }
 .real-home-progress { grid-column:1/-1; height:2px; overflow:hidden; border-radius:8px; background:rgba(255,255,255,.12); }
 .real-home-progress i { display:block; height:100%; background:#d5dae3; }
+
+/* Agent marks and the working orb, drawn like the app's PixelMark/AgentOrb. */
+.pixel-mark { width:100%; height:100%; display:grid; place-items:center; }
+.pixel-mark .claude-code-mark { width:100%; height:62.5%; }
+.pixel-mark .claude-code-mark i.is-on { background:currentColor; }
+.pixel-mark--masked { -webkit-mask:var(--agent-mark) center / contain no-repeat; mask:var(--agent-mark) center / contain no-repeat; }
+.app-orb { position:relative; width:var(--orb); height:var(--orb); flex:none; display:grid; place-items:center; }
+.app-orb > i { position:absolute; inset:0; border:1.5px solid color-mix(in srgb,var(--tint) 28%,transparent); border-radius:50%; }
+.app-orb > i::after { content:""; position:absolute; inset:-1.5px; border-radius:50%; background:conic-gradient(var(--tint) 0 30%,transparent 30%); -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1.5px),#000 calc(100% - 1.5px)); mask:radial-gradient(farthest-side,transparent calc(100% - 1.5px),#000 calc(100% - 1.5px)); animation:app-orb-sweep 1.4s linear infinite; }
+.real-agent .app-orb .claude-code-mark, .app-orb .claude-code-mark { transform:none; }
+.app-orb > .pixel-mark { width:62%; height:62%; animation:app-orb-breathe 2.3s ease-in-out infinite; }
+@keyframes app-orb-sweep { to { transform:rotate(360deg); } }
+@keyframes app-orb-breathe { 50% { opacity:.62; transform:scale(.9); } }
+
+/* Home agent rows: name, project, model chip, status and a tinted clock. */
+.real-agent-card .real-agent { grid-template-columns:26px minmax(0,1fr) auto; gap:9px; }
+.real-agent__title { min-width:0; display:flex; align-items:center; gap:5px; }
+.real-agent__title b { flex:none; }
+.real-agent__title em { min-width:0; overflow:hidden; color:rgba(255,255,255,.55); font-size:10px; font-style:normal; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.real-model-chip { --tint:#d97757; flex:none; padding:1px 5px; border-radius:999px; background:color-mix(in srgb,var(--tint) 15%,transparent); color:var(--tint); font:600 8.5px/1.35 var(--body); white-space:nowrap; }
+.real-agent-card .real-agent small { color:rgba(255,255,255,.55); }
+.real-agent-card .real-agent time { font:500 10px var(--mono); }
+
+/* Agents tab: the app's usage dashboard for Claude Code and Codex. */
+.real-usage { display:grid; gap:8px; }
+.real-usage__row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.real-usage-card { min-width:0; padding:9px 10px; display:flex; flex-direction:column; gap:7px; }
+.real-usage-head { min-width:0; height:17px; display:flex; align-items:center; gap:6px; }
+.real-usage-head > .pixel-mark { width:13px; height:13px; flex:none; }
+.real-usage-head > b { flex:none; color:#fff; font-size:11.5px; font-weight:600; white-space:nowrap; }
+.real-usage-head > em { min-width:0; overflow:hidden; color:rgba(255,255,255,.4); font-size:10px; font-style:normal; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.real-usage-icon { width:13px; height:13px; flex:none; display:grid; place-items:center; color:rgba(255,255,255,.62); font-style:normal; }
+.real-usage-icon svg { width:11px; height:11px; fill:currentColor; }
+.real-plan { --tint:#d97757; margin-left:auto; flex:none; padding:2px 6px; border-radius:999px; background:color-mix(in srgb,var(--tint) 17%,transparent); color:var(--tint); font:600 9px/1.2 var(--body); }
+.real-usage-meta { margin-left:auto; min-width:0; overflow:hidden; color:rgba(255,255,255,.4); font-size:9.5px; text-overflow:ellipsis; white-space:nowrap; }
+.real-usage-note { color:rgba(255,255,255,.4); font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.real-limit { display:grid; gap:4px; }
+.real-limit__label { display:flex; align-items:baseline; gap:5px; }
+.real-limit__label > span { color:rgba(255,255,255,.62); font-size:10.5px; font-weight:500; }
+.real-limit__label small { color:rgba(255,255,255,.4); font-size:9.5px; font-variant-numeric:tabular-nums; }
+.real-limit__label b { margin-left:auto; color:#fff; font-size:11.5px; font-weight:600; font-variant-numeric:tabular-nums; }
+.real-limit__bar { position:relative; height:6px; margin:2px 0; border-radius:999px; background:rgba(255,255,255,.11); }
+.real-limit__bar i { position:absolute; inset:0 auto 0 0; border-radius:999px; }
+.real-limit__bar u { position:absolute; top:-2px; width:1.5px; height:10px; border-radius:1px; background:rgba(255,255,255,.8); }
+.real-chip-picker { margin-left:auto; flex:none; display:flex; gap:1px; padding:1.5px; border-radius:999px; background:rgba(255,255,255,.05); }
+.real-usage-icon + .real-chip-picker { margin-left:0; }
+.real-chip-picker button { padding:2px 5px; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.4); font:600 8.5px/1.2 var(--body); cursor:pointer; }
+.real-chip-picker--large button { font-size:9.5px; }
+.real-chip-picker button.is-active { background:rgba(255,255,255,.14); color:#fff; }
+.real-spend { display:flex; align-items:baseline; gap:5px; }
+.real-spend b { color:#fff; font-size:22px; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums; }
+.real-spend small { color:rgba(255,255,255,.4); font-size:9.5px; }
+.real-share { height:5px; display:flex; gap:3px; }
+.real-share i { min-width:4px; height:100%; border-radius:999px; }
+.real-spend-legend { display:flex; flex-wrap:wrap; gap:3px 9px; }
+.real-spend-legend > span { display:flex; align-items:center; gap:4px; color:rgba(255,255,255,.62); font-size:9.5px; white-space:nowrap; }
+.real-spend-legend i { width:6px; height:6px; border-radius:50%; }
+.real-spend-legend b { color:#fff; font-weight:600; font-variant-numeric:tabular-nums; }
+.real-session { min-width:0; display:grid; grid-template-columns:20px minmax(0,1fr) auto; align-items:center; gap:7px; }
+.real-session__mark { width:20px; height:20px; display:grid; place-items:center; }
+.real-session__mark > .pixel-mark { width:12px; height:12px; }
+.real-session > span:nth-child(2) { min-width:0; display:flex; flex-direction:column; gap:1px; }
+.real-session b { overflow:hidden; color:#fff; font-size:11px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.real-session small { overflow:hidden; color:rgba(255,255,255,.4); font-size:9px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.real-session time { color:rgba(255,255,255,.4); font-size:9.5px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.real-breakdown-body { height:58px; }
+.real-trend { display:grid; gap:6px; }
+.real-trend__bars { height:40px; display:flex; align-items:flex-end; gap:5px; }
+.real-trend.is-dense .real-trend__bars, .real-trend.is-dense .real-trend__labels { gap:2.5px; }
+.real-trend__bars > span { flex:1; min-width:0; height:100%; display:flex; flex-direction:column; justify-content:flex-end; gap:1px; }
+.real-trend__bars > span > i { display:block; border-radius:2px; }
+.real-trend__bars > span > i.is-empty { height:2px; border-radius:1px; background:rgba(255,255,255,.07); }
+.real-trend__labels { height:9px; display:flex; gap:5px; }
+.real-trend__labels small { flex:1; min-width:0; overflow:visible; color:rgba(255,255,255,.4); font-size:8px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.real-breakdown { display:grid; gap:3px; }
+.real-breakdown__row { height:13px; display:grid; grid-template-columns:6px minmax(0,1fr) 58px 34px 50px; align-items:center; gap:7px; }
+.real-breakdown__row > i { width:6px; height:6px; border-radius:50%; }
+.real-breakdown__row > b { overflow:hidden; color:#fff; font-size:10.5px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.real-breakdown__bar { height:4px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.08); }
+.real-breakdown__bar i { display:block; height:100%; min-width:3px; border-radius:999px; opacity:.85; }
+.real-breakdown__row small { color:rgba(255,255,255,.4); font-size:9.5px; font-variant-numeric:tabular-nums; text-align:right; }
+.real-breakdown__row strong { color:#fff; font-size:10px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
+.real-breakdown .real-usage-note { font-size:8.5px; }
+@media (max-width: 480px) {
+  .real-breakdown__row { grid-template-columns:6px minmax(0,1fr) 34px 44px; }
+  .real-breakdown__bar { display:none; }
+  .real-usage-head { height:auto; min-height:17px; flex-wrap:wrap; row-gap:5px; }
+  .real-panel-frame[data-tab="agents"] { --panel-h:525px; }
+}
 
 .real-compose { grid-template-columns:22px minmax(0,1fr) 25px 25px 25px; align-items:center; gap:5px; }
 .real-compose > span { grid-column:1; grid-row:1; z-index:1; color:var(--demo-accent); font-size:10px; text-align:right; }

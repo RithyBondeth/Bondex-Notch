@@ -26,7 +26,7 @@ const answers: Array<{ q: string; a: ReactNode; plainText: string; open?: boolea
   {
     q: 'How does agent activity work?',
     plainText:
-      'A small hook tells Bondex when an agent starts a tool, what it is doing, and when the turn ends. Codex and Claude Code have direct setup flows; Gemini, Ollama, and other CLI agents can use the same local busy and idle signal.',
+      'A small hook tells Bondex when an agent starts a tool, what it is doing, and when the turn ends. Codex and Claude Code have direct setup flows; Gemini, Ollama, and other CLI agents can use the same local busy and idle signal. The Agents tab reads Claude Code and Codex usage — plan limits, API-equivalent spend and sessions — from the log files those agents already write on your Mac. Bondex never signs in, reads no credentials and sends nothing.',
     a: (
       <>
         A small hook tells Bondex when an agent starts a tool, what it is doing,
@@ -34,6 +34,11 @@ const answers: Array<{ q: string; a: ReactNode; plainText: string; open?: boolea
         Gemini, Ollama, and any other CLI agent can use the same open busy/idle
         signal. Everything stays on your Mac and is watched without background
         polling.
+        <br />
+        <br />
+        The Agents tab reads Claude Code and Codex usage — plan limits, API-equivalent
+        spend and recent sessions — from the log files those agents already write on
+        your Mac. Bondex never signs in, reads no credentials and sends nothing.
       </>
     ),
   },
