@@ -47,7 +47,9 @@ export const features: Feature[] = [
     title: 'Agent activity',
     body:
       'Know when Codex, Claude Code, Gemini, Ollama or another CLI agent is ' +
-      'working, how long it has been running, and which project and model it is on.',
+      'working, how long it has been running, and which project and model it is on. ' +
+      'The notch turns amber when one stops for your approval, and Claude Code, ' +
+      'Codex and Gemini CLI are set up with one click.',
   },
   {
     icon: 'agent',
@@ -70,16 +72,16 @@ export const features: Feature[] = [
     title: 'Clipboard history',
     body:
       'Keep text, links and images from this session close at hand. Pause capture, ' +
-      'search or pin an item; concealed and transient clipboard content is ignored ' +
-      'and history is never written to disk.',
+      'search or pin an item; concealed and transient clipboard content is ignored, ' +
+      'history is never written to disk, and nothing is read until you allow it.',
   },
   {
     icon: 'shortcuts',
     title: 'Actions and shortcuts',
     body:
       'Build a personal action grid for opening apps, running Apple Shortcuts and ' +
-      'showing the widget you need. Global shortcuts can open the panel, Capture or ' +
-      'the command palette.',
+      'showing the widget you need. Global shortcuts, any combination you record, ' +
+      'open the panel, Capture or the command palette.',
   },
   {
     icon: 'focus',
@@ -138,8 +140,8 @@ export const features: Feature[] = [
     title: 'Drop shelf',
     body:
       'Drag files onto the notch to park them, then drag them back out ' +
-      'anywhere. Nothing is copied — the shelf holds references to your real ' +
-      'files.',
+      'anywhere. Nothing is copied: the shelf holds your real files, follows ' +
+      'them when they move, and is still there after a restart.',
   },
   {
     icon: 'tune',

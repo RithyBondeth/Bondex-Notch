@@ -26,14 +26,17 @@ const answers: Array<{ q: string; a: ReactNode; plainText: string; open?: boolea
   {
     q: 'How does agent activity work?',
     plainText:
-      'A small hook tells Bondex when an agent starts a tool, what it is doing, and when the turn ends. Codex and Claude Code have direct setup flows; Gemini, Ollama, and other CLI agents can use the same local busy and idle signal. The Agents tab reads Claude Code and Codex usage — plan limits, API-equivalent spend and sessions — from the log files those agents already write on your Mac. Bondex never signs in, reads no credentials and sends nothing.',
+      'A small hook tells Bondex when an agent starts a tool, what it is doing, when it stops to wait for you, and when the turn ends. Claude Code, Codex and Gemini CLI are set up with one click in Settings; Ollama and other CLI agents can use the same local busy and idle signal. When an agent stops for a permission prompt, a question or a plan to approve, the notch turns amber and says Needs you. The Agents tab reads Claude Code and Codex usage — plan limits, API-equivalent spend and sessions — from the log files those agents already write on your Mac. Bondex never signs in, reads no credentials and sends nothing.',
     a: (
       <>
         A small hook tells Bondex when an agent starts a tool, what it is doing,
-        and when the turn ends. Codex and Claude Code have direct setup flows;
-        Gemini, Ollama, and any other CLI agent can use the same open busy/idle
-        signal. Everything stays on your Mac and is watched without background
-        polling.
+        when it stops to wait for you, and when the turn ends. Claude Code, Codex
+        and Gemini CLI are set up with one click in Settings, which also spots a
+        setup that has gone stale; Ollama and any other CLI agent can use the same
+        open busy/idle signal. When an agent stops for a permission prompt, a
+        question or a plan to approve, the notch turns amber and says{' '}
+        <b>Needs you</b>. Everything stays on your Mac and is watched without
+        background polling.
         <br />
         <br />
         The Agents tab reads Claude Code and Codex usage — plan limits, API-equivalent
@@ -58,12 +61,14 @@ const answers: Array<{ q: string; a: ReactNode; plainText: string; open?: boolea
   {
     q: 'How private are Quick Capture and clipboard history?',
     plainText:
-      'Captures stay on your Mac. Clipboard history is session-only, is never written to disk, ignores concealed or transient content, and can be paused. Optional capture enhancement is user-triggered and runs on-device on supported Macs.',
+      'Captures stay on your Mac. Clipboard history is session-only, is never written to disk, ignores concealed or transient content, and can be paused. On macOS 15.4 and later it reads nothing until you allow Bondex Notch under Privacy & Security › Paste from Other Apps. Optional capture enhancement is user-triggered and runs on-device on supported Macs.',
     a: (
       <>
         Captures stay on your Mac. Clipboard history is session-only, is never
         written to disk, and ignores content marked concealed or transient by the
-        source app. You can pause it whenever you like. Capture enhancement is a
+        source app. You can pause it whenever you like. On macOS 15.4 and later it
+        reads nothing until you allow Bondex Notch under Privacy &amp; Security ›
+        Paste from Other Apps. Capture enhancement is a
         separate, user-triggered action that uses on-device Apple Intelligence on
         supported macOS 26 Macs; ordinary capture never requires it.
       </>
@@ -113,15 +118,34 @@ const answers: Array<{ q: string; a: ReactNode; plainText: string; open?: boolea
   {
     q: 'What permissions does it ask for?',
     plainText:
-      'Up to four optional permissions requested only for the relevant feature: Automation for Music and Spotify, Files and Folders for Downloads, Notifications for Bondex alerts, and Calendar for upcoming meetings. Privacy indicators do not require camera or microphone permission.',
+      'Up to five optional permissions requested only for the relevant feature: Automation for Music and Spotify, Files and Folders for Downloads, Notifications for Bondex alerts, Calendar for upcoming meetings, and Paste from Other Apps for clipboard history on macOS 15.4 and later. A first-launch welcome explains each one before macOS asks, and macOS remembers your choices across updates. Privacy indicators do not require camera or microphone permission.',
     a: (
       <>
-        Up to four, all optional and requested only for the relevant feature:
+        Up to five, all optional and requested only for the relevant feature:
         <b> Automation</b> for Music and Spotify, <b>Files and Folders</b> to
-        watch Downloads, <b>Notifications</b> for Bondex alerts, and
-        <b> Calendar</b> for upcoming meetings. Privacy indicators do not need
-        camera or microphone permission and never record either source. Nothing
-        leaves your Mac.
+        watch Downloads, <b>Notifications</b> for Bondex alerts,
+        <b> Calendar</b> for upcoming meetings, and <b>Paste from Other Apps</b>{' '}
+        for clipboard history on macOS 15.4 and later. A first-launch welcome
+        explains each one before macOS asks, and macOS remembers your choices
+        across updates. Privacy indicators do not need camera or microphone
+        permission and never record either source. Nothing leaves your Mac
+        except the update check, and only if you turn it on.
+      </>
+    ),
+  },
+  {
+    q: 'How does it stay up to date?',
+    plainText:
+      'From version 1.1.1, Bondex updates itself. On its second launch it asks whether to check automatically, and Settings › General can change that or check now. A check is one request to GitHub for the latest release with nothing about your Mac attached, and every update is verified against a key built into the app before it installs. Coming from 1.0 or 1.1.0, download the latest release once by hand.',
+    a: (
+      <>
+        From version 1.1.1, Bondex updates itself. On its second launch it asks
+        whether to check automatically, and <b>Settings › General</b> can change
+        that or check now. A check is one request to GitHub for the latest
+        release, with nothing about your Mac attached, and every update is
+        verified against a key built into the app before it installs. An update
+        waits in the menu bar menu rather than interrupting you. Coming from 1.0
+        or 1.1.0, download the latest release once by hand.
       </>
     ),
   },
