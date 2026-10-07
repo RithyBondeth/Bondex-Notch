@@ -420,6 +420,46 @@ final class AgentHookSetupTests: XCTestCase {
             environment: ["CLAUDE_CONFIG_DIR": custom.path]
         )
         XCTAssertEqual(target?.file, custom.appendingPathComponent("settings.json"))
-        XCTAssertNil(AgentHookSetup.Target.standard(for: .gemini, home: home, environment: [:]))
+        // No known hook file: set up by hand.
+        XCTAssertNil(AgentHookSetup.Target.standard(for: .opencode, home: home, environment: [:]))
+    }
+
+    // MARK: Gemini
+
+    /// The setup Bondex documented before Gemini was mapped: four events,
+    /// no timeout.
+    func testAnOlderGeminiSetupIsMissingToolEndsAndApprovals() throws {
+        let gemini = try setup(.gemini)
+        let hook = { (event: String) in
+            "\"\(event)\": [{\"hooks\": [{\"type\": \"command\", \"command\": \(Self.quoted(self.command(self.binary, "--agent-hook gemini")))}]}]"
+        }
+        let events = ["BeforeAgent", "BeforeTool", "AfterAgent", "SessionEnd"].map(hook).joined(separator: ", ")
+        try write("{\"security\": {\"auth\": {\"selectedType\": \"oauth-personal\"}}, \"hooks\": {\(events)}}", to: gemini)
+
+        XCTAssertEqual(gemini.state(), .incomplete(missing: ["AfterTool", "Notification"]))
+        try gemini.install()
+        XCTAssertEqual(gemini.state(), .ready)
+        XCTAssertEqual(try read(gemini)["security"]?["auth"]?["selectedType"], .string("oauth-personal"))
+    }
+
+    /// Gemini's timeout is in milliseconds; the 2 used for the other agents
+    /// would kill the hook after 2 ms.
+    func testGeminiHooksGetAMillisecondTimeout() throws {
+        let gemini = try setup(.gemini)
+        try gemini.install()
+        let hook = try read(gemini)["hooks"]?["AfterTool"]?.arrayValue?.first?["hooks"]?.arrayValue?.first
+        XCTAssertEqual(hook?["timeout"], .number("2000"))
+        XCTAssertEqual(hook?["command"], .string(gemini.command))
+        XCTAssertEqual(gemini.target.file, home.appendingPathComponent(".gemini/settings.json"))
+    }
+
+    func testGeminisHomeSettingIsHonoured() {
+        let custom = home.appendingPathComponent("gemini-home", isDirectory: true)
+        let target = AgentHookSetup.Target.standard(
+            for: .gemini,
+            home: home,
+            environment: ["GEMINI_CLI_HOME": custom.path]
+        )
+        XCTAssertEqual(target?.file, custom.appendingPathComponent(".gemini/settings.json"))
     }
 }

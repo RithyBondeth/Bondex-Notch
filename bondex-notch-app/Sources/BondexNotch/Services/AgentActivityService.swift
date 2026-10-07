@@ -105,22 +105,6 @@ struct AgentKind: Hashable, Identifiable, Sendable {
     /// app as a coding agent.
     var executableName: String { id }
 
-    /// Where this agent's hooks are configured, and under which event names,
-    /// for an agent set up by hand. Claude Code and Codex are set up by
-    /// `AgentHookSetup`, which knows their files and events.
-    ///
-    /// Shown in Settings beside the commands, because knowing *what* to run is
-    /// only half of it — every agent puts its hooks somewhere different, and
-    /// under a different name for the same moments. Gemini borrows Claude
-    /// Code's `{matcher, hooks:[{type, command}]}` shape but renames the events.
-    var hookConfigHint: String? {
-        switch id {
-        case Self.gemini.id:
-            return "~/.gemini/settings.json → hooks.BeforeTool / hooks.AfterAgent"
-        default:
-            return nil
-        }
-    }
 }
 
 /// One agent, and what it is currently doing.

@@ -20,8 +20,9 @@ struct AgentHookSetup {
         let kind: AgentKind
         let file: URL
         let events: [String]
-        /// Seconds, written on each new hook. A hook that hangs holds the agent
-        /// up, and Bondex's returns in about 10 ms.
+        /// Written on each new hook, in the agent's own unit: seconds for
+        /// Claude Code and Codex, milliseconds for Gemini. A hook that hangs
+        /// holds the agent up, and Bondex's returns in about 12 ms.
         let timeout: Int?
         /// The agent holds back new or changed hooks until they are reviewed,
         /// so the person should expect that rather than be surprised by it.
@@ -79,9 +80,23 @@ struct AgentHookSetup {
                     // "needs review before it can run".
                     asksToTrustChanges: true
                 )
+            case AgentKind.gemini.id:
+                // GEMINI_CLI_HOME holds a .gemini folder, as the home folder does.
+                let root = environment["GEMINI_CLI_HOME"].flatMap { $0.isEmpty ? nil : $0 }
+                    .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? home
+                return Target(
+                    kind: kind,
+                    file: root.appendingPathComponent(".gemini/settings.json"),
+                    // Gemini's names for the same moments: BeforeAgent is a
+                    // prompt, AfterAgent the end of a turn, and Notification
+                    // carries its tool-permission prompts.
+                    events: ["BeforeAgent", "BeforeTool", "AfterTool", "Notification", "AfterAgent", "SessionEnd"],
+                    // Milliseconds: a 2 here would kill the hook after 2 ms.
+                    timeout: 2000,
+                    // Only project hooks are fingerprinted; user ones run as set.
+                    asksToTrustChanges: false
+                )
             default:
-                // Gemini's events have other names and other payloads, and its
-                // hooks are not yet verified firing, so it is set up by hand.
                 return nil
             }
         }

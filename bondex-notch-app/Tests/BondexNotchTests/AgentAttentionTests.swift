@@ -23,6 +23,64 @@ final class AgentAttentionHookTests: XCTestCase {
         XCTAssertEqual(try action(["hook_event_name": "StopFailure"]), .idle)
     }
 
+    // MARK: Gemini CLI
+
+    /// The base fields Gemini CLI 0.55 sent, as captured from a real run.
+    private func gemini(_ event: String, _ fields: [String: Any] = [:]) throws -> AgentHookAction {
+        var object: [String: Any] = [
+            "session_id": "3f1c", "cwd": "/tmp/work", "transcript_path": "/tmp/t.json",
+            "timestamp": "2026-10-07T01:35:31.789Z", "hook_event_name": event
+        ]
+        object.merge(fields) { _, new in new }
+        return try action(object)
+    }
+
+    /// Gemini names the same moments differently.
+    func testAGeminiTurnReadsLikeAnyOther() throws {
+        XCTAssertEqual(try gemini("BeforeAgent", ["prompt": "fix the build"]), .busy(status: "Thinking"))
+        XCTAssertEqual(try gemini("BeforeTool", [
+            "tool_name": "run_shell_command",
+            "tool_input": ["command": "npm test", "description": "Running the test suite"]
+        ]), .busy(status: "Running the test suite"))
+        XCTAssertEqual(try gemini("BeforeTool", [
+            "tool_name": "run_shell_command", "tool_input": ["command": "npm test"]
+        ]), .busy(status: "Running npm test"))
+        XCTAssertEqual(try gemini("AfterTool", [
+            "tool_name": "replace", "tool_input": ["file_path": "/tmp/work/main.ts"]
+        ]), .busy(status: "Editing main.ts"))
+        XCTAssertEqual(try gemini("BeforeTool", ["tool_name": "grep_search", "tool_input": [:]]),
+                       .busy(status: "Searching the code"))
+        XCTAssertEqual(try gemini("AfterAgent", ["prompt_response": "Done."]), .idle)
+        XCTAssertEqual(try gemini("SessionEnd", ["reason": "exit"]), .idle)
+        XCTAssertEqual(try gemini("SessionStart", ["source": "startup"]), .ignore)
+    }
+
+    /// Gemini's approval prompt arrives as a Notification. Its own message
+    /// ("Tool Shell requires execution") is replaced by what the tool will do.
+    func testAGeminiApprovalNeedsYou() throws {
+        XCTAssertEqual(try gemini("Notification", [
+            "notification_type": "ToolPermission",
+            "message": "Tool Shell requires execution",
+            "details": ["type": "exec", "title": "Shell", "command": "rm -rf build", "rootCommand": "rm"]
+        ]), .attention(message: "Approve: Running rm -rf build"))
+        XCTAssertEqual(try gemini("Notification", [
+            "notification_type": "ToolPermission",
+            "message": "Tool Edit requires editing",
+            "details": ["type": "edit", "title": "Edit", "fileName": "main.ts"]
+        ]), .attention(message: "Approve: Editing main.ts"))
+        XCTAssertEqual(try gemini("Notification", [
+            "notification_type": "ToolPermission",
+            "message": "Tool requires confirmation"
+        ]), .attention(message: "Needs your approval"))
+    }
+
+    func testAGeminiQuestionOrPlanNeedsYou() throws {
+        XCTAssertEqual(try gemini("BeforeTool", ["tool_name": "ask_user", "tool_input": [:]]),
+                       .attention(message: "Has a question for you"))
+        XCTAssertEqual(try gemini("BeforeTool", ["tool_name": "exit_plan_mode", "tool_input": [:]]),
+                       .attention(message: "Plan ready for review"))
+    }
+
     func testAPermissionPromptNotificationNeedsYou() throws {
         XCTAssertEqual(try action([
             "hook_event_name": "Notification",

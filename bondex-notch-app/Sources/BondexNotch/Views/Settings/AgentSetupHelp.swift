@@ -4,10 +4,10 @@ import SwiftUI
 /// Hook setup for the agent indicator.
 ///
 /// Process presence works without setup. Hooks add the exact live state and
-/// "Needs you". For Claude Code and Codex, Bondex writes the hook itself and
-/// checks it each time this opens, because a setup from an older version, or
-/// one left pointing at a copy of the app that has since moved, fails silently.
-/// The other agents get the commands to paste, with the file they go in.
+/// "Needs you". For Claude Code, Codex and Gemini, Bondex writes the hook
+/// itself and checks it each time this opens, because a setup from an older
+/// version, or one left pointing at a copy of the app that has since moved,
+/// fails silently. Other agents get the explicit commands to wire by hand.
 struct AgentSetupHelp: View {
 
     @ObservedObject var environment: AppEnvironment
@@ -131,10 +131,7 @@ struct AgentSetupHelp: View {
                 Button(copied == kind ? "Copied" : "Copy commands") { copy(kind, manualCommands(for: kind)) }
                     .font(.caption)
             }
-            // Where the lines go. Every agent puts its hooks somewhere
-            // different, and names the same moments differently, so the
-            // commands on their own leave the harder half unanswered.
-            commandBlock(manualCommands(for: kind), hint: kind.hookConfigHint)
+            commandBlock(manualCommands(for: kind), hint: nil)
         }
     }
 
