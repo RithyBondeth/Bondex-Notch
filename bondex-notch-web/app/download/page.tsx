@@ -43,10 +43,16 @@ export default function DownloadPage() {
         }}>
           <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#fff' }}>Quick Install Guide</h3>
           <ol style={{ paddingLeft: '20px', margin: '0 0 16px 0' }}>
-            <li>Open the downloaded <code>Bondex Notch.dmg</code> file.</li>
+            <li>Open the downloaded <code>Bondex.Notch.dmg</code> file.</li>
             <li>Drag <strong>Bondex Notch</strong> into the <strong>Applications</strong> shortcut.</li>
             <li>Launch Bondex Notch from Applications.</li>
           </ol>
+          <p style={{ margin: '0 0 16px 0', color: 'rgba(255, 255, 255, 0.65)', fontSize: '12.5px' }}>
+            This is the only download you need: from 1.1.1, Bondex Notch offers
+            new versions itself, after asking once, and keeps the permissions you
+            gave it. Coming from 1.0 or 1.1.0, download once more and replace the
+            old copy.
+          </p>
 
           <h4 style={{ margin: '16px 0 6px 0', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             First launch: allow the app once
