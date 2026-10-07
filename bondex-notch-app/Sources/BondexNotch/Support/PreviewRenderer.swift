@@ -653,14 +653,35 @@ enum PreviewRenderer {
         page: SettingsPage,
         into directory: URL
     ) -> Bool {
-        let size = NSSize(width: 800, height: 570)
-        let hosting = NSHostingView(rootView:
-            SettingsView(environment: environment, initialPage: page)
-                .frame(width: size.width, height: size.height)
-        )
-        hosting.frame = NSRect(origin: .zero, size: size)
-        hosting.appearance = NSAppearance(named: .darkAqua)
-        hosting.layoutSubtreeIfNeeded()
+        func host(height: CGFloat) -> NSHostingView<AnyView> {
+            let size = NSSize(width: 800, height: height)
+            let hosting = NSHostingView(rootView: AnyView(
+                SettingsView(environment: environment, initialPage: page)
+                    .frame(width: size.width, height: size.height)
+            ))
+            hosting.frame = NSRect(origin: .zero, size: size)
+            hosting.appearance = NSAppearance(named: .darkAqua)
+            hosting.layoutSubtreeIfNeeded()
+            return hosting
+        }
+
+        // Tall enough to show the whole page, where a 570pt shot cut most of
+        // them off at the first screen. Offscreen, SwiftUI never lays out a
+        // scroll view's content, so there is nothing to measure: a tall pass
+        // is rendered instead, the lowest row of content in the page column
+        // found, and the page rendered again at that height so the sidebar
+        // still ends at the bottom.
+        let windowHeight: CGFloat = 570
+        let probe = host(height: 4000)
+        var height = windowHeight
+        if let bitmap = probe.bitmapImageRepForCachingDisplay(in: probe.bounds) {
+            probe.cacheDisplay(in: probe.bounds, to: bitmap)
+            if let bottom = Self.lowestContentRow(in: bitmap, fromX: 0.33) {
+                let scale = CGFloat(bitmap.pixelsHigh) / probe.bounds.height
+                height = max(windowHeight, (CGFloat(bottom) / scale + 28).rounded(.up))
+            }
+        }
+        let hosting = host(height: height)
 
         guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
             FileHandle.standardError.write(Data(
@@ -685,6 +706,27 @@ enum PreviewRenderer {
             FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
             return false
         }
+    }
+
+    /// The lowest pixel row, counted from the top, holding anything but
+    /// background in the columns right of `fromX` (a fraction of the width,
+    /// past the sidebar). The background is a smooth gradient, so a row of it
+    /// varies little; text, controls and card edges vary a lot.
+    private static func lowestContentRow(in bitmap: NSBitmapImageRep, fromX: CGFloat) -> Int? {
+        guard let data = bitmap.bitmapData, bitmap.bitsPerSample == 8, bitmap.samplesPerPixel >= 3 else { return nil }
+        let rowBytes = bitmap.bytesPerRow, channels = bitmap.samplesPerPixel
+        let first = Int(CGFloat(bitmap.pixelsWide) * fromX), last = bitmap.pixelsWide - 8
+        for row in stride(from: bitmap.pixelsHigh - 1, through: 0, by: -1) {
+            var low = 255, high = 0
+            for column in stride(from: first, to: last, by: 2) {
+                let offset = row * rowBytes + column * channels
+                let luma = (Int(data[offset]) + Int(data[offset + 1]) + Int(data[offset + 2])) / 3
+                low = min(low, luma)
+                high = max(high, luma)
+            }
+            if high - low > 12 { return row }
+        }
+        return nil
     }
 
     /// Deterministic content so previews are comparable between runs.
