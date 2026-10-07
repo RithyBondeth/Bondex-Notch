@@ -9,7 +9,9 @@ import Foundation
 /// which matters because these sit on a near-black panel, where anything with a
 /// baked-in background shows as a pale rectangle around the glyph.
 ///
-/// The marks are simplified rather than traced. At the size they are actually
+/// Most marks are simplified rather than traced (Codex is measured from its
+/// icon, because a cloud of circles costs nothing to be exact about). At the
+/// size they are actually
 /// used — the orb's glyph is about 13pt across — detail below roughly half a
 /// point is not resolvable, so fidelity there costs path complexity and buys
 /// nothing. What has to survive simplification is the *silhouette*, because that
@@ -66,27 +68,42 @@ enum AgentMarks {
     // origin at the bottom, and doing the flip per-point is how a mark ends up
     // silently upside down.
 
-    /// Codex: the terminal prompt, `>` over `_`.
+    /// Codex: the six-lobed cloud with the terminal prompt, `>_`, cut out of it.
     ///
-    /// The badge the mark normally sits on is dropped deliberately. It is a
-    /// filled, gradient-blue blob, and on this panel a blob would read as a
-    /// button rather than as a status. Stripped to the prompt itself, the mark
-    /// tints like every other one here.
+    /// Measured from the Codex app icon rather than drawn by eye. The cloud is
+    /// six circles of radius 0.2513 whose centres sit 0.26 from the middle, the
+    /// first at 15° below the horizontal and then every 60°; that union matches
+    /// the icon's outline to within 0.7px at 612px. The circles leave a pinhole
+    /// at the centre, so a disc fills it. The prompt is two round-capped strokes
+    /// 0.0768 wide, subtracted so it shows the panel through the cloud the way
+    /// the icon shows its light glyph.
     private static func codex(in box: CGRect) -> CGPath {
-        let stroke = CGMutablePath()
-        stroke.move(to: unit(0.24, 0.24, box))
-        stroke.addLine(to: unit(0.48, 0.48, box))
-        stroke.addLine(to: unit(0.24, 0.72, box))
+        var cloud: CGPath = CGPath(ellipseIn: rect(0.2, 0.2, 0.6, 0.6, box), transform: nil)
+        let radius = 0.2513
+        for lobe in 0..<6 {
+            let angle = (15 + Double(lobe) * 60) * .pi / 180
+            let x = 0.5 + 0.26 * cos(angle), y = 0.5 + 0.26 * sin(angle)
+            let circle = CGPath(
+                ellipseIn: rect(x - radius, y - radius, radius * 2, radius * 2, box),
+                transform: nil
+            )
+            cloud = cloud.union(circle)
+        }
 
-        stroke.move(to: unit(0.56, 0.72, box))
-        stroke.addLine(to: unit(0.82, 0.72, box))
-
-        return stroke.copy(
-            strokingWithWidth: box.width * 0.13,
+        let prompt = CGMutablePath()
+        prompt.move(to: unit(0.2737, 0.3668, box))
+        prompt.addLine(to: unit(0.3489, 0.5041, box))
+        prompt.addLine(to: unit(0.2737, 0.6413, box))
+        prompt.move(to: unit(0.5335, 0.6413, box))
+        prompt.addLine(to: unit(0.7230, 0.6413, box))
+        let strokes = prompt.copy(
+            strokingWithWidth: box.width * 0.0768,
             lineCap: .round,
             lineJoin: .round,
             miterLimit: 10
         )
+
+        return cloud.subtracting(strokes)
     }
 
     /// Gemini: a four-pointed star with concave sides.

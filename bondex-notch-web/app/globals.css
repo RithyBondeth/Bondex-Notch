@@ -1741,16 +1741,9 @@ html[data-motion-ready="true"] .hero__title-b {
   -webkit-mask: var(--agent-mark) center / contain no-repeat;
   mask: var(--agent-mark) center / contain no-repeat;
 }
-.agent-orb--codex::before {
-  width: 20px;
-  height: 17px;
-  -webkit-mask: none;
-  mask: none;
-  background:
-    linear-gradient(45deg, transparent 42%, #f6f7ff 43% 57%, transparent 58%) 1px 1px / 9px 9px no-repeat,
-    linear-gradient(-45deg, transparent 42%, #f6f7ff 43% 57%, transparent 58%) 1px 8px / 9px 9px no-repeat,
-    linear-gradient(#f6f7ff, #f6f7ff) 11px 14px / 8px 2px no-repeat;
-}
+/* The Codex cloud with its >_ cut out, in the icon's own lavender-to-blue. */
+.agent-orb--codex { --agent-mark: url('/agent-icons/codex.svg'); }
+.agent-orb--codex::before { width: 21px; height: 21px; background: linear-gradient(172deg, #c4b0f8, #7e94f4 48%, #3833f2); }
 .agent-orb--claude {
   background: rgba(225,137,102,.13);
   border-color: rgba(225,137,102,.38);

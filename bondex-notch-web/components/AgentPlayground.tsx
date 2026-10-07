@@ -219,13 +219,6 @@ function ClaudeCodeMark() {
 function PixelMark({ id }: { id: AgentId }) {
   const tint = tintOf(id);
   if (id === 'claude') return <span className="pixel-mark" style={{ color: tint }}><ClaudeCodeMark /></span>;
-  if (id === 'codex') {
-    return (
-      <svg className="pixel-mark" viewBox="0 0 1 1" aria-hidden="true">
-        <path d="M.24 .24 L.48 .48 L.24 .72 M.56 .72 L.82 .72" fill="none" stroke={tint} strokeWidth=".13" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
   if (id === 'gemini') {
     return (
       <svg className="pixel-mark" viewBox="0 0 1 1" aria-hidden="true">
