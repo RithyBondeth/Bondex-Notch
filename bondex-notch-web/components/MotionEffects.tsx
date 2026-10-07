@@ -72,13 +72,20 @@ export default function MotionEffects() {
     revealTargets.forEach((element) => observer.observe(element));
     cleanups.push(() => observer.disconnect());
 
+    /* The scroll and pointer values are written to the elements that read
+       them, never to :root. Custom properties inherit, so a write on :root
+       restyles every element on the page — at pointer-move rate that was
+       most of each frame, and the notch demo stuttered under it. */
+    const field = document.querySelector<HTMLElement>('.field');
+    const bar = document.querySelector<HTMLElement>('.notchbar');
+
     let scrollFrame = 0;
     const updateScroll = () => {
       scrollFrame = 0;
       const maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
       const progress = Math.min(window.scrollY / maxScroll, 1);
-      root.style.setProperty('--page-progress', `${progress * 100}%`);
-      root.style.setProperty('--field-scroll', `${Math.max(-28, window.scrollY * -0.018)}px`);
+      bar?.style.setProperty('--page-progress', progress.toFixed(4));
+      field?.style.setProperty('--field-scroll', `${Math.max(-28, window.scrollY * -0.018)}px`);
     };
     const onScroll = () => {
       if (!scrollFrame) scrollFrame = window.requestAnimationFrame(updateScroll);
@@ -99,12 +106,14 @@ export default function MotionEffects() {
         pointerFrame = 0;
         const x = pointerX / window.innerWidth;
         const y = pointerY / window.innerHeight;
-        root.style.setProperty('--field-x', `${(x - 0.5) * -18}px`);
-        root.style.setProperty('--field-y', `${(y - 0.5) * -12}px`);
-        root.style.setProperty('--aurora-x', `${(x - 0.5) * 28}px`);
-        root.style.setProperty('--aurora-y', `${(y - 0.5) * 20}px`);
-        root.style.setProperty('--spot-x', `${x * 100}%`);
-        root.style.setProperty('--spot-y', `${y * 100}%`);
+        if (!field) return;
+        field.style.setProperty('--field-x', `${(x - 0.5) * -18}px`);
+        field.style.setProperty('--field-y', `${(y - 0.5) * -12}px`);
+        field.style.setProperty('--aurora-x', `${(x - 0.5) * 28}px`);
+        field.style.setProperty('--aurora-y', `${(y - 0.5) * 20}px`);
+        // Pixels: the spotlight is moved with a transform, not repainted.
+        field.style.setProperty('--spot-x', `${pointerX}px`);
+        field.style.setProperty('--spot-y', `${pointerY}px`);
       };
       const onPointerMove = (event: PointerEvent) => {
         pointerX = event.clientX;

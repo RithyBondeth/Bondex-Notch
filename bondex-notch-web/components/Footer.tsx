@@ -1,39 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import BrandMark from '@/components/BrandMark';
-import { SUPPORT_EMAIL, supportMailto } from '@/lib/public-config';
+import { contacts } from '@/content/contact';
 
 export default function Footer() {
-  const contacts = [
-    {
-      service: 'instagram',
-      icon: '/social-icons/instagram.svg',
-      label: 'Instagram',
-      value: '@r.bondeth',
-      href: 'https://www.instagram.com/r.bondeth/',
-    },
-    {
-      service: 'telegram',
-      icon: '/social-icons/telegram.svg',
-      label: 'Telegram',
-      value: '@hemrithybondeth',
-      href: 'https://t.me/hemrithybondeth',
-    },
-    {
-      service: 'whatsapp',
-      icon: '/social-icons/whatsapp.svg',
-      label: 'WhatsApp',
-      value: '+855 85 872 582',
-      href: 'https://wa.me/85585872582',
-    },
-    {
-      service: 'email',
-      icon: '/social-icons/gmail.svg',
-      label: 'Email',
-      value: SUPPORT_EMAIL,
-      href: supportMailto('Question about Bondex Notch'),
-    },
-  ];
 
   return (
     <footer className="footer">
@@ -52,11 +22,13 @@ export default function Footer() {
 
         <nav className="footer__nav" aria-label="Footer navigation">
           <b>Explore</b>
-          <a href="#showcase">Product tour</a>
-          <a href="#efficiency">Performance</a>
-          <a href="#features">Features</a>
-          <a href="#pricing">Open source</a>
-          <a href="#faq">FAQ</a>
+          {/* Rooted at /, so they work from every page, not only the home page. */}
+          <Link href="/#showcase">Product tour</Link>
+          <Link href="/#efficiency">Performance</Link>
+          <Link href="/#features">Features</Link>
+          <Link href="/#pricing">Open source</Link>
+          <Link href="/#faq">FAQ</Link>
+          <Link href="/about/">About the developer</Link>
           <b className="footer__nav-subtitle">Legal &amp; support</b>
           <Link href="/privacy/">Privacy</Link>
           <Link href="/terms/">Terms</Link>

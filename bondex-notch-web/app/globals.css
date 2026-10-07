@@ -46,14 +46,14 @@
 
   --ease:    cubic-bezier(.22, 1, .36, 1);
   --spring:  cubic-bezier(.34, 1.4, .5, 1);
-  --page-progress: 0%;
+  --page-progress: 0;
   --field-x: 0px;
   --field-y: 0px;
   --field-scroll: 0px;
   --aurora-x: 0px;
   --aurora-y: 0px;
-  --spot-x: 50%;
-  --spot-y: 50%;
+  --spot-x: 50vw;
+  --spot-y: 50vh;
 
   /* Supplied by next/font in app/layout.tsx. */
   --display: var(--font-ubuntu), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -240,8 +240,23 @@ code {
   inset: 0;
   z-index: 5;
   background:
-    radial-gradient(circle 32vw at var(--spot-x) var(--spot-y), rgba(255,255,255,.08), transparent 68%),
     radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, .32) 100%);
+}
+
+/* The pointer's spotlight. It used to be a gradient on .field::after placed
+   at var(--spot-x), which repainted the whole blended, blurred wallpaper on
+   every pointer move; as a layer of its own it is only moved. */
+.field__spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 64vw;
+  height: 64vw;
+  background: radial-gradient(circle closest-side, rgba(255,255,255,.08), transparent 68%);
+  transform: translate3d(calc(var(--spot-x) - 32vw), calc(var(--spot-y) - 32vw), 0);
+  will-change: transform;
+  pointer-events: none;
 }
 
 /* ── Layout primitives ─────────────────────────────────── */
@@ -412,10 +427,10 @@ code {
   position: absolute;
   left: 50%;
   bottom: -1px;
-  width: var(--page-progress);
-  max-width: calc(100% - 38px);
+  /* Scaled, not resized: scroll progress changes it every frame. */
+  width: calc(100% - 38px);
   height: 1px;
-  transform: translateX(-50%);
+  transform: translateX(-50%) scaleX(var(--page-progress));
   background: linear-gradient(90deg, transparent, var(--azure) 24%, var(--mauve) 76%, transparent);
   box-shadow: 0 0 12px rgba(60, 193, 246, .7);
   pointer-events: none;
@@ -816,7 +831,15 @@ html[data-motion-ready="true"] .hero__title-b {
     width  .42s var(--spring),
     height .42s var(--spring),
     border-radius .42s var(--ease);
-  will-change: width, height;
+}
+
+/* Clips the peek row and the panel to the animating shape; the fillets
+   (::before/::after on .notch__body) stay outside it. */
+.notch__clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
 }
 
 .notch__body::before,
@@ -885,10 +908,15 @@ html[data-motion-ready="true"] .hero__title-b {
   50%      { transform: scaleY(1); }
 }
 
-/* Expanded panel */
+/* Expanded panel. Always the expanded width, centred, and clipped by
+   .notch__clip: the notch grows over it rather than reflowing it. */
 .notch__panel {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 520px;
+  transform: translateX(-50%);
   padding: 34px 16px 14px;
   opacity: 0;
   pointer-events: none;
@@ -4321,15 +4349,12 @@ body {
     0 0 0 1px rgba(106,197,255,.06),
     inset 0 1px 0 rgba(255,255,255,.23),
     inset 0 -60px 110px rgba(1,8,31,.16);
-  transition:transform .5s var(--ease),box-shadow .5s var(--ease);
+  /* Only the lift animates. Transitioning a shadow this size repainted the
+     whole demo screen every frame, just as the pointer reached the notch. */
+  transition:transform .5s var(--ease);
 }
 .stage__screen:hover {
   transform:translateY(-4px);
-  box-shadow:
-    0 86px 154px -54px rgba(1,4,29,1),
-    0 0 0 1px rgba(126,215,255,.10),
-    inset 0 1px 0 rgba(255,255,255,.27),
-    inset 0 -60px 110px rgba(1,8,31,.16);
 }
 
 .slab,
@@ -4898,4 +4923,109 @@ html[data-motion-ready="true"] .state.is-visible .mini {
     --on-field-3: rgba(255, 255, 255, .82);
   }
   .field::before { opacity: .3; }
+}
+
+/* ── About the developer ───────────────────────────────── */
+
+.about-page { padding: clamp(110px, 14vw, 150px) 0 clamp(60px, 8vw, 100px); }
+.about-page .wrap { display: grid; gap: clamp(20px, 3vw, 28px); }
+
+.about-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(22px, 4vw, 44px);
+}
+.about-hero .title { font-size: clamp(36px, 6vw, 64px); }
+/* A monogram rather than a photo: the site's CSP serves only its own images,
+   and a portrait dropped into public/ can replace it. */
+.about-hero__avatar {
+  width: clamp(84px, 11vw, 128px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--azure), var(--lapis) 55%, var(--mauve));
+  box-shadow: 0 24px 60px -24px rgba(60, 193, 246, .65), inset 0 1px 0 rgba(255, 255, 255, .35);
+  color: #fff;
+  font: 700 clamp(28px, 3.6vw, 42px)/1 var(--display);
+  letter-spacing: -.04em;
+}
+.about-hero__facts {
+  margin: 20px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+}
+.about-hero__facts li {
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .05);
+  color: var(--ink-2);
+  font: 500 12.5px/1.3 var(--mono);
+}
+.about-hero .actions { margin-top: 26px; justify-content: flex-start; }
+
+.about-section {
+  padding: clamp(28px, 4.5vw, 52px);
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: var(--r-lg);
+  background: rgba(5, 7, 16, .62);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+.about-section .title { font-size: clamp(26px, 3.6vw, 40px); }
+.about-prose { margin-top: 18px; max-width: 64ch; display: grid; gap: 14px; color: var(--ink-2); font-size: 16.5px; }
+
+.about-principles {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.about-principle {
+  padding: 20px 22px;
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, .035);
+}
+.about-principle h3 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.about-principle p { margin-top: 8px; color: var(--ink-2); font-size: 14.5px; }
+
+.about-timeline { margin: 26px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.about-timeline li {
+  position: relative;
+  padding: 14px 0 14px 26px;
+  border-left: 1px solid rgba(255, 255, 255, .14);
+}
+.about-timeline li::before {
+  content: "";
+  position: absolute;
+  top: 21px;
+  left: -5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--azure);
+  box-shadow: 0 0 0 4px rgba(60, 193, 246, .16);
+}
+.about-timeline a { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; color: var(--ink); }
+.about-timeline a:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.about-timeline b { font-size: 16px; font-weight: 600; }
+.about-timeline time { color: var(--ink-3, rgba(255, 255, 255, .5)); font: 500 12.5px var(--mono); }
+.about-timeline p { margin-top: 6px; max-width: 62ch; color: var(--ink-2); font-size: 14.5px; }
+.about-more { margin-top: 18px; color: var(--ink-2); font-size: 14.5px; }
+.about-more a { color: var(--azure); }
+
+.about-contacts { margin-top: 24px; max-width: 640px; }
+.about-contacts .footer__contact-card b { font-size: 13px; }
+.about-contacts .footer__contact-card small { font-size: 12px; }
+
+@media (max-width: 640px) {
+  .about-hero { grid-template-columns: minmax(0, 1fr); }
+  .about-principles { grid-template-columns: minmax(0, 1fr); }
+  .about-contacts { grid-template-columns: minmax(0, 1fr); }
 }

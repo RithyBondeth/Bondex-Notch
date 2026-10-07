@@ -57,6 +57,7 @@ export default function RibbonField() {
       <div className="field__orbit field__orbit--one" />
       <div className="field__orbit field__orbit--two" />
       <div className="field__starlight" />
+      <div className="field__spot" />
     </div>
   );
 }

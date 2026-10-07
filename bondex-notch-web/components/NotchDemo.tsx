@@ -172,6 +172,12 @@ export default function NotchDemo() {
                 : undefined
             }
           >
+            {/* Clips the contents to the animating shape. The panel inside
+                keeps its full width throughout, so opening the notch only
+                reveals it: laid out at every in-between width, it reflowed
+                each frame and its text rewrapped, which changed the measured
+                height mid-animation and restarted the transition. */}
+            <div className="notch__clip">
             <div className="notch__peek">
               <span className="peek__art" aria-hidden="true" />
               <span className="notch__gap" aria-hidden="true" />
@@ -286,6 +292,7 @@ export default function NotchDemo() {
               ) : (
                 <PanelViews active={tab} ref={viewsRef} />
               )}
+            </div>
             </div>
           </div>
         </div>
