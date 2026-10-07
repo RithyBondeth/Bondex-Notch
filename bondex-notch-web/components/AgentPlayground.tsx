@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { type CSSProperties, type DragEvent, useEffect, useState } from 'react';
+import { type CSSProperties, type DragEvent, useEffect, useRef, useState } from 'react';
 
 type AgentId = 'claude' | 'codex' | 'gemini' | 'ollama';
 type TabId = 'home' | 'agents' | 'capture' | 'shortcuts' | 'music' | 'system' | 'live' | 'files' | 'activity' | 'clipboard' | 'shelf';
@@ -297,7 +297,21 @@ export default function AgentPlayground() {
   const memory = [67, 69, 71, 70, 68][systemTick % 5];
   const down = ['3.2 MB/s', '4.8 MB/s', '2.7 MB/s', '5.1 MB/s'][systemTick % 4];
 
+  /* The once-a-second tick re-renders the whole playground, so it only runs
+     while the playground is on screen: a render landing mid-animation
+     elsewhere on the page costs that animation a frame. */
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [onScreen, setOnScreen] = useState(false);
   useEffect(() => {
+    const element = rootRef.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!onScreen) return;
     const timer = window.setInterval(() => {
       setElapsed((current) => {
         const next = { ...current };
@@ -307,7 +321,7 @@ export default function AgentPlayground() {
       setSystemTick((current) => current + 1);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [active]);
+  }, [active, onScreen]);
 
   useEffect(() => {
     if (!musicPlaying) return;
@@ -815,7 +829,7 @@ export default function AgentPlayground() {
   );
 
   return (
-    <div className="product-shot product-shot--agents real-product" style={{ '--demo-accent': accentColors[accent] } as CSSProperties} aria-label="Interactive Bondex Notch product demo">
+    <div ref={rootRef} className="product-shot product-shot--agents real-product" style={{ '--demo-accent': accentColors[accent] } as CSSProperties} aria-label="Interactive Bondex Notch product demo">
       <div className="real-demo-top">
         <span className="real-demo-top__status"><i /><span><b>Interactive app preview</b><small>Explore the real app flow</small></span></span>
         <button type="button" onClick={resetDemo}>↺ Reset</button>
