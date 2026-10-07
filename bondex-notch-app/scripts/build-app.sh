@@ -51,7 +51,6 @@ APP_NAME="Bondex Notch"
 BUILD_DIR="${BUILD_DIR:-$ROOT/build}"
 BUNDLE="$BUILD_DIR/$APP_NAME.app"
 LOCAL_IDENTITY="Bondex Notch Local Signing"
-FEED_URL="https://github.com/RithyBondeth/Bondex-Notch/releases/latest/download/appcast.xml"
 
 cd "$ROOT"
 
@@ -100,10 +99,9 @@ if [[ "${BONDEX_UPDATES:-}" == "1" ]]; then
     echo "error: Resources/SparklePublicKey.txt is missing; run scripts/setup-release-signing.sh" >&2
     exit 1
   fi
-  /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $FEED_URL" "$PLIST"
+  # The feed and Sparkle's security settings, kept in one file the tests read.
+  /usr/libexec/PlistBuddy -c "Merge $ROOT/Resources/SparkleInfo.plist" "$PLIST"
   /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $PUBLIC_KEY" "$PLIST"
-  # The appcast is signed with the same key, so a tampered feed is refused.
-  /usr/libexec/PlistBuddy -c "Add :SURequireSignedFeed bool true" "$PLIST"
 fi
 cp "$ROOT/Resources/AppIcon.icns" "$BUNDLE/Contents/Resources/AppIcon.icns"
 cp -R "$ROOT/Resources/PreviewAssets" "$BUNDLE/Contents/Resources/PreviewAssets"
