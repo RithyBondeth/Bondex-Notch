@@ -672,8 +672,9 @@ private struct WidgetSettings: View {
                 Text("Agent Activity")
             } footer: {
                 Text("""
-                Shows a mark beside the notch while Claude Code or Codex is \
-                working, with what it is doing and how long it has been at it.
+                Shows a mark beside the notch while Claude Code, Codex or \
+                Gemini CLI is working, with what it is doing and how long it \
+                has been at it.
                 """)
                 .font(.caption)
             }

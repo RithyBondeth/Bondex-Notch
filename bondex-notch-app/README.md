@@ -262,9 +262,11 @@ trust approval.
 ### Needs you
 
 When an agent stops to wait for you, the notch says so. A permission prompt
-(Claude Code's `Notification` event, or `PermissionRequest` in Claude Code and
-Codex), a question (`AskUserQuestion`), a plan awaiting approval
-(`ExitPlanMode`) or Codex's `request_user_input` marks the agent as waiting. Other agents can do the same with
+(Claude Code's `Notification` event, `PermissionRequest` in Claude Code and
+Codex, or Gemini's `ToolPermission` notification), a question
+(`AskUserQuestion`, Gemini's `ask_user`), a plan awaiting approval
+(`ExitPlanMode`, `exit_plan_mode`) or Codex's `request_user_input` marks the
+agent as waiting. Other agents can do the same with
 `--agent-attention <agent> "what it needs"`. A waiting agent outranks every
 persistent peek apart from the camera and microphone indicator: its ring turns
 amber and pulses, and "Needs you" replaces its clock. In the panel, its row shows
@@ -286,7 +288,8 @@ as soon as it finishes rather than at the agent's next event.
 
 ### Hook setup
 
-For Claude Code and Codex, Settings › Widgets sets the hooks up itself. **Set
+For Claude Code, Codex and Gemini CLI, Settings › Widgets sets the hooks up
+itself. **Set
 Up** adds one `--agent-hook` command per event, with this copy of the app's
 real path, to the agent's own file. Each time Settings opens it checks them
 again and offers **Update** when events are missing — typically a setup from
@@ -318,13 +321,19 @@ rather than being ignored — a hook fires dozens of times a turn, which is wher
 silent misreading does the most damage.
 
 The events were read off each agent's installed build. All three borrow Claude
-Code's `{matcher, hooks:[{type, command}]}` shape; Gemini renames the events:
+Code's `{matcher, hooks:[{type, command}]}` shape and send `hook_event_name` on
+stdin, so the one `--agent-hook` command serves every event. Gemini renames the
+moments — `BeforeAgent` is a prompt, `BeforeTool`/`AfterTool` a tool call,
+`AfterAgent` the end of a turn — names its tools differently (`run_shell_command`,
+`replace`, `grep_search`), and sends its approval prompts as a `Notification`
+of type `ToolPermission`, whose details say what the tool is about to do. Its
+hook `timeout` is in milliseconds, where the others use seconds:
 
 | Agent | File | Events |
 |---|---|---|
 | Claude Code | `~/.claude/settings.json` (or `CLAUDE_CONFIG_DIR`) | `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Notification`, `Stop`, `StopFailure`, `SessionEnd` |
 | Codex | `~/.codex/hooks.json` (or `CODEX_HOME`) | `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Stop`, `SessionEnd` |
-| Gemini CLI | `~/.gemini/settings.json` | `BeforeTool` / `AfterAgent` |
+| Gemini CLI | `~/.gemini/settings.json` (or `GEMINI_CLI_HOME`) | `BeforeAgent`, `BeforeTool`, `AfterTool`, `Notification`, `AfterAgent`, `SessionEnd` |
 
 Claude Code's CLI and desktop app read the same file, so wiring it once covers
 both.
@@ -738,11 +747,14 @@ rasterised, and `ScrollView` renders empty — `NotchRootView` and
 
 ## Known gaps
 
-- **Gemini's hooks are not yet verified.** They are written from its own settings
-  schema, but `gemini -p` hangs with no output in a non-TTY. Claude Code and Codex
-  hooks are verified firing. Everything on the Bondex side remains
-  agent-agnostic, so this is a question of where each agent reads its hooks from,
-  not of the indicator.
+- **Gemini CLI's turn hooks are verified only from its own reference.** Run
+  under a pseudo-terminal (`script`), which avoids the hang `gemini -p` shows in
+  a pipe, Gemini CLI 0.55.1 fires `SessionStart` and `SessionEnd` with the
+  documented JSON and accepts Bondex's silent exit. The turn events could not be
+  seen: the account on the Mac this was built on is free-tier Gemini Code Assist,
+  which Google no longer serves to the CLI ("migrate to Antigravity"), so no turn
+  ever starts. The payloads follow the hook reference and tool list the CLI
+  ships, and the approval message follows its source.
 - Codex's `PermissionRequest` and `PostToolUse` hooks come from its build's own
   event list but have not yet been seen firing; its approval payload is assumed
   to match Claude Code's, and falls back to "Needs your approval" if it does not.

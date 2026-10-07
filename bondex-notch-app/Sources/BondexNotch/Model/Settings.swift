@@ -45,7 +45,7 @@ struct Preferences: Codable, Equatable {
     var customShortcutsEnabled = false
     var customActions: [CustomAction] = []
     var shelfEnabled = true
-    /// Show a mark beside the notch while Claude Code or Codex is working.
+    /// Show a mark beside the notch while a coding agent is working.
     var agentActivityEnabled = true
     /// A macOS notification when an agent has been waiting on you, unanswered,
     /// for a little while.

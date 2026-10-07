@@ -147,10 +147,14 @@ enum AgentHookAction: Equatable {
     case ignore
 }
 
-/// Turns Codex's documented hook JSON into a short, glanceable activity line.
+/// Turns an agent's hook JSON into a short, glanceable activity line.
 ///
-/// Parsing it in Bondex avoids a jq dependency and lets the same command work
-/// in Codex Desktop and CLI. Unknown tools still get a readable fallback.
+/// Claude Code, Codex and Gemini CLI all send `hook_event_name` on stdin, so
+/// one `--agent-hook` command serves every event. Gemini names the same
+/// moments differently (`BeforeTool` for `PreToolUse`, `AfterAgent` for
+/// `Stop`) and has its own tools; both are mapped here, from the hook and tool
+/// references Gemini CLI 0.55 ships. Parsing in Bondex avoids a jq dependency.
+/// Unknown tools still get a readable fallback.
 enum AgentHookInput {
     static func action(from data: Data) -> AgentHookAction {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -158,7 +162,7 @@ enum AgentHookInput {
         else { return .ignore }
 
         switch event {
-        case "PreToolUse":
+        case "PreToolUse", "BeforeTool":
             guard let tool = object["tool_name"] as? String else {
                 return .busy(status: nil)
             }
@@ -166,13 +170,13 @@ enum AgentHookInput {
             // Tools whose whole purpose is to hand the turn back to the user.
             if let waiting = waitingMessage(tool: tool) { return .attention(message: waiting) }
             return .busy(status: status(tool: tool, input: input))
-        case "PostToolUse":
+        case "PostToolUse", "AfterTool":
             guard let tool = object["tool_name"] as? String else {
                 return .busy(status: nil)
             }
             let input = object["tool_input"] as? [String: Any] ?? [:]
             return .busy(status: status(tool: tool, input: input))
-        case "UserPromptSubmit":
+        case "UserPromptSubmit", "BeforeAgent":
             return .busy(status: "Thinking")
         case "PermissionRequest":
             // Claude Code is showing an approval dialog for this tool.
@@ -184,7 +188,8 @@ enum AgentHookInput {
         case "Notification":
             return notificationAction(object)
         // StopFailure: the turn ended on an API error, which sends no Stop.
-        case "Stop", "StopFailure", "SessionEnd":
+        // AfterAgent is Gemini's end of a turn.
+        case "Stop", "StopFailure", "AfterAgent", "SessionEnd":
             return .idle
         default:
             return .ignore
@@ -201,6 +206,10 @@ enum AgentHookInput {
             switch type {
             case "permission_prompt", "elicitation_dialog":
                 return .attention(message: message ?? "Needs your approval")
+            case "ToolPermission":
+                // Gemini's own message reads "Tool Shell requires execution";
+                // its details say what the tool is about to do.
+                return .attention(message: geminiApproval(object["details"] as? [String: Any]))
             default:
                 return .ignore
             }
@@ -214,11 +223,30 @@ enum AgentHookInput {
         return .attention(message: message)
     }
 
+    /// What a Gemini approval prompt is asking for, in the form Claude Code's
+    /// prompts take ("Approve: Running swift test").
+    private static func geminiApproval(_ details: [String: Any]?) -> String {
+        let details = details ?? [:]
+        let action: String?
+        switch details["type"] as? String {
+        case "exec":
+            action = clean(details["command"] as? String).flatMap { $0.isEmpty ? nil : "Running \($0)" }
+        case "edit":
+            action = clean(details["fileName"] as? String).flatMap { $0.isEmpty ? nil : "Editing \($0)" }
+        case "mcp":
+            let name = clean(details["toolDisplayName"] as? String) ?? clean(details["toolName"] as? String)
+            action = name.flatMap { $0.isEmpty ? nil : "Using \($0)" }
+        default:
+            action = clean(details["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        }
+        return action.map { "Approve: \($0)" } ?? "Needs your approval"
+    }
+
     private static func waitingMessage(tool: String) -> String? {
         switch tool {
-        case "AskUserQuestion":
+        case "AskUserQuestion", "ask_user":
             return "Has a question for you"
-        case "ExitPlanMode":
+        case "ExitPlanMode", "exit_plan_mode":
             return "Plan ready for review"
         case let name where name.hasPrefix("request_user_input"):
             return "Waiting for your input"
@@ -233,7 +261,7 @@ enum AgentHookInput {
         }
 
         switch tool {
-        case "Bash":
+        case "Bash", "run_shell_command":
             guard let command = clean(input["command"] as? String), !command.isEmpty else {
                 return "Running a command"
             }
@@ -242,19 +270,27 @@ enum AgentHookInput {
             return patchStatus(input["command"] as? String) ?? "Editing code"
         // Claude Code's file tools carry the path, which says far more than
         // the tool's name.
-        case "Edit", "MultiEdit":
+        case "Edit", "MultiEdit", "replace":
             return fileStatus("Editing", path: input["file_path"] as? String)
-        case "Write":
+        case "Write", "write_file":
             return fileStatus("Writing", path: input["file_path"] as? String)
-        case "Read":
+        case "Read", "read_file":
             return fileStatus("Reading", path: input["file_path"] as? String)
-        case "Grep", "Glob":
+        case "read_many_files":
+            return "Reading files"
+        case "Grep", "Glob", "glob", "grep_search", "search_file_content":
             return "Searching the code"
+        case "list_directory":
+            return "Looking through files"
+        case "WebSearch", "google_web_search":
+            return "Searching the web"
+        case "WebFetch", "web_fetch":
+            return "Reading the web"
         case "view_image":
             return fileStatus("Inspecting", path: input["path"] as? String)
         case "Agent", "spawn_agent":
             return "Delegating work"
-        case "update_plan":
+        case "update_plan", "TodoWrite", "write_todos":
             return "Updating the plan"
         default:
             let component = tool.split(separator: "__").last.map(String.init) ?? tool

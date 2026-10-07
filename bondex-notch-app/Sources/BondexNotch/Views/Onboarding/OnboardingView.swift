@@ -277,7 +277,7 @@ struct OnboardingView: View {
             if choices.agents {
                 readyCard(
                     systemImage: "terminal.fill",
-                    title: "Using Claude Code or Codex?",
+                    title: "Using Claude Code, Codex or Gemini?",
                     detail: """
                     Add Bondex's hook so the notch shows what each agent is doing — \
                     and turns amber when one needs you.
