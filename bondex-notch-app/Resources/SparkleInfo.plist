@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged into Info.plist for an updatable (DMG) build only, with
+	     SUPublicEDKey from SparklePublicKey.txt. UpdateServiceTests starts
+	     Sparkle's own updater with these keys, because Sparkle refuses some
+	     combinations at start: 1.1.0 shipped SURequireSignedFeed without
+	     SUVerifyUpdateBeforeExtraction, and its updater never started. -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/RithyBondeth/Bondex-Notch/releases/latest/download/appcast.xml</string>
+	<!-- The appcast is signed with the update key, so a tampered feed is refused. -->
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<!-- Required with a signed feed: the download is verified before it is unpacked. -->
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+</dict>
+</plist>

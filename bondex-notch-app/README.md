@@ -58,8 +58,13 @@ update found in the background waits in the menu bar menu rather than opening
 a window over your work.
 
 Every download is verified against the EdDSA public key built into the app,
-and the appcast itself is signed (`SURequireSignedFeed`), so neither can be
-swapped. That is also why no Apple Developer ID is needed. Only a DMG build
+and the appcast itself is signed (`SURequireSignedFeed`, which Sparkle accepts
+only alongside `SUVerifyUpdateBeforeExtraction`), so neither can be swapped.
+Those keys live in `Resources/SparkleInfo.plist`, which `build-app.sh` merges
+into a DMG build and `UpdateServiceTests` hands to Sparkle's own updater:
+1.1.0 shipped the first without the second, Sparkle refused to start, and
+1.1.0 cannot update itself. If the updater ever fails to start, Settings says
+so and links to the releases page instead of greying out the button. That is also why no Apple Developer ID is needed. Only a DMG build
 carries the feed: `build-app.sh` on its own, debug or release, produces a copy
 that never replaces itself.
 

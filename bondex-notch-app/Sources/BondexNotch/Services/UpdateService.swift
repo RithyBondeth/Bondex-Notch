@@ -30,6 +30,9 @@ final class UpdateService: NSObject, ObservableObject {
     /// look. A menu-bar app has no window to raise, so the update is offered
     /// in the menu rather than thrown up over whatever they are doing.
     @Published private(set) var waitingVersion: String?
+    /// Why Sparkle refused to start. 1.1.0 failed here silently and simply
+    /// never checked; it is shown in Settings instead.
+    @Published private(set) var startError: String?
 
     private var controller: SPUStandardUpdaterController?
     private var observations: [AnyCancellable] = []
@@ -62,6 +65,7 @@ final class UpdateService: NSObject, ObservableObject {
             try updater.start()
         } catch {
             Log.app.error("Updater did not start: \(error.localizedDescription)")
+            startError = error.localizedDescription
             self.controller = nil
             return
         }

@@ -307,7 +307,18 @@ private struct GeneralSettings: View {
 
     private var updatesSection: some View {
         Section("Updates") {
-            if updates.isConfigured {
+            if let error = updates.startError {
+                Label(
+                    "\(versionText) can't check for updates: \(error) Download the latest version from GitHub.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+                Button("Open Releases") {
+                    NSWorkspace.shared.open(URL(string: "https://github.com/RithyBondeth/Bondex-Notch/releases/latest")!)
+                }
+            } else if updates.isConfigured {
                 Toggle(
                     "Check for updates automatically",
                     isOn: Binding(
