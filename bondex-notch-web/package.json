@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --omit=dev --audit-level=high && npm audit --audit-level=critical"
   },
   "dependencies": {
     "next": "16.3.8",
