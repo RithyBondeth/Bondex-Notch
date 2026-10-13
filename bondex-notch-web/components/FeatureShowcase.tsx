@@ -93,14 +93,14 @@ export default function FeatureShowcase() {
                 alt="The real Bondex Notch Spotify player with playback controls"
                 label="Spotify player · rendered by the Mac app"
                 width={1120}
-                height={560}
+                height={620}
               />
               <AppPreview
                 src="/app-previews/system.png"
                 alt="The real Bondex Notch system panel with CPU, memory, battery, network and device batteries"
                 label="System panel · rendered by the Mac app"
                 width={1120}
-                height={620}
+                height={660}
               />
             </div>
           </article>
@@ -127,14 +127,14 @@ export default function FeatureShowcase() {
                 alt="The real Bondex Notch Files panel in its empty state"
                 label="Files · real empty state"
                 width={1120}
-                height={560}
+                height={540}
               />
               <AppPreview
                 src="/app-previews/shelf.png"
-                alt="The real Bondex Notch Shelf panel holding a folder"
+                alt="The real Bondex Notch Shelf panel holding three files and a folder"
                 label="Shelf · real drag-and-drop state"
                 width={1120}
-                height={560}
+                height={520}
               />
             </div>
           </article>
@@ -159,10 +159,10 @@ export default function FeatureShowcase() {
               <AppPreview
                 className="app-preview--primary"
                 src="/app-previews/capture.png"
-                alt="The real Bondex Notch Quick Capture panel with two saved captures"
+                alt="The real Bondex Notch Quick Capture panel with a note and a link"
                 label="Quick Capture · rendered by the Mac app"
                 width={1120}
-                height={560}
+                height={620}
               />
               <div className="app-preview-board__pair">
                 <AppPreview
@@ -170,14 +170,14 @@ export default function FeatureShowcase() {
                   alt="The real Bondex Notch Shortcuts grid"
                   label="Shortcuts"
                   width={1120}
-                  height={560}
+                  height={620}
                 />
                 <AppPreview
                   src="/app-previews/clipboard.png"
                   alt="The real Bondex Notch Clipboard history panel"
                   label="Clipboard"
                   width={1120}
-                  height={560}
+                  height={580}
                 />
               </div>
             </div>
@@ -202,12 +202,12 @@ export default function FeatureShowcase() {
             <div className="app-preview-board app-preview-board--context">
               <AppPreview
                 src="/app-previews/productivity.png"
-                alt="The real Bondex Notch Home panel showing focus, a meeting, coding agents and media"
+                alt="The real Bondex Notch Home panel showing an upcoming meeting, playback and the focus timer"
                 label="Productivity Home · real app state"
                 width={1120}
-                height={820}
+                height={680}
               />
-              <p className="app-preview-board__note"><span>Focus</span><span>Meeting</span><span>Agents</span><span>Media</span></p>
+              <p className="app-preview-board__note"><span>Meeting</span><span>Media</span><span>Focus</span></p>
             </div>
           </article>
 
@@ -232,8 +232,8 @@ export default function FeatureShowcase() {
                 src="/app-previews/settings-appearance.png"
                 alt="The real Bondex Notch Appearance settings window"
                 label="Appearance settings · rendered by the Mac app"
-                width={1400}
-                height={997}
+                width={1600}
+                height={1862}
               />
             </div>
           </article>
