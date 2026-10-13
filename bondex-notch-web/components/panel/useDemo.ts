@@ -82,7 +82,8 @@ export function useDemo(seed: DemoSeed) {
   const [tick, setTick] = useState(0);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [onScreen, setOnScreen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  // A callback ref, so the hook's result holds no ref object.
+  const [root, setRoot] = useState<HTMLElement | null>(null);
 
   /* ── Panel ── */
   const [tab, setTabState] = useState<TabId>('home');
@@ -143,30 +144,26 @@ export function useDemo(seed: DemoSeed) {
   }, []);
 
   useEffect(() => {
-    const element = rootRef.current;
-    if (!element) return;
+    if (!root) return;
     const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting));
-    observer.observe(element);
+    observer.observe(root);
     return () => observer.disconnect();
-  }, []);
+  }, [root]);
 
   /* ── Events ── */
 
-  const tickRef = useRef(0);
-  useEffect(() => {
-    tickRef.current = tick;
+  const post = useCallback((event: Omit<NotchEvent, 'id' | 'at'>) => {
+    const posted = { ...event, id: id(), at: { tick } } as NotchEvent;
+    setEvents((current) => [posted, ...current].slice(0, 40));
+    if (EVENT_KINDS[event.kind].banner) setBanner(posted);
   }, [tick]);
 
-  const bannerTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const post = useCallback((event: Omit<NotchEvent, 'id' | 'at'>) => {
-    const posted = { ...event, id: id(), at: { tick: tickRef.current } } as NotchEvent;
-    setEvents((current) => [posted, ...current].slice(0, 40));
-    if (EVENT_KINDS[event.kind].banner) {
-      clearTimeout(bannerTimer.current);
-      setBanner(posted);
-      bannerTimer.current = setTimeout(() => setBanner(null), 3200);
-    }
-  }, []);
+  // A banner stands for 3.2 seconds, then the peek returns to what it was.
+  useEffect(() => {
+    if (!banner) return;
+    const timer = setTimeout(() => setBanner(null), 3200);
+    return () => clearTimeout(timer);
+  }, [banner]);
 
   /* ── Per-second state ── */
 
@@ -229,7 +226,7 @@ export function useDemo(seed: DemoSeed) {
       // the feed: `activity.completionMessage ?? activity.subtitle`.
       setBuild(null);
       post({ kind: 'live', title: 'Building release finished', subtitle: 'Build succeeded' });
-    }, 120);
+    }, 400);
     return () => window.clearInterval(timer);
   }, [buildRunning, post]);
 
@@ -272,24 +269,24 @@ export function useDemo(seed: DemoSeed) {
   const toggleAgent = useCallback((agent: AgentId) => {
     const running = agents.find((item) => item.id === agent);
     if (!running) {
-      setAgents([{ id: agent, since: tickRef.current, attention: false }, ...agents]);
+      setAgents([{ id: agent, since: tick, attention: false }, ...agents]);
       return;
     }
     setAgents(agents.filter((item) => item.id !== agent));
-    post({ kind: 'agent', agent, title: `${agentName(agent)} finished`, subtitle: `Worked for ${clockString(tickRef.current - running.since)}` });
-  }, [agents, post]);
+    post({ kind: 'agent', agent, title: `${agentName(agent)} finished`, subtitle: `Worked for ${clockString(tick - running.since)}` });
+  }, [agents, post, tick]);
 
   /** Stops the first working agent at a prompt, or answers it. */
   const toggleAttention = useCallback(() => {
     setAgents((current) => {
-      if (current.length === 0) return [{ id: 'claude', since: tickRef.current, attention: true }];
+      if (current.length === 0) return [{ id: 'claude', since: tick, attention: true }];
       const waiting = current.some((agent) => agent.attention);
       // A waiting agent leads, as AgentActivityService sorts it.
       if (waiting) return current.map((agent) => ({ ...agent, attention: false }));
       const [first, ...rest] = current;
       return [{ ...first, attention: true }, ...rest];
     });
-  }, []);
+  }, [tick]);
 
   const agentStatus = (agent: WorkingAgent) =>
     agent.attention ? ATTENTION_STATUS : (AGENT_STATUS[agent.id] ?? 'Working');
@@ -326,9 +323,10 @@ export function useDemo(seed: DemoSeed) {
   // A tab switched off while showing falls back to Home.
   const shownTab: TabId = tabs.includes(tab) ? tab : 'home';
 
-  /** `AppEnvironment.toggleWidget`: nil for Home, which is always shown. */
+  /** `AppEnvironment.toggleWidget`: nil for Home, which is always shown, and
+      for the Shortcuts grid, which is a setting of its own. */
   const toggleWidget = useCallback((item: TabId): boolean | null => {
-    if (item === 'home') return null;
+    if (item === 'home' || item === 'shortcuts') return null;
     const enable = !tabs.includes(item);
     setDisabledTabs((current) => {
       const next = new Set(current);
@@ -364,9 +362,9 @@ export function useDemo(seed: DemoSeed) {
   const saveDraft = useCallback(() => {
     const text = draft.trim();
     if (!text) return;
-    setCaptures((current) => [{ id: id(), text, ago: -tickRef.current, pinned: false }, ...current]);
+    setCaptures((current) => [{ id: id(), text, ago: -tick, pinned: false }, ...current]);
     setDraft('');
-  }, [draft]);
+  }, [draft, tick]);
 
   const pasteIntoDraft = useCallback(() => {
     const first = clipboard.find((item) => item.kind !== 'image');
@@ -488,7 +486,7 @@ export function useDemo(seed: DemoSeed) {
   }, [closePalette]);
 
   return {
-    rootRef, tick, loadedAt,
+    setRoot, tick, loadedAt,
     // panel
     tab: shownTab, setTab, tabAdvances, tabs, isEnabled, accent: effectiveAccent, accentHex: accentHex(effectiveAccent), setAccent,
     activeProfile, panelWidth: activeProfile?.width ?? 520, panelStyle: activeProfile?.style ?? 'gradient',
@@ -509,7 +507,7 @@ export function useDemo(seed: DemoSeed) {
   };
 }
 
-export type Demo = ReturnType<typeof useDemo>;
+export type Demo = Omit<ReturnType<typeof useDemo>, 'setRoot'>;
 
 const AGENT_STATUS: Record<AgentId, string> = {
   claude: 'Editing PeekView.swift',

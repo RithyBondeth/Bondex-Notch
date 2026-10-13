@@ -161,13 +161,20 @@ export const features: Feature[] = [
 ];
 
 /* ── Panel states ─────────────────────────────────────────
-   `width` and `height` are the real panel dimensions the app uses, scaled
-   down by a constant. The diagram is the notch, not an illustration of it. */
+   NotchGeometry's real sizes in points, drawn at 0.4×: the 185 × 32pt notch
+   of a 14-inch MacBook Pro, the 305pt peek that carries playback or one
+   working agent, and the 520pt default panel at the height of a typical Home
+   (one agent, playback, the focus chip). Corner radii are Theme's 10, 15 and
+   20pt; the fillets are its 11pt flare. The diagram is the notch, not an
+   illustration of it. */
+
+export const STATE_SCALE = 0.4;
 
 export interface PanelState {
   id: 'collapsed' | 'peek' | 'expanded';
   title: string;
   body: string;
+  /** Points, before scaling. */
   width: number;
   height: number;
   radius: number;
@@ -180,9 +187,9 @@ export const panelStates: PanelState[] = [
     body:
       'Exactly the size of your hardware notch, and completely invisible ' +
       'against it. Bondex is doing nothing to your screen.',
-    width: 74,
-    height: 14,
-    radius: 6,
+    width: 185,
+    height: 32,
+    radius: 10,
   },
   {
     id: 'peek',
@@ -190,9 +197,9 @@ export const panelStates: PanelState[] = [
     body:
       'When something needs context — a track, agent, focus timer, meeting, hardware ' +
       'change or privacy signal — a thin strip grows beside the notch. Never over it.',
-    width: 128,
-    height: 16,
-    radius: 6,
+    width: 305,
+    height: 32,
+    radius: 15,
   },
   {
     id: 'expanded',
@@ -200,9 +207,9 @@ export const panelStates: PanelState[] = [
     body:
       "Move the pointer to the notch and the full panel springs down. Move " +
       "away and it's gone. Click to pin it open while you work.",
-    width: 216,
-    height: 78,
-    radius: 14,
+    width: 520,
+    height: 245,
+    radius: 20,
   },
 ];
 

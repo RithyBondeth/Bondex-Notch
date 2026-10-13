@@ -7,6 +7,7 @@ import RibbonField from '@/components/RibbonField';
 import { FIELD_BACKDROP } from '@/lib/ribbonField';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/seo';
 import './globals.css';
+import './panel.css';
 
 /* Self-hosted at build time, so there is no third-party round trip or layout
    shift. Ubuntu is the shared display and body face; Ubuntu Mono keeps the

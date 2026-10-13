@@ -600,10 +600,7 @@ enum PreviewRenderer {
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
 
-        guard let image = renderer.nsImage,
-              let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:]) else {
+        guard let png = srgbPNG(from: renderer) else {
             FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
             return false
         }
@@ -619,6 +616,29 @@ enum PreviewRenderer {
         }
     }
 
+    /// The render as an sRGB PNG.
+    ///
+    /// Encoded from the CGImage rather than `nsImage.tiffRepresentation`: a
+    /// view holding an HDR-capable image — the Calculator icon in the
+    /// Shortcuts grid — made the TIFF an HDR (PQ) bitmap, which every viewer
+    /// tone-maps, so that one shot came out a different brightness.
+    private static func srgbPNG<Content: View>(from renderer: ImageRenderer<Content>) -> Data? {
+        guard let image = renderer.cgImage,
+              let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                  data: nil,
+                  width: image.width,
+                  height: image.height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: 0,
+                  space: srgb,
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let flattened = context.makeImage() else { return nil }
+        return NSBitmapImageRep(cgImage: flattened).representation(using: .png, properties: [:])
+    }
+
     /// Renders a single view on the panel's black, for parts of a tab that a
     /// whole-panel render cannot show.
     private static func renderView<Content: View>(
@@ -630,10 +650,7 @@ enum PreviewRenderer {
             .background(Color.black)
             .environment(\.isRenderingOffscreen, true))
         renderer.scale = 2
-        guard let image = renderer.nsImage,
-              let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:]) else {
+        guard let png = srgbPNG(from: renderer) else {
             FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
             return false
         }
@@ -731,6 +748,10 @@ enum PreviewRenderer {
 
     /// Deterministic content so previews are comparable between runs.
     private static func seedSampleData(_ environment: AppEnvironment) {
+        // The grid is its own setting rather than a widget toggle
+        // (`toggleWidget` declines it), so the per-tab loop cannot switch it
+        // on, and its shot rendered with the tab missing from the strip.
+        environment.settings.preferences.customShortcutsEnabled = true
         environment.settings.preferences.customActions = [
             CustomAction(
                 title: "Calculator",
