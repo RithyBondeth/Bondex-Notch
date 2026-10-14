@@ -41,7 +41,7 @@ struct OnboardingView: View {
     private var accent: Color { settings.effectiveAccentColor }
 
     /// Tall enough for every feature row without scrolling.
-    static let size = CGSize(width: 580, height: 630)
+    static let size = CGSize(width: 580, height: 680)
 
     var body: some View {
         ZStack {

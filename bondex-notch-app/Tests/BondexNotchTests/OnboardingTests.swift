@@ -61,6 +61,31 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(choices.permissionsToRequest, [.calendar])
     }
 
+    /// New installs are offered the buddy switched on; it needs no permission,
+    /// and declining it keeps it off.
+    func testTheWelcomeOffersTheBuddyOnAndAsksForNothing() {
+        var preferences = Preferences()
+        XCTAssertFalse(preferences.buddyEnabled, "The stored default stays off for updates")
+        var choices = OnboardingChoices(preferences: preferences)
+        XCTAssertTrue(choices.buddy)
+
+        choices.apply(to: &preferences)
+        XCTAssertTrue(preferences.buddyEnabled)
+        XCTAssertTrue(OnboardingChoices(preferences: preferences).buddy)
+
+        choices.buddy = false
+        choices.apply(to: &preferences)
+        XCTAssertFalse(preferences.buddyEnabled)
+        XCTAssertFalse(OnboardingChoices(preferences: preferences).buddy, "Reopening respects the answer")
+    }
+
+    /// Someone updating skips the welcome and keeps the buddy off until they
+    /// choose it.
+    func testAnUpdateDoesNotSwitchTheBuddyOn() throws {
+        let decoded = try XCTUnwrap(SettingsStore.decode(Data(#"{"musicWidgetEnabled":true}"#.utf8)))
+        XCTAssertFalse(decoded.buddyEnabled)
+    }
+
     /// macOS 15.4 asks before an app reads the clipboard, so choosing history
     /// asks then — not on the first copy afterwards.
     func testChoosingClipboardHistoryAsksForClipboardAccess() {

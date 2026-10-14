@@ -12,6 +12,7 @@ struct OnboardingChoices: Equatable {
     var downloads: Bool
     var meetings: Bool
     var agentNotifications: Bool
+    var buddy: Bool
 
     init(preferences: Preferences) {
         media = preferences.musicWidgetEnabled
@@ -21,6 +22,10 @@ struct OnboardingChoices: Equatable {
         meetings = preferences.upcomingMeetingsEnabled
         agentNotifications = preferences.notifyWhenAgentNeedsYou
             || preferences.notifyWhenAgentRunFinishes
+        // Offered switched on to someone choosing for the first time, though
+        // the stored default stays off: an update must not start nudging
+        // people who never asked for it.
+        buddy = preferences.buddyEnabled || !preferences.hasCompletedOnboarding
     }
 
     /// Writes the choices into `preferences` and marks the welcome as done.
@@ -33,6 +38,7 @@ struct OnboardingChoices: Equatable {
         preferences.upcomingMeetingsEnabled = meetings
         preferences.notifyWhenAgentNeedsYou = agents && agentNotifications
         preferences.notifyWhenAgentRunFinishes = agents && agentNotifications
+        preferences.buddyEnabled = buddy
         preferences.hasCompletedOnboarding = true
     }
 
@@ -123,6 +129,14 @@ struct OnboardingFeature: Identifiable {
             systemImage: "calendar",
             asks: "Asks for calendar access",
             choice: \.meetings
+        ),
+        OnboardingFeature(
+            id: "buddy",
+            title: "Wellness buddy",
+            detail: "A little plant that wilts when you skip breaks and perks up with water.",
+            systemImage: "leaf.fill",
+            asks: nil,
+            choice: \.buddy
         )
     ] }
 }
