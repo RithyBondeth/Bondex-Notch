@@ -8,5 +8,6 @@ enum AppIntentCommand {
         case createCapture
         case showWidget
         case startFocus
+        case logWater
     }
 }

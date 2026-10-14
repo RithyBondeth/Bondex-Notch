@@ -62,7 +62,7 @@ export default function FeatureShowcase() {
                 read from the logs on your Mac, never from an account.
               </p>
               <ul className="story__points">
-                <li>Explore the same eleven tabs as the real Mac panel</li>
+                <li>Explore the same twelve tabs as the real Mac panel</li>
                 <li>Signal agents, then check limits and spend on Agents</li>
                 <li>Control music, change accents and drop files onto Shelf</li>
               </ul>
@@ -211,9 +211,54 @@ export default function FeatureShowcase() {
             </div>
           </article>
 
+          <article className="story story--buddy">
+            <div className="story__copy">
+              <p className="label">06 · Wellness buddy</p>
+              <h3>A tiny plant that wants you to take a break.</h3>
+              <p>
+                Your buddy wilts the longer you work without stepping away, and
+                perks up when you rest your eyes or have a glass of water. No
+                alarms to swipe away: when a break is due, the drooping buddy
+                simply appears beside the notch.
+              </p>
+              <ul className="story__points">
+                <li>Daily water and break goals, a streak and six badges to earn</li>
+                <li>Follows your pointer and hops with hearts when you say hi</li>
+                <li>Reads only the time since your last keystroke — no permission</li>
+              </ul>
+            </div>
+
+            <div className="app-preview-board app-preview-board--buddy">
+              <div className="app-preview-board__pair">
+                <AppPreview
+                  src="/app-previews/buddy.png"
+                  alt="The real Bondex Notch Buddy tab: a flowering potted plant, water and break goals, and a four-day streak"
+                  label="Fresh from a break"
+                  width={1120}
+                  height={736}
+                />
+                <AppPreview
+                  src="/app-previews/buddy-break.png"
+                  alt="The Buddy tab after an hour without a break: the plant has wilted and asks for a stretch"
+                  label="An hour without one"
+                  width={1120}
+                  height={796}
+                />
+              </div>
+              <AppPreview
+                className="app-preview--strip"
+                src="/app-previews/buddy-peek.png"
+                alt="The wilted buddy beside the notch with Break time, 1 h 4 min"
+                label="The nudge beside the notch · rendered by the Mac app"
+                width={1120}
+                height={104}
+              />
+            </div>
+          </article>
+
           <article className="story story--personalize">
             <div className="story__copy">
-              <p className="label">06 · Made for your Mac</p>
+              <p className="label">07 · Made for your Mac</p>
               <h3>Shape the notch around the way you work.</h3>
               <p>
                 Choose what appears, put tabs in your preferred order, and tune the

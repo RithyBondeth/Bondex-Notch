@@ -1149,3 +1149,103 @@
   }
   .ap-widget { animation: ap-fade .1s ease-out both; }
 }
+
+/* ── Buddy · BuddyWidget ─────────────────────────────────── */
+
+/* PillButton */
+.ap .ap-pill {
+  --tint: #fff;
+  height: 26px;
+  padding: 0 12px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  color: var(--ap-primary);
+  background: rgba(255, 255, 255, .08);
+  box-shadow: inset 0 0 0 .7px rgba(255, 255, 255, .08);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: background .12s ease-out, transform .22s cubic-bezier(.34, 1.56, .64, 1);
+}
+.ap .ap-pill:hover { background: rgba(255, 255, 255, .15); }
+.ap .ap-pill:active { transform: scale(.94); }
+.ap .ap-pill.is-prominent { color: #000; background: var(--tint); }
+.ap .ap-pill.is-prominent:hover { background: color-mix(in srgb, var(--tint) 90%, transparent); }
+
+.ap-buddy { display: flex; align-items: stretch; gap: 8px; }
+.ap-buddy__mascot {
+  width: 168px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px;
+  text-align: center;
+}
+.ap-buddy__mascot > b { margin-top: 4px; font-size: 11.5px; }
+.ap-buddy__mascot > small { color: var(--ap-secondary); font-size: 9.5px; font-weight: 500; }
+.ap-buddy__mascot .ap-text-button { margin-top: 6px; }
+.ap-buddy-mascot { display: block; }
+.ap-buddy-mascot.is-interactive { cursor: pointer; }
+.ap-buddy__energy {
+  width: 100%;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tint);
+}
+.ap-buddy__energy .ap-meter { flex: 1; }
+.ap-buddy__energy em {
+  width: 28px;
+  color: var(--ap-secondary);
+  font-size: 9.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.ap-buddy__goals { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.ap-goal { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 9px; }
+.ap-goal > small { color: var(--ap-tertiary); font-size: 9.5px; font-weight: 500; }
+.ap-goal__head { display: flex; align-items: center; gap: 6px; min-height: 26px; }
+.ap-goal__head > b { font-size: 11.5px; }
+.ap-goal__icon { color: var(--tint); }
+.ap-goal__count { display: inline-flex; align-items: baseline; gap: 1px; font-variant-numeric: tabular-nums; }
+.ap-goal__count b { font-size: 11.5px; font-weight: 700; }
+.ap-goal__count b.is-met { color: var(--tint); }
+.ap-goal__count small { color: var(--ap-tertiary); font-size: 9.5px; font-weight: 600; }
+.ap-goal__pips { display: flex; gap: 3px; }
+.ap-goal__pips i {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .1);
+  transition: background .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+.ap-goal__pips i.is-filled { background: linear-gradient(to bottom, color-mix(in srgb, var(--tint) 100%, #fff 18%), var(--tint)); }
+.ap-buddy__streak { display: flex; align-items: center; gap: 8px; }
+.ap-buddy__streak b { font-size: 10.5px; }
+.ap-buddy__streak small { color: var(--ap-tertiary); font-size: 9.5px; }
+.ap-buddy__flame { color: #ff8c40; }
+.ap-buddy__badges { display: flex; gap: 4px; }
+.ap-buddy__badges i {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ap-tertiary);
+  background: rgba(255, 255, 255, .06);
+  box-shadow: inset 0 0 0 .7px rgba(255, 255, 255, .06);
+}
+.ap-buddy__badges i.is-earned {
+  color: rgba(0, 0, 0, .8);
+  background: linear-gradient(to bottom right, #ffdb73, #ed9e38);
+  box-shadow: inset 0 0 0 .7px rgba(255, 255, 255, .3);
+}
+
+/* The buddy's peek: the mascot, and "Break time" with how long. */
+.ap-peek__buddy { display: grid; place-items: center; width: 24px; height: 24px; }

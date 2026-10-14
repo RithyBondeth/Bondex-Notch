@@ -28,7 +28,8 @@ final class AppIntentTests: XCTestCase {
                 "activateProfile",
                 "createCapture",
                 "showWidget",
-                "startFocus"
+                "startFocus",
+                "logWater"
             ]
         )
     }
@@ -90,6 +91,6 @@ final class AppIntentTests: XCTestCase {
 
 private extension AppIntentCommand.Action {
     static var allCasesForTesting: [Self] {
-        [.automaticProfiles, .activateProfile, .createCapture, .showWidget, .startFocus]
+        [.automaticProfiles, .activateProfile, .createCapture, .showWidget, .startFocus, .logWater]
     }
 }

@@ -10,6 +10,7 @@ export type FeatureIcon =
   | 'clipboard'
   | 'shortcuts'
   | 'focus'
+  | 'buddy'
   | 'profiles'
   | 'privacy'
   | 'live'
@@ -89,6 +90,15 @@ export const features: Feature[] = [
     body:
       'Run a restart-safe focus timer from 1 to 180 minutes, and optionally see the ' +
       'next calendar event with a countdown and one-click Zoom, Meet, Teams or Webex link.',
+  },
+  {
+    icon: 'buddy',
+    title: 'Wellness buddy',
+    body:
+      'A little plant that wilts the longer you work without a break and perks up ' +
+      'when you step away or drink water. Daily water and break goals, streak badges, ' +
+      'and a quiet nudge beside the notch instead of an alert — read only from how ' +
+      'long since your last keystroke, with no permission.',
   },
   {
     icon: 'profiles',
@@ -195,8 +205,9 @@ export const panelStates: PanelState[] = [
     id: 'peek',
     title: 'Peek',
     body:
-      'When something needs context — a track, agent, focus timer, meeting, hardware ' +
-      'change or privacy signal — a thin strip grows beside the notch. Never over it.',
+      'When something needs context — a track, agent, focus timer, meeting, break ' +
+      'reminder, hardware change or privacy signal — a thin strip grows beside the ' +
+      'notch. Never over it.',
     width: 305,
     height: 32,
     radius: 15,
@@ -244,6 +255,7 @@ export const plans: Plan[] = [
       'Custom live activities from scripts and Shortcuts',
       'Quick Capture and session-only clipboard history',
       'Focus timer and optional upcoming meetings',
+      'Wellness buddy with water and break goals',
       'Custom actions, command palette and Apple Shortcuts actions',
       'Smart profiles with automatic rules',
       'System metrics, connected-device batteries and hardware HUD',

@@ -5,6 +5,8 @@ struct CommandPaletteCommand: Identifiable, Equatable {
     enum Action: Equatable {
         case createCapture
         case toggleFocus
+        case logWater
+        case logBreak
         case customAction(UUID)
         case clipboard(UUID)
         case capture(UUID)

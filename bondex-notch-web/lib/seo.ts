@@ -43,6 +43,7 @@ export const softwareApplicationJsonLd = {
     'Claude Code and Codex usage, limits and spend',
     'Quick Capture and clipboard history',
     'Focus timer and upcoming meetings',
+    'Wellness buddy with break and water reminders',
     'Smart profiles and custom live activities',
     'System metrics, file activity and drop shelf',
   ],

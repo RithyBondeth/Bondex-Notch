@@ -15,6 +15,7 @@ struct PeekView: View {
     @ObservedObject private var focusTimer: FocusTimerService
     @ObservedObject private var meetings: UpcomingMeetingService
     @ObservedObject private var privacyActivity: PrivacyActivityService
+    @ObservedObject private var buddy: WellnessBuddyService
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -26,6 +27,7 @@ struct PeekView: View {
         self.focusTimer = environment.focusTimer
         self.meetings = environment.meetings
         self.privacyActivity = environment.privacyActivity
+        self.buddy = environment.buddy
     }
 
     private var accent: Color { settings.effectiveAccentColor }
@@ -126,6 +128,11 @@ struct PeekView: View {
                 .frame(width: 22, height: 22)
                 .accessibilityHidden(true)
                 .transition(.scale.combined(with: .opacity))
+        case .buddy:
+            BuddyMascot(energy: buddy.energy, isThirsty: buddy.isThirsty, frameRate: 12)
+                .frame(width: 24, height: 24)
+                .accessibilityHidden(true)
+                .transition(.scale.combined(with: .opacity))
         case .live:
             if let activity = currentLive {
                 ZStack {
@@ -220,6 +227,21 @@ struct PeekView: View {
                 .accessibilityElement(children: .combine)
                 .transition(.opacity)
             }
+        case .buddy:
+            VStack(alignment: .trailing, spacing: 0) {
+                Text("Break time")
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                Text(BuddyWidget.duration(Int(buddy.activeStretch / 60)))
+                    .font(.system(size: Theme.TextSize.caption, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Theme.secondaryText)
+            }
+            .lineLimit(1)
+            .frame(maxWidth: 96, alignment: .trailing)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Wellness buddy: time for a break")
+            .accessibilityValue("At your Mac for \(BuddyWidget.duration(Int(buddy.activeStretch / 60)))")
+            .transition(.opacity)
         case .live:
             if let activity = currentLive {
                 VStack(alignment: .trailing, spacing: 0) {

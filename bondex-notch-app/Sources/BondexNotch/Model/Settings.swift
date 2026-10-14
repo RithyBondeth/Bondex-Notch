@@ -59,6 +59,16 @@ struct Preferences: Codable, Equatable {
     var focusTimerEnabled = true
     var defaultFocusMinutes = 25
     var upcomingMeetingsEnabled = false
+    /// The wellness buddy: a plant that wilts through long unbroken stretches
+    /// at the Mac, with water and break goals. Off until chosen, like the other
+    /// widgets outside the everyday set.
+    var buddyEnabled = false
+    /// Minutes of unbroken work before the buddy asks for a break.
+    var buddyBreakMinutes = 50
+    var buddyWaterGoal = 8
+    var buddyBreakGoal = 6
+    /// Let the buddy show beside the notch when a break is due.
+    var buddyNudgesInNotch = true
     /// Compact peeks may be visible while screen sharing; titles are private by default.
     var showMeetingTitlesInPeek = false
     /// Order of the tabs in the expanded panel. Unknown or missing tabs are
@@ -298,6 +308,7 @@ final class SettingsStore: ObservableObject {
         case .shortcuts: return preferences.customShortcutsEnabled
         case .music: return preferences.musicWidgetEnabled
         case .system: return preferences.systemWidgetEnabled
+        case .buddy: return preferences.buddyEnabled
         case .live: return preferences.customLiveActivitiesEnabled
         case .files: return preferences.fileActivityEnabled
         case .activity: return preferences.activityFeedEnabled
