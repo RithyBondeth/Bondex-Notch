@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type AccentId, type AgentId, type Command, type CustomAction, type ProfileId, type TabId, type UsageRange,
-  CUSTOM_ACTIONS, PROFILES, SETTINGS_PAGES, TAB_ORDER, TABS,
-  accentHex, actionSubtitle, actionSymbol, agentName, clockString, searchCommands,
+  BUDDY_GOALS, BUDDY_WATER_CREDIT, CUSTOM_ACTIONS, PROFILES, SETTINGS_PAGES, TAB_ORDER, TABS,
+  accentHex, actionSubtitle, actionSymbol, agentName, buddyEnergy, clockString, searchCommands,
 } from './model';
 
 /* The app's state, small enough for a page: what is working, playing,
@@ -130,6 +130,14 @@ export function useDemo(seed: DemoSeed) {
   ]);
   const [feedback, setFeedback] = useState<{ message: string; error: boolean } | null>(null);
 
+  /* ── Wellness buddy · WellnessBuddyService ── */
+  // The stretch is in minutes and stands still unless something moves it:
+  // the page has no idle time to read, and a buddy wilting on its own would
+  // take over the hero's peek. "Work an hour" plays an hour forward so the
+  // plant can be watched wilting.
+  const [buddy, setBuddy] = useState({ stretch: 22, glasses: 5, breaks: 3, lastWaterAgo: 25, snoozed: false, waterTick: 0 });
+  const [fastForward, setFastForward] = useState(0);
+
   /* ── Palette ── */
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [query, setQueryState] = useState('');
@@ -231,6 +239,42 @@ export function useDemo(seed: DemoSeed) {
   }, [buildRunning, post]);
 
   const runBuild = useCallback(() => setBuild({ progress: 0 }), []);
+
+  /* ── Wellness buddy ── */
+
+  useEffect(() => {
+    if (fastForward <= 0) return;
+    const timer = window.setTimeout(() => {
+      const step = Math.min(fastForward, 2);
+      setBuddy((current) => ({ ...current, stretch: current.stretch + step, lastWaterAgo: current.lastWaterAgo + step }));
+      setFastForward((current) => current - step);
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [fastForward]);
+
+  const workAnHour = useCallback(() => {
+    setBuddy((current) => ({ ...current, snoozed: false }));
+    setFastForward(60);
+    // An hour on, the meeting that was seven minutes away is over.
+    setMeeting(false);
+  }, []);
+  const logWater = useCallback(() => {
+    setBuddy((current) => ({
+      ...current,
+      glasses: Math.min(current.glasses + 1, 40),
+      stretch: Math.max(current.stretch - BUDDY_WATER_CREDIT, 0),
+      lastWaterAgo: 0,
+      waterTick: current.waterTick + 1,
+    }));
+  }, []);
+  const removeWater = useCallback(() => setBuddy((current) => ({ ...current, glasses: Math.max(current.glasses - 1, 0) })), []);
+  const takeBreak = useCallback(() => {
+    setFastForward(0);
+    setBuddy((current) => ({ ...current, breaks: current.breaks + 1, stretch: 0, snoozed: false }));
+  }, []);
+  const snoozeBuddy = useCallback(() => setBuddy((current) => ({ ...current, snoozed: true })), []);
+
+  const buddyNeedsBreak = buddy.stretch >= BUDDY_GOALS.breakMinutes && !buddy.snoozed;
 
   /* ── Downloads ── */
 
@@ -406,6 +450,13 @@ export function useDemo(seed: DemoSeed) {
     add({ id: 'focus-toggle', ...focusCommand, symbol: 'timer', category: 'Action', keywords: ['pomodoro', 'work', 'pause', 'resume'], priority: 1 },
       () => (focus ? toggleFocusRunning() : startFocus()));
 
+    if (isEnabled('buddy')) {
+      add({ id: 'buddy-water', title: 'Log a glass of water', subtitle: `${buddy.glasses} of ${BUDDY_GOALS.water} today`, symbol: 'drop.fill', category: 'Action', keywords: ['drink', 'hydrate', 'buddy', 'wellness', 'glass'], priority: 2 },
+        logWater);
+      add({ id: 'buddy-break', title: 'Log a stretch break', subtitle: `${buddy.breaks} of ${BUDDY_GOALS.breaks} breaks today`, symbol: 'figure.walk', category: 'Action', keywords: ['stretch', 'move', 'rest', 'buddy', 'wellness'], priority: 3 },
+        takeBreak);
+    }
+
     if (isEnabled('shortcuts')) {
       CUSTOM_ACTIONS.forEach((action, index) => add(
         { id: `action-${action.id}`, title: action.title, subtitle: actionSubtitle(action), symbol: actionSymbol(action), category: 'Shortcut', keywords: ['app', 'shortcut', 'run', 'open', 'toggle'], priority: 10 + index },
@@ -455,7 +506,7 @@ export function useDemo(seed: DemoSeed) {
       () => undefined,
     ));
     return list;
-  }, [isEnabled, focus, tabs, clipboard, captures, shelf, profileMode, profile, loadedAt, setTab, perform, startFocus, toggleFocusRunning]);
+  }, [isEnabled, focus, tabs, clipboard, captures, shelf, profileMode, profile, loadedAt, setTab, perform, startFocus, toggleFocusRunning, buddy.glasses, buddy.breaks, logWater, takeBreak]);
 
   const results = useMemo(() => searchCommands(query, commandList) as Array<Command & { run: Run }>, [query, commandList]);
 
@@ -494,6 +545,7 @@ export function useDemo(seed: DemoSeed) {
     agents, agentStatus, toggleAgent, toggleAttention,
     build, runBuild, meeting, setMeeting, meetingIn: Math.max(MEETING_IN - tick, 0),
     focus, startFocus, toggleFocusRunning, cancelFocus,
+    buddy, buddyEnergy: buddyEnergy(buddy.stretch), buddyNeedsBreak, workAnHour, logWater, removeWater, takeBreak, snoozeBuddy,
     music, track: TRACKS[music.track], playPause, nextTrack, previousTrack,
     events, setEvents, banner, files, setFiles, startDownload,
     captures, setCaptures, draft, setDraft, saveDraft, pasteIntoDraft,

@@ -114,8 +114,16 @@ function Playground({ onReset }: { onReset: () => void }) {
             ))}
           </span>
         </div>
+        <div className="real-control-block real-control-block--buddy">
+          <span className="real-control-label">Wellness buddy</span>
+          <div>
+            <button type="button" onClick={() => { demo.workAnHour(); show('buddy'); }}>Work an hour</button>
+            <button type="button" onClick={() => { demo.logWater(); show('buddy'); }}>Glass of water</button>
+            <button type="button" onClick={() => { demo.takeBreak(); show('buddy'); }}>Take a break</button>
+          </div>
+        </div>
       </div>
-      <p className="real-demo-note">Eleven tabs · sample usage figures · drop files onto the notch</p>
+      <p className="real-demo-note">Twelve tabs · sample usage figures · drop files onto the notch · click the buddy</p>
     </div>
   );
 }

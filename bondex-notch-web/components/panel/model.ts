@@ -8,12 +8,12 @@ import { ROBOT } from './Symbol';
 
 export type TabId =
   | 'home' | 'agents' | 'capture' | 'shortcuts' | 'music' | 'system'
-  | 'live' | 'files' | 'activity' | 'clipboard' | 'shelf';
+  | 'buddy' | 'live' | 'files' | 'activity' | 'clipboard' | 'shelf';
 
 /** `NotchTab.allCases`: the default widget order. */
 export const TAB_ORDER: TabId[] = [
   'home', 'agents', 'capture', 'shortcuts', 'music', 'system',
-  'live', 'files', 'activity', 'clipboard', 'shelf',
+  'buddy', 'live', 'files', 'activity', 'clipboard', 'shelf',
 ];
 
 export const TABS: Record<TabId, { title: string; symbol: string }> = {
@@ -23,12 +23,50 @@ export const TABS: Record<TabId, { title: string; symbol: string }> = {
   shortcuts: { title: 'Shortcuts', symbol: 'bolt.square.fill' },
   music: { title: 'Music', symbol: 'music.note' },
   system: { title: 'System', symbol: 'gauge.medium' },
+  buddy: { title: 'Buddy', symbol: 'leaf.fill' },
   live: { title: 'Live', symbol: 'waveform.path.ecg' },
   files: { title: 'Files', symbol: 'arrow.down.circle.fill' },
   activity: { title: 'Activity', symbol: 'bell.fill' },
   clipboard: { title: 'Clipboard', symbol: 'doc.on.clipboard.fill' },
   shelf: { title: 'Shelf', symbol: 'tray.full.fill' },
 };
+
+/* ── Wellness buddy · BuddyState, BuddyGoals, BuddyBadge ─── */
+
+export const BUDDY_GOALS = { water: 8, breaks: 6, breakMinutes: 50 };
+/** Minutes a glass of water winds the stretch back. */
+export const BUDDY_WATER_CREDIT = 10;
+
+export type BuddyMood = 'thriving' | 'content' | 'droopy' | 'wilting';
+
+export const BUDDY_MOOD_TITLES: Record<BuddyMood, string> = {
+  thriving: 'Thriving', content: 'Doing fine', droopy: 'A little droopy', wilting: 'Wilting',
+};
+
+/** `BuddyState.energy`: 1 after a break, a little under a third left when one is due. */
+export const buddyEnergy = (stretchMinutes: number) =>
+  Math.min(Math.max(1 - stretchMinutes / (BUDDY_GOALS.breakMinutes * 1.4), 0), 1);
+
+/** `BuddyMood(energy:)`. */
+export function buddyMood(energy: number): BuddyMood {
+  if (energy >= 0.7) return 'thriving';
+  if (energy >= 0.45) return 'content';
+  if (energy >= 0.2) return 'droopy';
+  return 'wilting';
+}
+
+export const BUDDY_BADGES = [
+  { days: 1, title: 'First sprout', symbol: 'sparkle' },
+  { days: 3, title: 'Seedling', symbol: 'leaf.fill' },
+  { days: 7, title: 'Sapling', symbol: 'camera.macro' },
+  { days: 14, title: 'In bloom', symbol: 'laurel.leading' },
+  { days: 30, title: 'Evergreen', symbol: 'tree.fill' },
+  { days: 100, title: 'Ancient oak', symbol: 'crown.fill' },
+];
+
+/** `BuddyWidget.duration`: "22 min", "1 h 4 min". */
+export const buddyDuration = (minutes: number) =>
+  minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 
 /* ── Accents · Theme.Accent ──────────────────────────────── */
 

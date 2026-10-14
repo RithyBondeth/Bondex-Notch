@@ -2,9 +2,11 @@
 
 import Image from 'next/image';
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import BuddyMascot from './BuddyMascot';
 import { AgentOrb, PixelMark } from './marks';
 import {
   type AgentId, type Provider, type TabId,
+  BUDDY_BADGES, BUDDY_GOALS, BUDDY_MOOD_TITLES, buddyDuration, buddyMood,
   CUSTOM_ACTIONS, PALETTE_SHORTCUT, PROVIDERS, RANGES, TABS, USAGE_BREAKDOWNS, USAGE_PROVIDERS, USAGE_SESSIONS,
   actionSubtitle, actionSymbol, agentName, agentTint, agoString, clockString, countdownString, liveSession,
   timeOfDay, tokenString, usageSummaries, usdString,
@@ -222,6 +224,7 @@ function Widget({ demo, tab }: { demo: Demo; tab: TabId }) {
     case 'shortcuts': return <ShortcutsWidget demo={demo} />;
     case 'music': return <MusicWidget demo={demo} />;
     case 'system': return <SystemWidget demo={demo} />;
+    case 'buddy': return <BuddyWidget demo={demo} />;
     case 'live': return <LiveWidget demo={demo} />;
     case 'files': return <FilesWidget demo={demo} />;
     case 'activity': return <ActivityWidget demo={demo} />;
@@ -781,6 +784,111 @@ function SystemWidget({ demo }: { demo: Demo }) {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Buddy · BuddyWidget ─────────────────────────────────── */
+
+const WATER = '#5cb8ff';
+const MOVEMENT = '#5cd180';
+
+function buddyMessage(demo: Demo) {
+  const { buddy } = demo;
+  if (demo.buddyNeedsBreak) return 'Let’s stretch and look away for a few minutes.';
+  if (buddy.glasses < BUDDY_GOALS.water && buddy.lastWaterAgo >= 90) return 'I could use a sip of water.';
+  if (buddy.glasses >= BUDDY_GOALS.water && buddy.breaks >= BUDDY_GOALS.breaks) return 'Every goal met today. Lovely work.';
+  switch (buddyMood(demo.buddyEnergy)) {
+    case 'thriving': return 'Feeling fresh — keep going!';
+    case 'content': return 'A break is coming up soon.';
+    default: return 'Getting tired — a short break would help.';
+  }
+}
+
+function BuddyWidget({ demo }: { demo: Demo }) {
+  const { buddy } = demo;
+  const energy = demo.buddyEnergy;
+  const mood = buddyMood(energy);
+  const energyTint = { thriving: MOVEMENT, content: '#b8d65c', droopy: 'var(--ap-attention)', wilting: '#fa7359' }[mood];
+  const thirsty = buddy.glasses < BUDDY_GOALS.water && buddy.lastWaterAgo >= 90;
+  // Four complete days behind today, as the renderer seeds it; today counts
+  // once both goals are met.
+  const today = buddy.glasses >= BUDDY_GOALS.water && buddy.breaks >= BUDDY_GOALS.breaks;
+  const streak = 4 + (today ? 1 : 0);
+  const best = Math.max(streak, 4);
+  const next = BUDDY_BADGES.find((badge) => best < badge.days);
+  const remaining = next ? next.days - streak : 0;
+
+  return (
+    <div className="ap-stack">
+      <div className="ap-buddy">
+        <div className="ap-card ap-buddy__mascot">
+          <BuddyMascot energy={energy} thirsty={thirsty} waterTick={buddy.waterTick} interactive size={84} />
+          <b>{BUDDY_MOOD_TITLES[mood]}</b>
+          <small>{buddyMessage(demo)}</small>
+          <span className="ap-buddy__energy" style={css({ '--tint': energyTint })} aria-label={`Energy ${Math.round(energy * 100)} percent`}>
+            <Sym name="bolt.heart.fill" size={8} />
+            <Meter value={energy} tint={energyTint} height={3} />
+            <em>{Math.round(energy * 100)}%</em>
+          </span>
+          {demo.buddyNeedsBreak && <TextButton onClick={demo.snoozeBuddy}>Remind me later</TextButton>}
+        </div>
+        <div className="ap-buddy__goals">
+          <GoalCard title="Water" symbol="drop.fill" tint={WATER} count={buddy.glasses} goal={BUDDY_GOALS.water}
+            detail={buddy.lastWaterAgo < 1 ? 'Last glass just now' : `Last glass ${buddyDuration(buddy.lastWaterAgo)} ago`}>
+            <NotchButton symbol="minus" size={8} label="Remove a glass of water" tint={SECONDARY} disabled={buddy.glasses === 0} onClick={demo.removeWater} />
+            <button type="button" className="ap-pill is-prominent" style={css({ '--tint': WATER })} onClick={(event) => { event.stopPropagation(); demo.logWater(); }} aria-label="Log a glass of water">
+              <Sym name="plus" size={10} />Glass
+            </button>
+          </GoalCard>
+          <GoalCard title="Breaks" symbol="figure.walk" tint={MOVEMENT} count={buddy.breaks} goal={BUDDY_GOALS.breaks}
+            detail={buddy.stretch < 1 ? 'Just started' : `At your Mac for ${buddyDuration(buddy.stretch)}`}>
+            <button type="button" className={`ap-pill${demo.buddyNeedsBreak ? ' is-prominent' : ''}`} style={css({ '--tint': MOVEMENT })} onClick={(event) => { event.stopPropagation(); demo.takeBreak(); }} title="Log a break taken at your desk">
+              Stretched
+            </button>
+          </GoalCard>
+        </div>
+      </div>
+      <div className="ap-card ap-card--compact ap-buddy__streak">
+        <Sym name="flame.fill" size={11} className="ap-buddy__flame" />
+        <span className="ap-text">
+          <b>{streak}-day streak</b>
+          <small>{next ? `Meet both goals ${remaining === 1 ? '1 more day' : `${remaining} more days`} for ${next.title}` : 'Every badge earned'}</small>
+        </span>
+        <span className="ap-spacer" />
+        <span className="ap-buddy__badges">
+          {BUDDY_BADGES.map((badge) => {
+            const earned = best >= badge.days;
+            return (
+              <i key={badge.days} className={earned ? 'is-earned' : undefined} title={earned ? `${badge.title} — a ${badge.days}-day streak` : `${badge.title}: reach a ${badge.days}-day streak`}>
+                <Sym name={earned ? badge.symbol : 'lock.fill'} size={earned ? 9 : 7} />
+              </i>
+            );
+          })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function GoalCard({ title, symbol, tint, count, goal, detail, children }: {
+  title: string; symbol: string; tint: string; count: number; goal: number; detail: string; children: ReactNode;
+}) {
+  const met = count >= goal;
+  return (
+    <div className="ap-card ap-goal" style={css({ '--tint': tint })} aria-label={`${title}: ${count} of ${goal}`}>
+      <div className="ap-goal__head">
+        <Sym name={symbol} size={10} className="ap-goal__icon" />
+        <b>{title}</b>
+        <span className="ap-goal__count"><b className={met ? 'is-met' : undefined}>{count}</b><small>/{goal}</small></span>
+        {met && <Sym name="checkmark.circle.fill" size={10} className="ap-goal__icon" />}
+        <span className="ap-spacer" />
+        {children}
+      </div>
+      <span className="ap-goal__pips" aria-hidden="true">
+        {Array.from({ length: goal }, (_, index) => <i key={index} className={index < count ? 'is-filled' : undefined} />)}
+      </span>
+      <small>{detail}</small>
     </div>
   );
 }

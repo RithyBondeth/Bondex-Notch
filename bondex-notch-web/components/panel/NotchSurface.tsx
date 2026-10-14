@@ -3,8 +3,9 @@
 import Image from 'next/image';
 import { type CSSProperties, type HTMLAttributes, useEffect, useRef, useState } from 'react';
 import AppPanel, { AudioBars, EventIcon, NOTCH_WIDTH } from './AppPanel';
+import BuddyMascot from './BuddyMascot';
 import { AgentOrb } from './marks';
-import { agentTint, clockString } from './model';
+import { agentTint, buddyDuration, clockString } from './model';
 import Sym from './Symbol';
 import { type Demo, type NotchEvent, type WorkingAgent, EVENT_KINDS } from './useDemo';
 
@@ -19,6 +20,7 @@ export type Peek =
   | { kind: 'agent'; agents: WorkingAgent[] }
   | { kind: 'focus' }
   | { kind: 'meeting' }
+  | { kind: 'buddy' }
   | { kind: 'live' }
   | { kind: 'media' };
 
@@ -28,6 +30,7 @@ export function peekFor(demo: Demo): Peek | null {
   if (demo.agents.some((agent) => agent.attention)) return { kind: 'agent', agents: demo.agents };
   if (demo.focus) return { kind: 'focus' };
   if (demo.meeting && demo.meetingIn > 0) return { kind: 'meeting' };
+  if (demo.buddyNeedsBreak && demo.isEnabled('buddy')) return { kind: 'buddy' };
   if (demo.build && demo.isEnabled('live')) return { kind: 'live' };
   if (demo.agents.length > 0) return { kind: 'agent', agents: demo.agents };
   if (demo.music.playing && demo.isEnabled('music')) return { kind: 'media' };
@@ -41,6 +44,7 @@ function peekWidth(peek: Peek) {
     case 'live':
     case 'meeting': return Math.max(NOTCH_WIDTH + 260, 400);
     case 'focus': return Math.max(NOTCH_WIDTH + 165, 310);
+    case 'buddy': return Math.max(NOTCH_WIDTH + 220, 360);
     case 'agent': return Math.max(NOTCH_WIDTH + 120 + (peek.agents.length - 1) * 50, 240);
     case 'media': return Math.max(NOTCH_WIDTH + 120, 240);
   }
@@ -184,6 +188,19 @@ function PeekContent({ demo, peek, width }: { demo: Demo; peek: Peek; width: num
         <span className="ap-peek__lines">
           <b className="is-footnote">Upcoming meeting</b>
           <small>In {Math.ceil(demo.meetingIn / 60)} min</small>
+        </span>
+      );
+      break;
+    case 'buddy':
+      leading = (
+        <span className="ap-peek__buddy">
+          <BuddyMascot energy={demo.buddyEnergy} size={24} fps={12} />
+        </span>
+      );
+      trailing = (
+        <span className="ap-peek__lines">
+          <b className="is-footnote">Break time</b>
+          <small>{buddyDuration(demo.buddy.stretch)}</small>
         </span>
       );
       break;
