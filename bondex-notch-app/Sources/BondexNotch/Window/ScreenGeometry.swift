@@ -204,6 +204,12 @@ struct NotchGeometry: Equatable {
         CGSize(width: max(notchSize.width + 165, 310), height: peekHeight)
     }
 
+    /// The buddy on the left and "Break time" with how long you have been at
+    /// it on the right.
+    var buddyPeekSize: CGSize {
+        CGSize(width: max(notchSize.width + 220, 360), height: peekHeight)
+    }
+
     /// Same wings as live progress: a title line and "In 7 min".
     var meetingPeekSize: CGSize {
         CGSize(width: max(notchSize.width + 260, 400), height: peekHeight)
@@ -245,6 +251,7 @@ struct NotchGeometry: Equatable {
             case .privacy: return privacyPeekSize
             case .focus: return focusPeekSize
             case .meeting: return meetingPeekSize
+            case .buddy: return buddyPeekSize
             case .media: return mediaPeekSize
             case .live: return livePeekSize
             case .agent(let agents): return agentPeekSize(agents: agents)

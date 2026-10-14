@@ -109,6 +109,7 @@ enum PreviewRenderer {
         )
 
         environment.agentUsage.seedForPreview(sampleAgentUsage())
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 22 * 60))
 
         for tab in NotchTab.allCases {
             if tab == .live { environment.liveActivities.seedForPreview([liveSample]) }
@@ -219,6 +220,20 @@ enum PreviewRenderer {
         environment.notch.collapse()
         if !render(environment, named: "peek-focus", into: directory) { failures += 1 }
         environment.focusTimer.cancel()
+
+        // The buddy past its break interval: wilting on the tab, and beside the
+        // notch, which is the only way it asks for anything.
+        environment.notch.tab = .buddy
+        environment.notch.expand()
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 64 * 60))
+        if !render(environment, named: "expanded-buddy-break", into: directory) { failures += 1 }
+        environment.notch.collapse()
+        if !render(environment, named: "peek-buddy", into: directory) { failures += 1 }
+        environment.notch.expand()
+        // Just back from a break, in bloom, and due a drink.
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 3 * 60, lastWater: 2 * 60 * 60))
+        if !render(environment, named: "expanded-buddy-fresh", into: directory) { failures += 1 }
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 22 * 60))
 
         let meeting = UpcomingMeeting(
             id: "design-review",
@@ -548,6 +563,26 @@ enum PreviewRenderer {
     }
 
     /// Deterministic square album art for the Spotify playback sample.
+    /// Four complete days behind today, and today part-way there.
+    private static func sampleBuddy(
+        workedFor stretch: TimeInterval,
+        lastWater: TimeInterval = 25 * 60,
+        now: Date = Date()
+    ) -> BuddyState {
+        var state = BuddyState()
+        state.activeSince = now.addingTimeInterval(-stretch)
+        state.lastSeenAt = now
+        state.lastWaterAt = now.addingTimeInterval(-lastWater)
+        state.bestStreak = 4
+        let calendar = Calendar.current
+        for offset in 1...4 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: now) else { continue }
+            state.days[BuddyState.dayKey(for: day)] = BuddyDay(glasses: 8, breaks: 6)
+        }
+        state.days[BuddyState.dayKey(for: now)] = BuddyDay(glasses: 5, breaks: 3)
+        return state
+    }
+
     private static func sampleSpotifyArtwork() -> NSImage {
         if let resourceURL = Bundle.main.resourceURL?
             .appendingPathComponent("PreviewAssets/after-hours.jpg"),

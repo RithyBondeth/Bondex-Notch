@@ -24,6 +24,8 @@ enum PeekContent: Equatable {
     case privacy
     case focus
     case meeting
+    /// The wellness buddy asking for a break.
+    case buddy
     case media
     case live
     /// - Parameter agents: how many agents are working, each of which brings its
@@ -59,6 +61,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     case shortcuts
     case music
     case system
+    case buddy
     case live
     case files
     case activity
@@ -75,6 +78,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         case .shortcuts: return "Shortcuts"
         case .music: return "Music"
         case .system: return "System"
+        case .buddy: return "Buddy"
         case .live: return "Live"
         case .files: return "Files"
         case .activity: return "Activity"
@@ -91,6 +95,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
         case .shortcuts: return "bolt.square.fill"
         case .music: return "music.note"
         case .system: return "gauge.medium"
+        case .buddy: return "leaf.fill"
         case .live: return "waveform.path.ecg"
         case .files: return "arrow.down.circle.fill"
         case .activity: return "bell.fill"
@@ -110,7 +115,7 @@ enum NotchTab: String, CaseIterable, Codable, Identifiable {
     /// height mostly showed two rows floating in a list-sized gap.
     var widgetHeight: CGFloat? {
         switch self {
-        case .home, .agents, .music, .system: return nil
+        case .home, .agents, .music, .system, .buddy: return nil
         case .capture, .shortcuts: return 132
         case .live: return 132
         case .files, .activity, .clipboard, .shelf: return 132

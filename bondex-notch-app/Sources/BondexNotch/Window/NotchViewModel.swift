@@ -123,6 +123,16 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// The wellness buddy has been watching an unbroken stretch long enough to
+    /// ask for a break. It is the quiet alternative to an alert: the buddy
+    /// appears beside the notch, wilting, until you step away or snooze it.
+    var buddyNeedsBreak = false {
+        didSet {
+            guard buddyNeedsBreak != oldValue else { return }
+            refreshIdleState()
+        }
+    }
+
     /// What the peek is carrying, which is what decides its width — and, since
     /// `PeekView` renders from this, what it shows.
     ///
@@ -140,6 +150,7 @@ final class NotchViewModel: ObservableObject {
         if showsAgentAttention { return .agent(agents: workingAgentCount) }
         if showsFocusTimer { return .focus }
         if showsUpcomingMeeting { return .meeting }
+        if showsBuddy { return .buddy }
         if showsLiveActivities { return .live }
         if showsAgents { return .agent(agents: workingAgentCount) }
         return .media
@@ -151,6 +162,13 @@ final class NotchViewModel: ObservableObject {
 
     private var showsUpcomingMeeting: Bool {
         hasUpcomingMeeting && settings.preferences.upcomingMeetingsEnabled
+    }
+
+    /// Below a focus session and a meeting, which are things you chose to be
+    /// in the middle of, and above progress, agents and playback, which carry
+    /// on fine while you stretch.
+    private var showsBuddy: Bool {
+        buddyNeedsBreak && settings.isTabEnabled(.buddy) && settings.preferences.buddyNudgesInNotch
     }
 
     /// The live-activity watcher runs while the Live tab is enabled, which a
@@ -285,7 +303,10 @@ final class NotchViewModel: ObservableObject {
         cancelPendingOpen()
         guard state != .expanded else { return }
         cancelPendingClose()
+        // Opening the buddy's nudge is asking about the buddy.
+        let opensBuddy = state == .peek && peekContent == .buddy
         withAnimation(Motion.panel(settings.motion)) {
+            if opensBuddy { tab = .buddy }
             state = .expanded
             banner = nil
             systemHUD = nil
@@ -366,7 +387,7 @@ final class NotchViewModel: ObservableObject {
     private var idleState: NotchState {
         if systemHUD != nil || banner != nil { return .peek }
         if privacyActivity.isActive { return .peek }
-        if showsFocusTimer || showsUpcomingMeeting || showsLiveActivities || showsAgents {
+        if showsFocusTimer || showsUpcomingMeeting || showsBuddy || showsLiveActivities || showsAgents {
             return .peek
         }
         return showsMediaInPeek ? .peek : .collapsed

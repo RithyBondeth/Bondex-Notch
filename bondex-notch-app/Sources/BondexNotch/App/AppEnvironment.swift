@@ -14,6 +14,7 @@ final class AppEnvironment: ObservableObject {
     let deviceBatteries: DeviceBatteryService
     let privacyActivity: PrivacyActivityService
     let focusTimer: FocusTimerService
+    let buddy: WellnessBuddyService
     let meetings: UpcomingMeetingService
     let smartProfiles: SmartProfileService
     let globalHotKey: GlobalHotKeyService
@@ -53,6 +54,7 @@ final class AppEnvironment: ObservableObject {
         self.deviceBatteries = DeviceBatteryService()
         self.privacyActivity = PrivacyActivityService()
         self.focusTimer = FocusTimerService(defaults: defaults, events: events)
+        self.buddy = WellnessBuddyService(defaults: defaults)
         self.meetings = UpcomingMeetingService()
         self.smartProfiles = SmartProfileService(settings: settings)
         self.globalHotKey = GlobalHotKeyService()
@@ -173,6 +175,13 @@ final class AppEnvironment: ObservableObject {
             }
             .store(in: &cancellables)
 
+        buddy.$needsBreak
+            .removeDuplicates()
+            .sink { [weak self] needsBreak in
+                self?.notch.buddyNeedsBreak = needsBreak
+            }
+            .store(in: &cancellables)
+
         meetings.$meeting
             .map { $0?.startsSoon() ?? false }
             .removeDuplicates()
@@ -264,6 +273,7 @@ final class AppEnvironment: ObservableObject {
         deviceBatteries.stop()
         privacyActivity.stop()
         meetings.stop()
+        buddy.stop()
         smartProfiles.stop()
         globalHotKey.stop()
         // Suspended, not cancelled: the timer persists its end date so a session
@@ -308,6 +318,12 @@ final class AppEnvironment: ObservableObject {
             guard settings.preferences.focusTimerEnabled else { return false }
             focusTimer.start(minutes: minutes ?? 25)
             showFromAppIntent(.home)
+            return true
+
+        case .logWater:
+            guard settings.isTabEnabled(.buddy) else { return false }
+            buddy.logWater()
+            accessibilityAnnouncements.announce("Logged a glass of water")
             return true
         }
     }
@@ -487,6 +503,17 @@ final class AppEnvironment: ObservableObject {
             liveActivities.stop()
         }
 
+        buddy.goals = BuddyGoals(
+            water: preferences.buddyWaterGoal,
+            breaks: preferences.buddyBreakGoal,
+            breakInterval: TimeInterval(preferences.buddyBreakMinutes * 60)
+        )
+        if settings.isTabEnabled(.buddy) {
+            buddy.start()
+        } else {
+            buddy.stop()
+        }
+
         if settings.isTabEnabled(.clipboard) {
             clipboard.start()
         } else {
@@ -562,6 +589,16 @@ final class AppEnvironment: ObservableObject {
             } else {
                 focusTimer.start(minutes: settings.preferences.defaultFocusMinutes)
             }
+            commandPalette.dismiss()
+
+        case .logWater:
+            buddy.logWater()
+            accessibilityAnnouncements.announce("Logged a glass of water")
+            commandPalette.dismiss()
+
+        case .logBreak:
+            buddy.takeBreakNow()
+            accessibilityAnnouncements.announce("Logged a break")
             commandPalette.dismiss()
 
         case let .customAction(id):
@@ -657,6 +694,30 @@ final class AppEnvironment: ObservableObject {
                 keywords: ["pomodoro", "work", "pause", "resume"],
                 priority: 1,
                 action: .toggleFocus
+            ))
+        }
+
+        if settings.isTabEnabled(.buddy) {
+            let today = buddy.today
+            commands.append(CommandPaletteCommand(
+                id: "buddy-water",
+                title: "Log a glass of water",
+                subtitle: "\(today.glasses) of \(buddy.goals.water) today",
+                systemImage: "drop.fill",
+                category: "Action",
+                keywords: ["drink", "hydrate", "buddy", "wellness", "glass"],
+                priority: 2,
+                action: .logWater
+            ))
+            commands.append(CommandPaletteCommand(
+                id: "buddy-break",
+                title: "Log a stretch break",
+                subtitle: "\(today.breaks) of \(buddy.goals.breaks) breaks today",
+                systemImage: "figure.walk",
+                category: "Action",
+                keywords: ["stretch", "move", "rest", "buddy", "wellness"],
+                priority: 3,
+                action: .logBreak
             ))
         }
 
@@ -821,6 +882,9 @@ final class AppEnvironment: ObservableObject {
         case .system:
             newValue = !settings.preferences.systemWidgetEnabled
             settings.preferences.systemWidgetEnabled = newValue
+        case .buddy:
+            newValue = !settings.preferences.buddyEnabled
+            settings.preferences.buddyEnabled = newValue
         case .live:
             newValue = !settings.preferences.customLiveActivitiesEnabled
             settings.preferences.customLiveActivitiesEnabled = newValue

@@ -599,6 +599,40 @@ private struct WidgetSettings: View {
                 Toggle("Custom shortcuts", isOn: binding(\.customShortcutsEnabled))
             }
 
+            Section {
+                Toggle("Wellness buddy", isOn: binding(\.buddyEnabled))
+                Group {
+                    Stepper(
+                        "Ask for a break after \(settings.preferences.buddyBreakMinutes) minutes",
+                        value: binding(\.buddyBreakMinutes),
+                        in: 20...120,
+                        step: 5
+                    )
+                    Stepper(
+                        "Water goal: \(settings.preferences.buddyWaterGoal) glasses",
+                        value: binding(\.buddyWaterGoal),
+                        in: 1...20
+                    )
+                    Stepper(
+                        "Break goal: \(settings.preferences.buddyBreakGoal) breaks",
+                        value: binding(\.buddyBreakGoal),
+                        in: 1...16
+                    )
+                    Toggle("Show the buddy beside the notch when a break is due", isOn: binding(\.buddyNudgesInNotch))
+                }
+                .disabled(!settings.preferences.buddyEnabled)
+            } header: {
+                Text("Wellness Buddy")
+            } footer: {
+                Text("""
+                A small plant that wilts the longer you work without a break, and \
+                perks up when you step away for five minutes or log a glass of water. \
+                Only the time since your last keystroke or click is read — never what \
+                you type — and no permission is needed.
+                """)
+                .font(.caption)
+            }
+
             Section("Files") {
                 Toggle("File activity", isOn: binding(\.fileActivityEnabled))
                 Toggle("Drop shelf", isOn: binding(\.shelfEnabled))

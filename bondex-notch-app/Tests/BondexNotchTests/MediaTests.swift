@@ -528,7 +528,7 @@ final class PreferencesDecodingTests: XCTestCase {
             store.orderedTabs,
             [
                 .shelf, .home, .agents, .capture, .shortcuts, .music,
-                .system, .live, .files, .activity, .clipboard
+                .system, .buddy, .live, .files, .activity, .clipboard
             ]
         )
     }
@@ -545,7 +545,7 @@ final class PreferencesDecodingTests: XCTestCase {
             store.orderedTabs,
             [
                 .activity, .clipboard, .home, .agents, .capture, .shortcuts,
-                .music, .system, .live, .shelf, .files
+                .music, .system, .buddy, .live, .shelf, .files
             ]
         )
     }

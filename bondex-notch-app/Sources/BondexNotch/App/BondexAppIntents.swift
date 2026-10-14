@@ -40,6 +40,7 @@ enum BondexWidgetIntentOption: String, AppEnum {
     case shortcuts
     case music
     case system
+    case buddy
     case live
     case files
     case activity
@@ -54,6 +55,7 @@ enum BondexWidgetIntentOption: String, AppEnum {
         .shortcuts: "Shortcuts",
         .music: "Music",
         .system: "System",
+        .buddy: "Buddy",
         .live: "Live Activities",
         .files: "Files",
         .activity: "Activity",
@@ -140,6 +142,26 @@ struct StartNotchFocusIntent: AppIntent {
     }
 }
 
+struct LogWaterIntent: AppIntent {
+    static let title: LocalizedStringResource = "Log a Glass of Water"
+    static let description = IntentDescription(
+        "Logs a glass of water with the Bondex Notch wellness buddy."
+    )
+    static let openAppWhenRun = true
+    @Dependency private var environment: AppEnvironment
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard environment.performAppIntentCommand(.logWater) else {
+            throw BondexIntentError(message: "The Buddy widget is turned off in Bondex Notch.")
+        }
+        let today = environment.buddy.today
+        return .result(
+            dialog: "Logged. That's \(today.glasses) of \(environment.buddy.goals.water) glasses today."
+        )
+    }
+}
+
 struct ShowNotchWidgetIntent: AppIntent {
     static let title: LocalizedStringResource = "Show Notch Widget"
     static let description = IntentDescription("Opens a widget in Bondex Notch.")
@@ -194,6 +216,15 @@ struct BondexNotchShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Start Focus",
             systemImageName: "timer"
+        )
+        AppShortcut(
+            intent: LogWaterIntent(),
+            phrases: [
+                "Log water in \(.applicationName)",
+                "I drank water in \(.applicationName)"
+            ],
+            shortTitle: "Log Water",
+            systemImageName: "drop.fill"
         )
         AppShortcut(
             intent: ShowNotchWidgetIntent(),
