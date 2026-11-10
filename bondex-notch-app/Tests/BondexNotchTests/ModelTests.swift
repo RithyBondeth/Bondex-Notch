@@ -2,54 +2,6 @@ import AppKit
 import XCTest
 @testable import BondexNotch
 
-final class LicenseValidatorTests: XCTestCase {
-
-    func testGeneratedKeysValidate() {
-        for payload in ["BEEF1234", "00000000", "FFFFFFFF", "0A1B2C3D"] {
-            let key = try? XCTUnwrap(LicenseValidator.makeKey(payload: payload))
-            XCTAssertNotNil(key, "Failed to generate a key for \(payload)")
-            XCTAssertTrue(LicenseValidator.validate(key ?? ""), "\(payload) round-trip failed")
-        }
-    }
-
-    func testKeysAreCaseAndWhitespaceInsensitive() throws {
-        let key = try XCTUnwrap(LicenseValidator.makeKey(payload: "BEEF1234"))
-        XCTAssertTrue(LicenseValidator.validate("  \(key.lowercased())  "))
-    }
-
-    func testMalformedKeysAreRejected() {
-        let bad = [
-            "",
-            "BNDX-BEEF-1234",                 // too few groups
-            "XXXX-BEEF-1234-0000",            // wrong prefix
-            "BNDX-BEEF-1234-0000",            // wrong checksum
-            "BNDX-BEEF-1234-ZZZZ",            // non-hex checksum
-            "BNDX-BEE-1234-0000",             // wrong group length
-            "BNDX-GGGG-1234-0000"             // non-hex payload
-        ]
-        for key in bad {
-            XCTAssertFalse(LicenseValidator.validate(key), "\(key) should not validate")
-        }
-    }
-
-    func testPayloadMustBeEightHexDigits() {
-        XCTAssertNil(LicenseValidator.makeKey(payload: "SHORT"))
-        XCTAssertNil(LicenseValidator.makeKey(payload: "TOOLONGPAYLOAD"))
-        XCTAssertNil(LicenseValidator.makeKey(payload: "ZZZZZZZZ"))
-    }
-
-    func testTierFollowsTheKey() {
-        var preferences = Preferences()
-        XCTAssertEqual(preferences.tier, .free)
-
-        preferences.licenseKey = LicenseValidator.makeKey(payload: "BEEF1234") ?? ""
-        XCTAssertEqual(preferences.tier, .pro)
-
-        preferences.licenseKey = "nonsense"
-        XCTAssertEqual(preferences.tier, .free)
-    }
-}
-
 @MainActor
 final class EventCenterTests: XCTestCase {
 
@@ -153,6 +105,17 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertLessThan(peek.height, expanded.height)
     }
 
+    func testSystemHUDGetsAReadableCompactWidth() {
+        let geometry = geometry(hasNotch: true)
+        let media = geometry.contentSize(for: .peek, peek: .media)
+        let hud = geometry.contentSize(for: .peek, peek: .systemHUD)
+        let expanded = geometry.contentSize(for: .expanded)
+
+        XCTAssertGreaterThan(hud.width, media.width)
+        XCTAssertLessThan(hud.width, expanded.width)
+        XCTAssertEqual(hud.height, media.height)
+    }
+
     func testHoverRectAlwaysContainsTheStateItGuards() {
         let geometry = geometry(hasNotch: true)
 
@@ -175,6 +138,12 @@ final class NotchGeometryTests: XCTestCase {
 }
 
 final class FormattingTests: XCTestCase {
+
+    func testSystemHUDClampsAndRoundsPercentages() {
+        XCTAssertEqual(SystemHUDPresentation(kind: .volume, level: -1).percentage, 0)
+        XCTAssertEqual(SystemHUDPresentation(kind: .brightness, level: 0.684).percentage, 68)
+        XCTAssertEqual(SystemHUDPresentation(kind: .battery, level: 2).percentage, 100)
+    }
 
     func testClockStringFormatsMinutesAndSeconds() {
         XCTAssertEqual(TimeInterval(0).clockString, "0:00")

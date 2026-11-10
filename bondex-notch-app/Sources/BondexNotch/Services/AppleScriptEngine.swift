@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import OSAKit
 
 /// Why an Apple Event did not produce a value.
 enum ScriptFailure: Equatable, Sendable {
@@ -31,6 +32,12 @@ final class AppleScriptEngine: @unchecked Sendable {
     /// Recursive so a caller can hold the lock across a group of related events
     /// (one browser scan, say) without deadlocking on each individual one.
     private let lock = NSRecursiveLock()
+    /// Dia throttles its custom JavaScript command globally and returns a
+    /// successful-but-empty result when calls land less than about 0.5s apart.
+    private var lastDiaJavaScriptAt: Date?
+    /// The most recent error's number and message, for `--diagnose-media`.
+    private(set) var lastError: (code: Int, message: String)?
+    private let diaJavaScriptInterval: TimeInterval = 0.55
 
     func withLock<T>(_ body: () -> T) -> T {
         lock.lock()
@@ -56,6 +63,38 @@ final class AppleScriptEngine: @unchecked Sendable {
         execute(source, isJavaScript: true)
     }
 
+    /// Dia's custom command uses the system OSA engine and has to be paced. Unlike
+    /// other browsers, a throttled call is reported as success with an empty
+    /// result, which otherwise makes a paused tab hide the playing tab behind it.
+    func runDiaJavaScript(_ source: String) -> ScriptOutcome {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let lastDiaJavaScriptAt {
+            let remaining = diaJavaScriptInterval - Date().timeIntervalSince(lastDiaJavaScriptAt)
+            if remaining > 0 {
+                Thread.sleep(forTimeInterval: remaining)
+            }
+        }
+
+        guard let language = OSALanguage(forName: "AppleScript") else {
+            return ScriptOutcome(value: nil, failure: .transient)
+        }
+        let script = OSAScript(source: source, language: language)
+        var error: NSDictionary?
+        let descriptor = script.executeAndReturnError(&error)
+        lastDiaJavaScriptAt = Date()
+
+        if let error {
+            remember(error)
+            return ScriptOutcome(
+                value: nil,
+                failure: Self.classify(error, isJavaScript: true)
+            )
+        }
+        return ScriptOutcome(value: descriptor?.stringValue, failure: nil)
+    }
+
     private func execute(_ source: String, isJavaScript: Bool) -> ScriptOutcome {
         lock.lock()
         defer { lock.unlock() }
@@ -68,6 +107,7 @@ final class AppleScriptEngine: @unchecked Sendable {
         let descriptor = script.executeAndReturnError(&error)
 
         if let error {
+            remember(error)
             return ScriptOutcome(
                 value: nil,
                 failure: Self.classify(error, isJavaScript: isJavaScript)
@@ -91,6 +131,35 @@ final class AppleScriptEngine: @unchecked Sendable {
 
     // MARK: Errors
 
+    private func remember(_ error: NSDictionary) {
+        lastError = (Self.errorNumber(error), Self.errorMessage(error))
+    }
+
+    /// The error's number, wherever the runner put it. `NSAppleScript` and
+    /// `OSAScript` — which Dia's path has to use — report errors in
+    /// differently keyed dictionaries.
+    static func errorNumber(_ error: NSDictionary) -> Int {
+        (error[NSAppleScript.errorNumber] as? Int)
+            ?? (error[OSAScriptErrorNumberKey] as? Int)
+            ?? 0
+    }
+
+    /// Every message the error carries, joined. `OSAScript` can return its
+    /// errors as an `NSError`-style dictionary with only the localized
+    /// description and reason — that is how Dia reports that JavaScript needs
+    /// its launch flag — and reading `NSAppleScript`'s key alone found an empty
+    /// message, so the refusal was filed as a transient glitch and the user was
+    /// never told why YouTube in Dia did not show.
+    static func errorMessage(_ error: NSDictionary) -> String {
+        var messages: [String] = []
+        for key in [NSAppleScript.errorMessage, OSAScriptErrorMessageKey, NSLocalizedDescriptionKey, NSLocalizedFailureReasonErrorKey] {
+            if let message = error[key] as? String, !message.isEmpty, !messages.contains(message) {
+                messages.append(message)
+            }
+        }
+        return messages.joined(separator: " ")
+    }
+
     /// `errAEEventNotPermitted`. A browser with JavaScript-over-Apple-Events
     /// switched off reports this for *every* evaluation, valid tab or not.
     private static let notPermitted = -1723
@@ -99,9 +168,9 @@ final class AppleScriptEngine: @unchecked Sendable {
     /// The target app quit mid-script.
     private static let appQuitCodes = [-600, -609]
 
-    private static func classify(_ error: NSDictionary, isJavaScript: Bool) -> ScriptFailure {
-        let code = error[NSAppleScript.errorNumber] as? Int ?? 0
-        let message = (error[NSAppleScript.errorMessage] as? String ?? "").lowercased()
+    static func classify(_ error: NSDictionary, isJavaScript: Bool) -> ScriptFailure {
+        let code = errorNumber(error)
+        let message = errorMessage(error).lowercased()
 
         // -1743 is the documented "user declined Automation" code.
         if code == -1743 { return .automationDenied }

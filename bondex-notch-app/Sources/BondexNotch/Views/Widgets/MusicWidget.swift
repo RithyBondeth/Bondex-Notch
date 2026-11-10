@@ -12,7 +12,7 @@ struct MusicWidget: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
 
     var body: some View {
         if let track = service.nowPlaying {
@@ -25,12 +25,9 @@ struct MusicWidget: View {
             )
         } else if let browser = service.blockedBrowser {
             // The one thing the user has to do by hand for web media to appear.
-            // Saying nothing here is what "YouTube shows nothing" feels like.
-            EmptyStateView(
-                systemImage: "curlybraces",
-                title: "Turn on JavaScript from Apple Events",
-                subtitle: browser.javaScriptHint
-            )
+            // Saying nothing here is what "YouTube shows nothing" feels like,
+            // and explaining without a way to act on it is barely better.
+            BrowserAccessFixView(nowPlaying: service, browser: browser, accent: accent)
         } else {
             EmptyStateView(
                 systemImage: "music.note",
@@ -41,55 +38,69 @@ struct MusicWidget: View {
     }
 
     private func player(_ track: NowPlaying) -> some View {
-        HStack(spacing: 14) {
-            ArtworkView(image: track.artwork, cornerRadius: 10, tint: accent)
-                .frame(width: 78, height: 78)
-
-            VStack(alignment: .leading, spacing: 6) {
-                VStack(alignment: .leading, spacing: 1) {
-                    MarqueeText(
-                        text: track.title.isEmpty ? "Unknown Track" : track.title,
-                        font: .system(size: 13, weight: .semibold)
+        VStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
+                ArtworkView(image: track.artwork, cornerRadius: 9, tint: accent)
+                    .frame(
+                        width: track.source.isBrowser ? 92 : 56,
+                        height: 56
                     )
-                    HStack(spacing: 5) {
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(track.title.isEmpty ? "Unknown Track" : track.title)
+                        .font(.system(size: Theme.TextSize.title, weight: .semibold))
+                        .foregroundStyle(Theme.primaryText)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(spacing: 6) {
                         Text(subtitle(for: track))
-                            .font(.system(size: 11))
+                            .font(.system(size: Theme.TextSize.body))
                             .foregroundStyle(Theme.secondaryText)
                             .lineLimit(1)
                         sourceBadge(track)
                     }
                 }
+            }
 
-                progress(track)
+            progress(track)
 
-                HStack(spacing: 2) {
-                    if track.supportsTransport {
-                        NotchButton(systemImage: "backward.fill", size: 11) { service.previous() }
-                        NotchButton(
-                            systemImage: track.isPlaying ? "pause.fill" : "play.fill",
-                            size: 12,
-                            isProminent: true,
-                            tint: accent
-                        ) {
-                            service.playPause()
-                        }
-                        NotchButton(systemImage: "forward.fill", size: 11) { service.next() }
-                    } else {
-                        // Read from the window title: visible, but not drivable.
-                        Text("Playing in \(track.source.displayName)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Theme.tertiaryText)
-                            .lineLimit(1)
+            HStack(spacing: 2) {
+                if track.supportsTransport {
+                    NotchButton(systemImage: "backward.fill", size: 11) {
+                        service.previous()
                     }
+                    .accessibilityLabel("Previous")
 
-                    Spacer()
+                    NotchButton(
+                        systemImage: track.isPlaying ? "pause.fill" : "play.fill",
+                        size: 12,
+                        isProminent: true,
+                        tint: accent
+                    ) {
+                        service.playPause()
+                    }
+                    .accessibilityLabel(track.isPlaying ? "Pause" : "Play")
 
-                    AudioBars(isAnimating: track.isPlaying, tint: accent)
-                        .opacity(0.9)
+                    NotchButton(systemImage: "forward.fill", size: 11) {
+                        service.next()
+                    }
+                    .accessibilityLabel("Next")
+                } else {
+                    Text("Playing in \(track.source.displayName)")
+                        .font(.system(size: Theme.TextSize.footnote))
+                        .foregroundStyle(Theme.tertiaryText)
+                        .lineLimit(1)
                 }
+
+                Spacer()
+
+                AudioBars(isAnimating: track.isPlaying, tint: accent)
+                    .opacity(0.9)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .notchCard(padding: 10)
     }
 
     private func subtitle(for track: NowPlaying) -> String {
@@ -102,7 +113,7 @@ struct MusicWidget: View {
     @ViewBuilder
     private func sourceBadge(_ track: NowPlaying) -> some View {
         Text(track.source.displayName)
-            .font(.system(size: 8.5, weight: .semibold))
+            .font(.system(size: Theme.TextSize.micro, weight: .semibold))
             .foregroundStyle(Theme.secondaryText)
             .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
@@ -120,7 +131,7 @@ struct MusicWidget: View {
                     .fill(Color.red)
                     .frame(width: 5, height: 5)
                 Text("Live")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: Theme.TextSize.caption, weight: .semibold))
                     .foregroundStyle(Theme.secondaryText)
                 Spacer()
             }
@@ -144,7 +155,7 @@ struct MusicWidget: View {
                         Spacer()
                         Text(track.duration.clockString)
                     }
-                    .font(.system(size: 9, weight: .medium).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.caption, weight: .medium).monospacedDigit())
                     .foregroundStyle(Theme.tertiaryText)
                 }
             }

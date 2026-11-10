@@ -1,5 +1,32 @@
 import SwiftUI
 
+/// An event's icon: the agent's own mark when the event is about an agent,
+/// otherwise the symbol for its kind.
+///
+/// Shared by the feed and the peek's banner so the two never disagree — an
+/// agent that was showing its mark in the peek keeps it in the row that reports
+/// it finished, rather than turning into a generic sparkle on the way.
+struct EventIcon: View {
+    let event: NotchEvent
+    var size: CGFloat
+
+    var body: some View {
+        if let agent = event.agent {
+            // Marks are wider than they are tall; height is what has to match
+            // the surrounding symbols, so the width follows from the aspect.
+            PixelMark(kind: agent)
+                .frame(
+                    width: size * AgentMarks.aspect(for: agent),
+                    height: size
+                )
+        } else {
+            Image(systemName: event.kind.systemImage)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(event.tint)
+        }
+    }
+}
+
 /// The activity feed.
 ///
 /// Named "Activity" rather than "Notifications" on purpose: it lists what
@@ -35,15 +62,8 @@ struct ActivityWidget: View {
 
     private var feed: some View {
         VStack(spacing: 6) {
-            HStack {
-                Text("Recent")
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundStyle(Theme.tertiaryText)
-                Spacer()
-                Button("Clear") { events.clear() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(Theme.secondaryText)
+            NotchListHeader("Recent") {
+                NotchTextButton("Clear") { events.clear() }
             }
 
             ScrollingStack(spacing: 5) {
@@ -56,19 +76,17 @@ struct ActivityWidget: View {
 
     private func row(_ event: NotchEvent) -> some View {
         HStack(spacing: 9) {
-            Image(systemName: event.kind.systemImage)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(event.kind.tint)
+            EventIcon(event: event, size: 11)
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(event.title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: Theme.TextSize.body, weight: .medium))
                     .foregroundStyle(Theme.primaryText)
                     .lineLimit(1)
                 if let subtitle = event.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9.5))
+                        .font(.system(size: Theme.TextSize.caption))
                         .foregroundStyle(Theme.tertiaryText)
                         .lineLimit(1)
                 }
@@ -77,14 +95,9 @@ struct ActivityWidget: View {
             Spacer(minLength: 4)
 
             Text(event.date, style: .time)
-                .font(.system(size: 9).monospacedDigit())
+                .font(.system(size: Theme.TextSize.caption).monospacedDigit())
                 .foregroundStyle(Theme.tertiaryText)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Theme.surfaceElevated)
-        )
+        .notchRow()
     }
 }

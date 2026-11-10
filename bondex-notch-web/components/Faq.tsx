@@ -4,23 +4,93 @@ import type { ReactNode } from 'react';
    module. The first is open by default — it is the question the product is
    most often wrong about elsewhere. */
 
-const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
+const answers: Array<{ q: string; a: ReactNode; plainText: string; open?: boolean }> = [
   {
     q: 'Which music apps are supported?',
     open: true,
+    plainText:
+      'Apple Music, Spotify, Safari, and supported Chromium browsers. Bondex uses each app’s supported scripting interface. Browser tabs can show players such as YouTube, YouTube Music, SoundCloud and Twitch after JavaScript from Apple Events is enabled once.',
     a: (
       <>
-        Apple Music and Spotify. macOS has no public system-wide &quot;now
+        Apple Music, Spotify, Safari, and supported Chromium browsers. macOS has no public system-wide &quot;now
         playing&quot; API — <code>MPNowPlayingInfoCenter</code> only reports the
         calling process, and the private framework that used to work was locked
         down in macOS 15.4. Bondex uses each app&apos;s scripting interface
-        instead, which is the supported route. You&apos;ll be asked for
-        Automation permission the first time.
+        instead, which is the supported route. Browser tabs can show players such
+        as YouTube, YouTube Music, SoundCloud and Twitch after JavaScript from
+        Apple Events is enabled once. You&apos;ll be asked for Automation permission
+        the first time.
+      </>
+    ),
+  },
+  {
+    q: 'How does agent activity work?',
+    plainText:
+      'A small hook tells Bondex when an agent starts a tool, what it is doing, when it stops to wait for you, and when the turn ends. Claude Code, Codex and Gemini CLI are set up with one click in Settings; Ollama and other CLI agents can use the same local busy and idle signal. When an agent stops for a permission prompt, a question or a plan to approve, the notch turns amber and says Needs you. The Agents tab reads Claude Code and Codex usage — plan limits, API-equivalent spend and sessions — from the log files those agents already write on your Mac. Bondex never signs in, reads no credentials and sends nothing.',
+    a: (
+      <>
+        A small hook tells Bondex when an agent starts a tool, what it is doing,
+        when it stops to wait for you, and when the turn ends. Claude Code, Codex
+        and Gemini CLI are set up with one click in Settings, which also spots a
+        setup that has gone stale; Ollama and any other CLI agent can use the same
+        open busy/idle signal. When an agent stops for a permission prompt, a
+        question or a plan to approve, the notch turns amber and says{' '}
+        <b>Needs you</b>. Everything stays on your Mac and is watched without
+        background polling.
+        <br />
+        <br />
+        The Agents tab reads Claude Code and Codex usage — plan limits, API-equivalent
+        spend and recent sessions — from the log files those agents already write on
+        your Mac. Bondex never signs in, reads no credentials and sends nothing.
+      </>
+    ),
+  },
+  {
+    q: 'What are custom live activities?',
+    plainText:
+      'Progress updates sent from a script, Shortcut, build tool or terminal with no SDK required. A live activity can include a title, status and progress value, stays visible in the peek, and becomes an activity-feed event when it finishes.',
+    a: (
+      <>
+        Progress updates that you send from a script, Shortcut, build tool or
+        terminal — no SDK needed. A live activity can have a title, status and
+        progress value; it stays visible in the peek and becomes an activity-feed
+        event when it finishes.
+      </>
+    ),
+  },
+  {
+    q: 'How private are Quick Capture and clipboard history?',
+    plainText:
+      'Captures stay on your Mac. Clipboard history is session-only, is never written to disk, ignores concealed or transient content, and can be paused. On macOS 15.4 and later it reads nothing until you allow Bondex Notch under Privacy & Security › Paste from Other Apps. Optional capture enhancement is user-triggered and runs on-device on supported Macs.',
+    a: (
+      <>
+        Captures stay on your Mac. Clipboard history is session-only, is never
+        written to disk, and ignores content marked concealed or transient by the
+        source app. You can pause it whenever you like. On macOS 15.4 and later it
+        reads nothing until you allow Bondex Notch under Privacy &amp; Security ›
+        Paste from Other Apps. Capture enhancement is a
+        separate, user-triggered action that uses on-device Apple Intelligence on
+        supported macOS 26 Macs; ordinary capture never requires it.
+      </>
+    ),
+  },
+  {
+    q: 'Can I automate Bondex?',
+    plainText:
+      'Yes. Bondex exposes App Intents to Apple Shortcuts for switching profiles, changing automatic profile mode, creating a quick capture, starting a focus timer and showing a widget. Global keyboard shortcuts can also open the panel, Quick Capture and command palette.',
+    a: (
+      <>
+        Yes. Bondex exposes App Intents to Apple Shortcuts for switching profiles,
+        changing automatic profile mode, creating a quick capture, starting a focus
+        timer and showing a widget. You can also assign global keyboard shortcuts to
+        the panel, Quick Capture and command palette.
       </>
     ),
   },
   {
     q: "Does it show my other apps' notifications?",
+    plainText:
+      'No. macOS does not provide an API for reading other apps’ Notification Center items. Bondex instead shows an activity feed for events it observes directly, including track changes, completed downloads, power events and shelf drops.',
     a: (
       <>
         No, and no Mac app can. Notification Center&apos;s database is protected
@@ -32,28 +102,57 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     ),
   },
   {
-    q: 'How much memory does it actually use?',
+    q: 'How light is it on CPU and memory?',
+    plainText:
+      'Bondex is a native Swift app with no Electron runtime, web view or background helper process. System metrics are sampled every two seconds on a background utility task, and disabled widgets stop their services entirely.',
     a: (
       <>
-        It&apos;s a small Swift agent with no web view and no background helpers.
-        Sampling is throttled and widgets you disable stop sampling entirely.
-        Check it yourself in Activity Monitor — that&apos;s the honest answer.
+        It&apos;s a native Swift app with no Electron runtime, web view, or
+        background helper process. System metrics are sampled every two seconds
+        on a background utility task, and widgets you disable stop their service
+        entirely. Exact usage varies by Mac and enabled widgets, so Activity
+        Monitor is the honest place to verify it on your setup.
       </>
     ),
   },
   {
     q: 'What permissions does it ask for?',
+    plainText:
+      'Up to five optional permissions requested only for the relevant feature: Automation for Music and Spotify, Files and Folders for Downloads, Notifications for Bondex alerts, Calendar for upcoming meetings, and Paste from Other Apps for clipboard history on macOS 15.4 and later. A first-launch welcome explains each one before macOS asks, and macOS remembers your choices across updates. Privacy indicators do not require camera or microphone permission.',
     a: (
       <>
-        Three, all optional and all requested only when the relevant widget is
-        on. <b>Automation</b> for Music and Spotify, <b>Files and Folders</b> to
-        watch Downloads, and <b>Notifications</b> if you want Bondex to post its
-        own alerts. Nothing leaves your Mac.
+        Up to five, all optional and requested only for the relevant feature:
+        <b> Automation</b> for Music and Spotify, <b>Files and Folders</b> to
+        watch Downloads, <b>Notifications</b> for Bondex alerts,
+        <b> Calendar</b> for upcoming meetings, and <b>Paste from Other Apps</b>{' '}
+        for clipboard history on macOS 15.4 and later. A first-launch welcome
+        explains each one before macOS asks, and macOS remembers your choices
+        across updates. Privacy indicators do not need camera or microphone
+        permission and never record either source. Nothing leaves your Mac
+        except the update check, and only if you turn it on.
+      </>
+    ),
+  },
+  {
+    q: 'How does it stay up to date?',
+    plainText:
+      'From version 1.1.1, Bondex updates itself. On its second launch it asks whether to check automatically, and Settings › General can change that or check now. A check is one request to GitHub for the latest release with nothing about your Mac attached, and every update is verified against a key built into the app before it installs. Coming from 1.0 or 1.1.0, download the latest release once by hand.',
+    a: (
+      <>
+        From version 1.1.1, Bondex updates itself. On its second launch it asks
+        whether to check automatically, and <b>Settings › General</b> can change
+        that or check now. A check is one request to GitHub for the latest
+        release, with nothing about your Mac attached, and every update is
+        verified against a key built into the app before it installs. An update
+        waits in the menu bar menu rather than interrupting you. Coming from 1.0
+        or 1.1.0, download the latest release once by hand.
       </>
     ),
   },
   {
     q: 'Will it work on my display?',
+    plainText:
+      'Bondex supports macOS 14 Sonoma or later on Apple silicon and Intel. On displays without a hardware notch, it draws a matching pill in the same position.',
     a: (
       <>
         macOS 14 Sonoma or later, Apple silicon or Intel. Notch or no notch — on
@@ -62,6 +161,19 @@ const answers: Array<{ q: string; a: ReactNode; open?: boolean }> = [
     ),
   },
 ];
+
+export const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: answers.map(({ q, plainText }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: plainText,
+    },
+  })),
+};
 
 export default function Faq() {
   return (

@@ -1,6 +1,7 @@
 # Bondex Notch — marketing site
 
-Next.js 16 (App Router, React 19, TypeScript), built as a fully static export.
+Next.js 16 (App Router, React 19, TypeScript), deployed on Vercel. Bondex Notch
+is free and open source under the MIT License, so the site has no checkout.
 
 ```
 app/layout.tsx      metadata, fonts, the wallpaper and the notch bar
@@ -23,11 +24,66 @@ Then open <http://localhost:4173>.
 npm run build
 ```
 
-Writes plain files to `out/`. Deploy by copying that directory to any static
-host — no server, no runtime, nothing to configure, the same deploy story the
-site had before the migration. `npm start` serves the export locally.
+`npm start` serves the production build locally after `npm run build`.
 
-`npm run lint` and `npm run typecheck` both run clean.
+## Quality gates
+
+Run the same checks as CI before opening a pull request:
+
+```bash
+npm run audit
+npm run lint
+npm run typecheck
+npm run build
+npx playwright install chromium # first local run only
+npm test
+```
+
+The Playwright suite checks the landing page, every legal/support route,
+canonical metadata, the download and source links, and narrow-screen legal
+layout.
+
+`.github/workflows/web-ci.yml` runs these checks for web pull requests and every
+push to `main`. A high-severity dependency advisory fails CI.
+
+## Deployment and rollback
+
+Vercel is the only production hosting path for this site. The Vercel project
+must use `bondex-notch-web` as its **Root Directory** and the repository default
+branch (`main`) as its production branch. Pull requests receive Preview
+deployments; merges to `main` produce Production deployments. `vercel.json`
+keeps framework detection explicit.
+
+`vercel.json` also applies the production security boundary to every route:
+Content Security Policy, MIME sniffing protection, a strict cross-origin
+referrer policy, a restrictive browser Permissions Policy, and framing
+protection. Next.js uses inline bootstrap scripts and inline component styles,
+so CSP permits inline scripts and styles but does not permit
+`eval`, third-party script origins, arbitrary network connections, plugins, or
+framing.
+
+## Environment
+
+Copy `.env.example` to `.env.local` for local work and set the same values in
+Vercel:
+
+- `NEXT_PUBLIC_SITE_URL` — the canonical site origin, without a path;
+- `NEXT_PUBLIC_SUPPORT_EMAIL` — the public address used by support and legal links.
+
+## Rollback
+
+If a production deployment is unhealthy:
+
+1. Verify the problem on the production domain.
+2. In Vercel, open **Deployments**, select **Instant Rollback**, and restore the
+   previous healthy production deployment. From a linked CLI, `vercel rollback`
+   performs the same immediate rollback.
+3. Verify the production domain again, then fix the source on a pull request so
+   `main` matches the restored behavior.
+
+Vercel documents both the [monorepo Root Directory
+setting](https://vercel.com/docs/monorepos) and the [production rollback
+workflow](https://vercel.com/docs/deployments/rollback-production-deployment).
 
 ## The idea
 
@@ -121,13 +177,7 @@ first interaction, and never starts under `prefers-reduced-motion`.
 
 ## Before going live
 
-- `#download` and the GitHub button are `href="#"` placeholders.
-- Pricing shows $14.99 one-time and $4/month for the AI add-on, mid-range of the
-  proposal's $9.99–$19.99 and $3–$5. Confirm before publishing.
+- The download button opens the repository's latest GitHub Release. Publish a
+  release with `Bondex Notch.dmg` attached before linking people to it.
 - The "Genuinely light" card deliberately does not quote a memory figure. Add
   one only once it has been measured on a release build.
-- `npm audit` reports high-severity libvips advisories against `sharp`, which
-  Next pulls in as an optional dependency for image optimisation. Nothing here
-  uses `next/image` and the export is static, so `sharp` never runs — but the
-  advisory will keep showing until Next ships a bumped version. Do not let
-  `npm audit fix --force` "fix" it: it downgrades Next to 9.x.

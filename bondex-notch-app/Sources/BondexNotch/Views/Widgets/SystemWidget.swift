@@ -6,6 +6,7 @@ struct SystemWidget: View {
 
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var service: SystemMetricsService
+    @ObservedObject private var deviceBatteries: DeviceBatteryService
     @ObservedObject private var settings: SettingsStore
 
     var compact = false
@@ -13,35 +14,43 @@ struct SystemWidget: View {
     init(environment: AppEnvironment, compact: Bool = false) {
         self.environment = environment
         self.service = environment.metrics
+        self.deviceBatteries = environment.deviceBatteries
         self.settings = environment.settings
         self.compact = compact
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
     private var snapshot: SystemSnapshot { service.snapshot }
 
     var body: some View {
-        HStack(spacing: 10) {
-            gauge(
-                title: "CPU",
-                value: snapshot.cpuUsage,
-                tint: tint(for: snapshot.cpuUsage),
-                help: "CPU load across all cores"
-            )
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                gauge(
+                    title: "CPU",
+                    value: snapshot.cpuUsage,
+                    tint: tint(for: snapshot.cpuUsage),
+                    help: "CPU load across all cores"
+                )
 
-            gauge(
-                title: "Memory",
-                value: snapshot.memoryFraction,
-                tint: tint(for: snapshot.memoryFraction),
-                help: snapshot.memoryTotal > 0
-                    ? "\(Int64(snapshot.memoryUsed).formattedBytes) of \(Int64(snapshot.memoryTotal).formattedBytes) used"
-                    : "Memory usage unavailable"
-            )
+                gauge(
+                    title: "Memory",
+                    value: snapshot.memoryFraction,
+                    tint: tint(for: snapshot.memoryFraction),
+                    help: snapshot.memoryTotal > 0
+                        ? "\(Int64(snapshot.memoryUsed).formattedBytes) of \(Int64(snapshot.memoryTotal).formattedBytes) used"
+                        : "Memory usage unavailable"
+                )
 
-            battery
+                battery
 
-            network
+                network
+            }
+
+            if !compact {
+                deviceBatteryPanel
+            }
         }
+        .animation(Motion.value(settings.motion), value: batteryDisplays)
         .animation(Motion.value(settings.motion), value: snapshot)
     }
 
@@ -57,13 +66,13 @@ struct SystemWidget: View {
             ZStack {
                 ProgressRing(value: value, tint: tint, lineWidth: 3.5)
                 Text("\(Int(value * 100))%")
-                    .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold).monospacedDigit())
                     .foregroundStyle(Theme.primaryText)
             }
-            .frame(width: compact ? 30 : 42, height: compact ? 30 : 42)
+            .frame(width: compact ? 28 : 38, height: compact ? 28 : 38)
 
             Text(title)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
         }
         .frame(maxWidth: .infinity)
@@ -86,10 +95,10 @@ struct SystemWidget: View {
                         .foregroundStyle(Theme.tertiaryText)
                 }
             }
-            .frame(width: compact ? 30 : 42, height: compact ? 30 : 42)
+            .frame(width: compact ? 28 : 38, height: compact ? 28 : 38)
 
             Text(batteryCaption)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
                 .lineLimit(1)
         }
@@ -120,11 +129,130 @@ struct SystemWidget: View {
                 tint: Theme.secondaryText
             )
             Text("Network")
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
                 .foregroundStyle(Theme.tertiaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .notchCard(padding: compact ? Theme.compactCardPadding : 10)
+    }
+
+    // MARK: Device batteries
+
+    private struct BatteryDisplay: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let level: Double
+        let isCharging: Bool
+        let systemImage: String
+    }
+
+    private var batteryDisplays: [BatteryDisplay] {
+        var displays: [BatteryDisplay] = []
+        if let level = snapshot.batteryLevel {
+            displays.append(BatteryDisplay(
+                id: "this-mac",
+                name: "This Mac",
+                level: level,
+                isCharging: snapshot.isCharging,
+                systemImage: "laptopcomputer"
+            ))
+        }
+        displays.append(contentsOf: deviceBatteries.devices.map {
+            BatteryDisplay(
+                id: $0.id,
+                name: $0.name,
+                level: $0.clampedLevel,
+                isCharging: $0.isCharging,
+                systemImage: $0.kind.systemImage
+            )
+        })
+        return displays
+    }
+
+    private var deviceBatteryPanel: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 5) {
+                Image(systemName: "battery.100percent")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(accent)
+                Text("Device batteries")
+                    .font(.system(size: Theme.TextSize.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                Spacer()
+                if !batteryDisplays.isEmpty {
+                    Text("\(batteryDisplays.count) device\(batteryDisplays.count == 1 ? "" : "s")")
+                        .font(.system(size: Theme.TextSize.micro, weight: .medium))
+                        .foregroundStyle(Theme.tertiaryText)
+                }
+            }
+
+            if batteryDisplays.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "battery.0percent")
+                    Text("No battery-powered devices detected")
+                }
+                .font(.system(size: Theme.TextSize.caption, weight: .medium))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+                .accessibilityElement(children: .combine)
+            } else {
+                HStack(spacing: 6) {
+                    ForEach(Array(batteryDisplays.prefix(4))) { device in
+                        deviceBatteryCell(device)
+                    }
+                    if batteryDisplays.count > 4 {
+                        Text("+\(batteryDisplays.count - 4)")
+                            .font(.system(size: Theme.TextSize.caption, weight: .semibold))
+                            .foregroundStyle(Theme.secondaryText)
+                            .frame(width: 24)
+                            .accessibilityLabel("\(batteryDisplays.count - 4) more devices")
+                    }
+                }
+            }
+        }
+        .notchCard(padding: 9)
+    }
+
+    private func deviceBatteryCell(_ device: BatteryDisplay) -> some View {
+        let tint = batteryTint(device.level, charging: device.isCharging)
+        return HStack(spacing: 6) {
+            ZStack {
+                Circle().fill(tint.opacity(0.14))
+                Image(systemName: device.isCharging ? "bolt.fill" : device.systemImage)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+            .frame(width: 25, height: 25)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(device.name)
+                    .font(.system(size: Theme.TextSize.caption, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                Text("\(Int((device.level * 100).rounded()))%")
+                    .font(.system(size: Theme.TextSize.caption, weight: .medium).monospacedDigit())
+                    .foregroundStyle(tint)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.white.opacity(0.045))
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(device.name)
+        .accessibilityValue(
+            "\(Int((device.level * 100).rounded())) percent"
+                + (device.isCharging ? ", charging" : "")
+                + (device.level <= 0.2 && !device.isCharging ? ", low battery" : "")
+        )
+        .help(
+            "\(device.name): \(Int((device.level * 100).rounded()))%"
+                + (device.isCharging ? " · Charging" : "")
+        )
     }
 
     private func throughput(systemImage: String, rate: Double, tint: Color) -> some View {
@@ -133,7 +261,7 @@ struct SystemWidget: View {
                 .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(tint)
             Text(rateString(rate))
-                .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                .font(.system(size: Theme.TextSize.footnote, weight: .semibold).monospacedDigit())
                 .foregroundStyle(Theme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -151,8 +279,10 @@ struct SystemWidget: View {
     }
 
     private func rateString(_ bytesPerSecond: Double) -> String {
-        guard bytesPerSecond >= 1024 else { return "0 KB/s" }
-        return "\(Int64(bytesPerSecond).formattedBytes)/s"
+        guard bytesPerSecond.isFinite, bytesPerSecond >= 1024 else { return "0 KB/s" }
+        // `Int64(_:)` traps above Int64.max; a bogus sample must not take the
+        // whole app down with it.
+        return "\(Int64(min(bytesPerSecond, Double(Int64.max / 2))).formattedBytes)/s"
     }
 
     /// Green through amber to red as load climbs, so a glance is enough.
@@ -165,7 +295,11 @@ struct SystemWidget: View {
     }
 
     private func batteryTint(_ level: Double) -> Color {
-        if snapshot.isCharging { return Color(red: 0.32, green: 0.80, blue: 0.55) }
+        batteryTint(level, charging: snapshot.isCharging)
+    }
+
+    private func batteryTint(_ level: Double, charging: Bool) -> Color {
+        if charging { return Color(red: 0.32, green: 0.80, blue: 0.55) }
         switch level {
         case ..<0.15: return Color(red: 0.98, green: 0.35, blue: 0.35)
         case ..<0.3: return Color(red: 0.99, green: 0.72, blue: 0.25)

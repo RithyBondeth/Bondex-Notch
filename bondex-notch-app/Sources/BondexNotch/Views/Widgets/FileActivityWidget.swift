@@ -12,7 +12,7 @@ struct FileActivityWidget: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
 
     var body: some View {
         if service.accessDenied {
@@ -33,9 +33,19 @@ struct FileActivityWidget: View {
     }
 
     private var list: some View {
-        ScrollingStack(spacing: 6) {
-            ForEach(service.activities) { activity in
-                row(activity)
+        VStack(spacing: 6) {
+            NotchListHeader(
+                "\(service.activities.count) transfer\(service.activities.count == 1 ? "" : "s")"
+            ) {
+                if service.hasFinished {
+                    NotchTextButton("Clear finished") { service.clearFinished() }
+                }
+            }
+
+            ScrollingStack(spacing: 6) {
+                ForEach(service.activities) { activity in
+                    row(activity)
+                }
             }
         }
     }
@@ -48,14 +58,14 @@ struct FileActivityWidget: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(activity.displayName)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: Theme.TextSize.body, weight: .medium))
                     .foregroundStyle(Theme.primaryText)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
                 if activity.isComplete {
                     Text(activity.byteCount.formattedBytes)
-                        .font(.system(size: 9.5))
+                        .font(.system(size: Theme.TextSize.caption))
                         .foregroundStyle(Theme.tertiaryText)
                 } else {
                     // No public API reports a download's expected total size,
@@ -67,7 +77,7 @@ struct FileActivityWidget: View {
                             Text("· \(Int64(activity.bytesPerSecond).formattedBytes)/s")
                         }
                     }
-                    .font(.system(size: 9.5).monospacedDigit())
+                    .font(.system(size: Theme.TextSize.caption).monospacedDigit())
                     .foregroundStyle(Theme.secondaryText)
                 }
             }
@@ -78,12 +88,13 @@ struct FileActivityWidget: View {
                 NotchButton(systemImage: "magnifyingglass", size: 10, tint: Theme.secondaryText) {
                     service.reveal(activity)
                 }
+                .accessibilityLabel("Reveal \(activity.displayName) in Finder")
             } else {
                 ProgressView()
                     .controlSize(.small)
                     .tint(accent)
             }
         }
-        .notchCard()
+        .notchRow()
     }
 }

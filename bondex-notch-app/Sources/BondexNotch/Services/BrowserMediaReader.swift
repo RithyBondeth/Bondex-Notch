@@ -24,6 +24,9 @@ final class BrowserMediaReader: @unchecked Sendable {
         /// Which app produced `failure`, so the UI can name the browser the user
         /// needs to change a setting in.
         var failedApp: MediaApp?
+        /// The failure came from a tab on a known media site — the user has
+        /// YouTube or similar open, so the refusal is hiding something real.
+        var failedOnMediaSite = false
     }
 
     enum Transport {
@@ -44,6 +47,11 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// common case costs one Apple Event rather than a full scan.
     private var pinned: TabRef?
     private var lastScanAt: Date?
+    /// What the last sweep was refused with. Sweeps run every few seconds and
+    /// the ticks between them do not probe, so without this a blocked browser
+    /// was reported on one tick in three and its fix flickered in and out of
+    /// the panel.
+    private var sweepFailure: Reading?
 
     /// How often to sweep every open tab when nothing is pinned. A scan touches
     /// every window of every running browser, so it must not run at tick rate.
@@ -58,6 +66,7 @@ final class BrowserMediaReader: @unchecked Sendable {
     func reset() {
         pinned = nil
         lastScanAt = nil
+        sweepFailure = nil
     }
 
     // MARK: Reading
@@ -70,20 +79,28 @@ final class BrowserMediaReader: @unchecked Sendable {
         /// turned off is worth reporting even though the scan carries on.
         var failure: ScriptFailure?
         var failedApp: MediaApp?
+        var failedOnMediaSite = false
 
-        func record(_ next: ScriptFailure?, from app: MediaApp) {
-            guard failure == nil, let next, next != .transient else { return }
-            failure = next
-            failedApp = app
+        func record(_ next: ScriptFailure?, from app: MediaApp, host: String? = nil) {
+            guard let next, next != .transient else { return }
+            if failure == nil {
+                failure = next
+                failedApp = app
+            }
+            if next == failure, let host, Self.isKnownMediaHost(host) { failedOnMediaSite = true }
+        }
+
+        func blocked() -> Reading {
+            Reading(track: nil, failure: failure, failedApp: failedApp, failedOnMediaSite: failedOnMediaSite)
         }
 
         // Fast path: the tab media was in last time is usually still the one.
         if let pinned {
             let outcome = probe(pinned)
             if outcome.track != nil { return outcome }
-            record(outcome.failure, from: pinned.app)
+            record(outcome.failure, from: pinned.app, host: pinned.host)
             if failure != nil {
-                return Reading(track: nil, failure: failure, failedApp: failedApp)
+                return blocked()
             }
             self.pinned = nil
         }
@@ -96,6 +113,7 @@ final class BrowserMediaReader: @unchecked Sendable {
         // it yields artwork, position and working transport controls.
         if lastScanAt == nil || Date().timeIntervalSince(lastScanAt!) >= scanInterval {
             lastScanAt = Date()
+            sweepFailure = nil
 
             for app in scriptable {
                 let candidates = locateCandidates(in: app)
@@ -104,7 +122,7 @@ final class BrowserMediaReader: @unchecked Sendable {
                 var best: NowPlaying?
                 for reference in candidates.tabs.prefix(probeLimit) {
                     let outcome = probe(reference)
-                    record(outcome.failure, from: app)
+                    record(outcome.failure, from: app, host: reference.host)
                     guard let track = outcome.track else { continue }
 
                     if track.isPlaying {
@@ -120,6 +138,7 @@ final class BrowserMediaReader: @unchecked Sendable {
 
                 if let best { return Reading(track: best) }
             }
+            if failure != nil { sweepFailure = blocked() }
         }
 
         // Title-only browsers are read on *every* tick, not just when a sweep is
@@ -132,7 +151,41 @@ final class BrowserMediaReader: @unchecked Sendable {
             }
         }
 
-        return Reading(track: nil, failure: failure, failedApp: failedApp)
+        return failure == nil ? (sweepFailure ?? Reading()) : blocked()
+    }
+
+    // MARK: Diagnostics
+
+    /// What one browser exposes, for `--diagnose-media`: how many windows and
+    /// tabs it lists, how many are on a media site, and what probing each
+    /// candidate returned. Counts and outcomes only — no URL or title leaves
+    /// this method, so the output can be pasted into a support thread.
+    func diagnose(_ app: MediaApp) -> [String] {
+        let listing = engine.run(tabListScript(for: app))
+        guard let raw = listing.value else {
+            return ["\(app.displayName).tabList=failed(\(String(describing: listing.failure)))"]
+        }
+        let windows = Self.parseWindows(raw)
+        let candidates = locateCandidates(in: app)
+        let mediaTabs = windows.flatMap(\.urls).compactMap { URL(string: $0)?.host }.filter(Self.isKnownMediaHost)
+        var lines = [
+            "\(app.displayName).windows=\(windows.count) tabs=\(windows.map(\.urls.count).reduce(0, +)) "
+                + "mediaSiteTabs=\(mediaTabs.count) candidates=\(candidates.tabs.count)"
+        ]
+        for (index, reference) in candidates.tabs.prefix(probeLimit).enumerated() {
+            let outcome = execute(Self.readScript, in: reference)
+            let decoded = Self.decodeJavaScriptResult(outcome.value, from: reference.app.engine) ?? ""
+            let status = decoded.isEmpty ? "no media element" : (decoded.components(separatedBy: Self.separator).first ?? "?")
+            let reading = probe(reference)
+            lines.append(
+                "  probe[\(index)] mediaSite=\(Self.isKnownMediaHost(reference.host)) "
+                    + "result=\(outcome.value == nil ? "none" : status) "
+                    + "failure=\(outcome.failure.map { String(describing: $0) } ?? "none") "
+                    + (outcome.failure == nil ? "" : "error=\(engine.lastError.map { "\($0.code) \($0.message)" } ?? "?") ")
+                    + "track=\(reading.track != nil) playing=\(reading.track?.isPlaying ?? false)"
+            )
+        }
+        return lines
     }
 
     // MARK: Transport
@@ -140,7 +193,7 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// Returns true when the browser accepted the command.
     func perform(_ transport: Transport, on app: MediaApp) -> Bool {
         guard let reference = pinned, reference.app == app else { return false }
-        let outcome = engine.runJavaScript(wrap(script(for: transport), for: reference))
+        let outcome = execute(script(for: transport), in: reference)
         return outcome.value?.isEmpty == false
     }
 
@@ -287,7 +340,7 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// that carry the marker, the same read costs ~185ms, and when nothing is
     /// playing it is a single `name of every window`.
     private func audibleWindowScript(for app: MediaApp, marker: String) -> String {
-        """
+        app.onlyWhileRunning("""
         tell application "\(app.scriptName)"
             set sep to (character id 1)
             set AppleScript's text item delimiters to sep
@@ -309,7 +362,7 @@ final class BrowserMediaReader: @unchecked Sendable {
             end repeat
             return out
         end tell
-        """
+        """)
     }
 
     /// Parses the `U`/`N`/`A` line triples the bulk scripts emit. Lists are joined
@@ -344,8 +397,10 @@ final class BrowserMediaReader: @unchecked Sendable {
     // MARK: Probing
 
     private func probe(_ reference: TabRef) -> Reading {
-        let outcome = engine.runJavaScript(wrap(Self.readScript, for: reference))
-        guard let raw = outcome.value, !raw.isEmpty else {
+        let outcome = execute(Self.readScript, in: reference)
+        guard let raw = Self.decodeJavaScriptResult(
+            outcome.value, from: reference.app.engine
+        ), !raw.isEmpty else {
             return Reading(track: nil, failure: outcome.failure)
         }
 
@@ -379,6 +434,21 @@ final class BrowserMediaReader: @unchecked Sendable {
         return Reading(track: track, failure: nil)
     }
 
+    /// Dia JSON-encodes the return value of its `execute … javascript` command,
+    /// unlike Safari and Chromium, whose AppleScript descriptors contain the
+    /// returned text directly. In particular, the field separator arrives as the
+    /// six literal characters `\\u0001`, so parsing the raw descriptor finds one
+    /// field and silently discards an otherwise valid track.
+    static func decodeJavaScriptResult(_ value: String?, from engine: MediaApp.Engine) -> String? {
+        guard let value, engine == .dia, value.first == "\"",
+              let data = value.data(using: .utf8),
+              let decoded = try? JSONSerialization.jsonObject(
+                with: data, options: [.fragmentsAllowed]
+              ) as? String
+        else { return value }
+        return decoded
+    }
+
     /// Pages that do not set `mediaSession` fall back to `document.title`, which
     /// carries the site's own suffix and an unread-count prefix.
     static func strippedTitle(_ title: String) -> String {
@@ -407,11 +477,24 @@ final class BrowserMediaReader: @unchecked Sendable {
 
     // MARK: Scripts
 
+    private func execute(_ javaScript: String, in reference: TabRef) -> ScriptOutcome {
+        let source = wrap(javaScript, for: reference)
+        if reference.app.engine == .dia {
+            return engine.runDiaJavaScript(source)
+        }
+        return engine.runJavaScript(source)
+    }
+
     /// Field separator for the JavaScript payload's return value. Chosen so it
     /// cannot collide with anything in a track title.
     static let separator = "\u{01}"
 
     private func wrap(_ javaScript: String, for reference: TabRef) -> String {
+        let script = unguardedWrap(javaScript, for: reference)
+        return script.isEmpty ? "" : reference.app.onlyWhileRunning(script)
+    }
+
+    private func unguardedWrap(_ javaScript: String, for reference: TabRef) -> String {
         let literal = javaScript.appleScriptLiteral
         switch reference.app.engine {
         case .chromium:
@@ -424,6 +507,11 @@ final class BrowserMediaReader: @unchecked Sendable {
             tell application "\(reference.app.scriptName)" to do JavaScript \
             \(literal) in tab \(reference.tab) of window \(reference.window)
             """
+        case .dia:
+            return """
+            tell application "\(reference.app.scriptName)" to execute \
+            (tab \(reference.tab) of window \(reference.window)) javascript \(literal)
+            """
         case .music, .spotify:
             return ""
         }
@@ -435,11 +523,36 @@ final class BrowserMediaReader: @unchecked Sendable {
     /// the toggle. Tabs are fetched a list at a time rather than one property at a
     /// time, for the reason spelled out on `audibleWindowScript`.
     private func tabListScript(for app: MediaApp) -> String {
+        if app.engine == .dia {
+            return app.onlyWhileRunning("""
+            tell application "\(app.scriptName)"
+                set sep to (character id 1)
+                set AppleScript's text item delimiters to sep
+                set out to ""
+                set windowCount to count of windows
+                repeat with wi from 1 to windowCount
+                    try
+                        set tabURLs to URL of every tab of window wi
+                        set focusedStates to isFocused of every tab of window wi
+                        set activeIndex to 0
+                        repeat with ti from 1 to count of focusedStates
+                            if item ti of focusedStates is true then set activeIndex to ti
+                        end repeat
+                        set out to out & "U" & sep & wi & sep & ¬
+                            (tabURLs as text) & linefeed
+                        set out to out & "A" & sep & wi & sep & activeIndex & linefeed
+                    end try
+                end repeat
+                return out
+            end tell
+            """)
+        }
+
         let activeIndex = app.engine == .chromium
             ? "active tab index of window wi"
             : "index of current tab of window wi"
 
-        return """
+        return app.onlyWhileRunning("""
         tell application "\(app.scriptName)"
             set sep to (character id 1)
             set AppleScript's text item delimiters to sep
@@ -454,7 +567,7 @@ final class BrowserMediaReader: @unchecked Sendable {
             end repeat
             return out
         end tell
-        """
+        """)
     }
 
     /// Picks the media element the user most likely cares about: playing beats
@@ -473,9 +586,16 @@ final class BrowserMediaReader: @unchecked Sendable {
     static let readScript = """
     (function(){var S=String.fromCharCode(1);\(findElement)if(!b)return '';\
     var m=null;try{m=navigator.mediaSession.metadata}catch(x){}\
+    function A(s){if(!s)return '';try{var u=new URL(s,document.baseURI);\
+    return /^https?:$/.test(u.protocol)?u.href:''}catch(x){return ''}}\
     var a='';if(m&&m.artwork){var w=-1;for(var j=0;j<m.artwork.length;j++){\
     var g=m.artwork[j];var p=parseInt((g.sizes||'').split('x')[0],10);\
-    if(!p||p!==p){p=0}if(p>w){w=p;a=g.src||''}}}\
+    if(!p||p!==p){p=0}var c=A(g.src);if(c&&p>w){w=p;a=c}}}\
+    if(!a){a=A(b.poster)}if(!a){var M=document.getElementsByTagName('meta');\
+    for(var j=0;j<M.length;j++){var k=M[j].getAttribute('property')||\
+    M[j].getAttribute('name')||M[j].getAttribute('itemprop')||'';\
+    if(k==='og:image'||k==='twitter:image'||k==='twitter:image:src'||\
+    k==='thumbnailUrl'){a=A(M[j].content);if(a)break}}}\
     var t=(m&&m.title)||document.title||'';var r=(m&&m.artist)||'';\
     var al=(m&&m.album)||'';\
     return ['OK',t,r,al,b.duration,b.currentTime,b.paused?'n':'y',a,\

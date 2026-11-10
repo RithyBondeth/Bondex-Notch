@@ -10,20 +10,44 @@ import SwiftUI
 final class NotchViewModel: ObservableObject {
 
     @Published private(set) var state: NotchState = .collapsed
-    @Published var tab: NotchTab = .home
+    @Published var tab: NotchTab = .home {
+        willSet {
+            // Before the change is published, so the view that renders the new
+            // tab already knows which side it slides in from.
+            let from = tabOrder.firstIndex(of: tab) ?? 0
+            let to = tabOrder.firstIndex(of: newValue) ?? 0
+            tabAdvances = to >= from
+        }
+    }
+    /// The strip's left-to-right order, kept in step by the environment.
+    var tabOrder: [NotchTab] = NotchTab.allCases
+    /// Whether the last tab change moved right along the strip.
+    private(set) var tabAdvances = true
     @Published var isDropTargeted = false
     /// Set while a transient banner (track change, download finished) is showing.
     @Published private(set) var banner: NotchEvent?
+    /// Short-lived feedback for hardware keys. This intentionally does not enter
+    /// the activity feed: changing volume is interaction feedback, not history.
+    @Published private(set) var systemHUD: SystemHUDPresentation?
+    @Published var privacyActivity = PrivacyActivityState() {
+        didSet {
+            guard privacyActivity.isActive != oldValue.isActive else { return }
+            refreshIdleState()
+        }
+    }
 
     @Published private(set) var geometry: NotchGeometry
 
     /// Latched open by a click, so the panel stays put while the user works in it.
     private var isPinned = false
+    /// The panel has keyboard focus — someone is typing in Quick Capture, a
+    /// search field or the palette. The pointer drifting off the panel mid-word
+    /// must not close it; a click elsewhere, which takes the focus away, does.
+    private var holdsOpenForKeyboard = false
     private var closeWorkItem: DispatchWorkItem?
     private var openWorkItem: DispatchWorkItem?
     private var bannerWorkItem: DispatchWorkItem?
-    private var dragPasteboardChangeCount = -1
-    private var dragPasteboardHasFiles = false
+    private var systemHUDWorkItem: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
 
     private let settings: SettingsStore
@@ -38,6 +62,133 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// How many coding agents a hook reports working, which the peek shows with
+    /// a mark and a clock each. Kept separate from `hasLiveActivity` because it
+    /// also decides how *wide* the peek has to be: playback needs room for
+    /// artwork and an equaliser, and each agent brings its own pair.
+    ///
+    /// Only *working* agents reach the peek. One that is merely open — a
+    /// process is running, but no hook says it is doing anything — is listed in
+    /// the expanded panel and nowhere else. The Claude and ChatGPT desktop apps
+    /// each carry an agent binary, so "open" is true for as long as either app
+    /// is, and letting it hold the peek kept a still mark and the word "Open"
+    /// over the menu bar all day, telling you nothing.
+    ///
+    /// A working agent outranks playback — the run is the transient thing you
+    /// want to see the end of, and music will still be playing in ten minutes.
+    @Published var workingAgentCount = 0 {
+        didSet {
+            // Only the empty/non-empty transition changes whether the peek is up
+            // at all; going from one agent to two just resizes it, which the
+            // published change already animates.
+            guard (workingAgentCount > 0) != (oldValue > 0) else { return }
+            refreshIdleState()
+        }
+    }
+
+    /// Of the working agents, how many have stopped to wait on the user — a
+    /// permission prompt, a question, a plan to approve.
+    ///
+    /// These outrank every other persistent peek: a running timer or a song
+    /// will carry on without you, but a blocked agent is wasting its time until
+    /// you answer.
+    @Published var attentionAgentCount = 0 {
+        didSet {
+            guard (attentionAgentCount > 0) != (oldValue > 0) else { return }
+            refreshIdleState()
+        }
+    }
+
+    /// Whether playback gets the peek, by its own preference.
+    var showsMediaInPeek: Bool { hasLiveActivity && settings.preferences.peekWhilePlaying }
+
+    @Published var customLiveActivityCount = 0 {
+        didSet {
+            guard (customLiveActivityCount > 0) != (oldValue > 0) else { return }
+            refreshIdleState()
+        }
+    }
+
+    var hasFocusTimer = false {
+        didSet {
+            guard hasFocusTimer != oldValue else { return }
+            refreshIdleState()
+        }
+    }
+
+    var hasUpcomingMeeting = false {
+        didSet {
+            guard hasUpcomingMeeting != oldValue else { return }
+            refreshIdleState()
+        }
+    }
+
+    /// The wellness buddy has been watching an unbroken stretch long enough to
+    /// ask for a break. It is the quiet alternative to an alert: the buddy
+    /// appears beside the notch, wilting, until you step away or snooze it.
+    var buddyNeedsBreak = false {
+        didSet {
+            guard buddyNeedsBreak != oldValue else { return }
+            refreshIdleState()
+        }
+    }
+
+    /// What the peek is carrying, which is what decides its width — and, since
+    /// `PeekView` renders from this, what it shows.
+    ///
+    /// Direct hardware feedback outranks a banner, which outranks live progress,
+    /// agents and playback: the more immediate signal gets the limited space.
+    ///
+    /// Each source is gated by its own preference *here*, the same way
+    /// `idleState` gates it. They used to disagree: the meeting service also
+    /// runs for Smart Profiles with "Upcoming meetings" switched off, and an
+    /// ungated meeting then took over a peek that was open for playback.
+    var peekContent: PeekContent {
+        if systemHUD != nil { return .systemHUD }
+        if privacyActivity.isActive { return .privacy }
+        if banner != nil { return .banner }
+        if showsAgentAttention { return .agent(agents: workingAgentCount) }
+        if showsFocusTimer { return .focus }
+        if showsUpcomingMeeting { return .meeting }
+        if showsBuddy { return .buddy }
+        if showsLiveActivities { return .live }
+        if showsAgents { return .agent(agents: workingAgentCount) }
+        return .media
+    }
+
+    private var showsFocusTimer: Bool {
+        hasFocusTimer && settings.preferences.focusTimerEnabled
+    }
+
+    private var showsUpcomingMeeting: Bool {
+        hasUpcomingMeeting && settings.preferences.upcomingMeetingsEnabled
+    }
+
+    /// Below a focus session and a meeting, which are things you chose to be
+    /// in the middle of, and above progress, agents and playback, which carry
+    /// on fine while you stretch.
+    private var showsBuddy: Bool {
+        buddyNeedsBreak && settings.isTabEnabled(.buddy) && settings.preferences.buddyNudgesInNotch
+    }
+
+    /// The live-activity watcher runs while the Live tab is enabled, which a
+    /// Smart Profile can decide independently of the global preference.
+    private var showsLiveActivities: Bool {
+        customLiveActivityCount > 0 && settings.isTabEnabled(.live)
+    }
+
+    /// An agent working is not gated behind the *media* peek preference —
+    /// someone who turned off "peek while playing" was asking not to see album
+    /// art over the menu bar, which says nothing about whether they want to know
+    /// their agent is still running.
+    private var showsAgents: Bool {
+        workingAgentCount > 0 && settings.preferences.agentActivityEnabled
+    }
+
+    private var showsAgentAttention: Bool {
+        attentionAgentCount > 0 && settings.preferences.agentActivityEnabled
+    }
+
     init(settings: SettingsStore, events: EventCenter, screen: NSScreen) {
         self.settings = settings
         self.events = events
@@ -48,9 +199,12 @@ final class NotchViewModel: ObservableObject {
             .sink { [weak self] event in self?.show(banner: event) }
             .store(in: &cancellables)
 
-        settings.$preferences
-            .map(\.peekWhilePlaying)
-            .removeDuplicates()
+        // `idleState` reads several feature preferences back out of the store,
+        // so this has to run after the new value is stored, not from `willSet`.
+        settings.preferencesDidChange
+            .sink { [weak self] _ in self?.refreshIdleState() }
+            .store(in: &cancellables)
+        settings.activeProfileDidChange
             .sink { [weak self] _ in self?.refreshIdleState() }
             .store(in: &cancellables)
     }
@@ -79,12 +233,12 @@ final class NotchViewModel: ObservableObject {
     /// too short for one (clipping it) or too tall for the other (dead space).
     var contentSize: CGSize {
         guard state.isExpanded else {
-            return geometry.contentSize(for: state, hasBanner: banner != nil)
+            return geometry.contentSize(for: state, peek: peekContent)
         }
         let maximum = NotchGeometry.expandedContentSize
         let measured = measuredExpandedHeight ?? maximum.height
         return CGSize(
-            width: maximum.width,
+            width: min(max(settings.effectivePanelWidth, 440), maximum.width),
             height: min(max(measured, minimumExpandedHeight), maximum.height)
         )
     }
@@ -118,20 +272,10 @@ final class NotchViewModel: ObservableObject {
         let liveRect = geometry.hoverRect(ofSize: contentSize, isExpanded: state.isExpanded)
         let triggerRect = geometry.hoverRect(for: .collapsed)
 
-        // A file on its way to the shelf opens the panel early and from much
-        // further out, so there is something visible to aim at. Pointer events
-        // keep arriving throughout a drag, which is what makes this possible.
-        if !state.isExpanded,
-           geometry.dropCatchRect().contains(location),
-           isFileDragInFlight {
-            openForDrop()
-            return
-        }
-
         if state.isExpanded {
-            if liveRect.contains(location) {
+            if NotchGeometry.pointer(location, isIn: liveRect) {
                 cancelPendingClose()
-            } else if !isPinned {
+            } else if !isPinned, !holdsOpenForKeyboard {
                 scheduleClose()
             }
             return
@@ -142,7 +286,8 @@ final class NotchViewModel: ObservableObject {
             return
         }
 
-        if triggerRect.contains(location) || liveRect.contains(location) {
+        if NotchGeometry.pointer(location, isIn: triggerRect)
+            || NotchGeometry.pointer(location, isIn: liveRect) {
             cancelPendingClose()
             scheduleOpen()
         } else {
@@ -158,14 +303,19 @@ final class NotchViewModel: ObservableObject {
         cancelPendingOpen()
         guard state != .expanded else { return }
         cancelPendingClose()
+        // Opening the buddy's nudge is asking about the buddy.
+        let opensBuddy = state == .peek && peekContent == .buddy
         withAnimation(Motion.panel(settings.motion)) {
+            if opensBuddy { tab = .buddy }
             state = .expanded
             banner = nil
+            systemHUD = nil
         }
     }
 
     func collapse() {
         isPinned = false
+        holdsOpenForKeyboard = false
         cancelPendingOpen()
         cancelPendingClose()
         withAnimation(Motion.panel(settings.motion)) {
@@ -173,7 +323,7 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
-    /// Click on the collapsed notch: open and latch.
+    /// Open-and-latch, or close: the global shortcut and the menu-bar item.
     func toggle() {
         if state.isExpanded {
             collapse()
@@ -183,6 +333,34 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// A click on the panel itself.
+    ///
+    /// On the notch or a peek it opens and latches. On the open panel it only
+    /// latches: every click that missed a control — card padding, a label, a
+    /// gauge, the gap between list rows — used to fall through to `toggle()`
+    /// and slam the panel shut under the pointer. Closing is the close button,
+    /// Escape, the shortcut, or a click anywhere outside the panel.
+    func panelTapped() {
+        isPinned = true
+        cancelPendingClose()
+        guard !state.isExpanded else { return }
+        expand()
+    }
+
+    /// A click somewhere else on screen while the panel is open.
+    func clickedOutside() {
+        guard state.isExpanded, !isDropTargeted else { return }
+        collapse()
+    }
+
+    /// Reported by the window controller as the panel gains and loses keyboard
+    /// focus.
+    func setHoldsOpenForKeyboard(_ holds: Bool) {
+        guard holdsOpenForKeyboard != holds else { return }
+        holdsOpenForKeyboard = holds
+        if holds { cancelPendingClose() }
+    }
+
     func setPinned(_ pinned: Bool) {
         isPinned = pinned
         if !pinned { scheduleClose() }
@@ -190,47 +368,9 @@ final class NotchViewModel: ObservableObject {
 
     func dragEntered() {
         isDropTargeted = true
-        guard settings.isUnlocked(.shelf), settings.preferences.shelfEnabled else { return }
-        tab = .shelf
-        expand()
-    }
-
-    // MARK: Drag catching
-
-    /// Whether a file drag is currently in flight anywhere on screen.
-    ///
-    /// There is no public "is a drag happening" API, but the drag pasteboard
-    /// carries the payload while one is, and its change count makes the check
-    /// cheap enough to run on pointer moves — reading the items themselves on
-    /// every event would not be.
-    ///
-    /// The pasteboard keeps its contents after a drag finishes, so this can read
-    /// true when nothing is being dragged. That is harmless here: the only
-    /// consequence is that the notch opens from a little further away, which is
-    /// what hovering it does anyway.
-    var isFileDragInFlight: Bool {
-        let pasteboard = NSPasteboard(name: .drag)
-        if pasteboard.changeCount != dragPasteboardChangeCount {
-            dragPasteboardChangeCount = pasteboard.changeCount
-            dragPasteboardHasFiles = pasteboard.canReadObject(
-                forClasses: [NSURL.self],
-                options: [.urlReadingFileURLsOnly: true]
-            )
-        }
-        // A drag session owns the mouse button, so it reports *no* button pressed —
-        // which is exactly what separates a live drag from someone holding the
-        // button down over the menu bar after some earlier drag left the
-        // pasteboard populated. Without this, an ordinary click near the notch
-        // would be swallowed by the enlarged drop zone.
-        return dragPasteboardHasFiles && NSEvent.pressedMouseButtons == 0
-    }
-
-    /// Opens straight onto the shelf, with no dwell — a drag is already a clear
-    /// statement of intent, and waiting would just make the target arrive late.
-    private func openForDrop() {
-        guard settings.isUnlocked(.shelf), settings.preferences.shelfEnabled else { return }
-        cancelPendingClose()
-        guard state != .expanded else { return }
+        // `isTabEnabled`, not the raw preference: a Smart Profile without the
+        // shelf would otherwise switch to a tab that has no chip in the strip.
+        guard settings.isTabEnabled(.shelf) else { return }
         tab = .shelf
         expand()
     }
@@ -245,8 +385,12 @@ final class NotchViewModel: ObservableObject {
     /// What the panel falls back to when nothing is hovering it: a peek when
     /// something is live, otherwise fully closed.
     private var idleState: NotchState {
-        guard hasLiveActivity, settings.preferences.peekWhilePlaying else { return .collapsed }
-        return .peek
+        if systemHUD != nil || banner != nil { return .peek }
+        if privacyActivity.isActive { return .peek }
+        if showsFocusTimer || showsUpcomingMeeting || showsBuddy || showsLiveActivities || showsAgents {
+            return .peek
+        }
+        return showsMediaInPeek ? .peek : .collapsed
     }
 
     private func refreshIdleState() {
@@ -267,7 +411,7 @@ final class NotchViewModel: ObservableObject {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.closeWorkItem = nil
-            guard !self.isPinned else { return }
+            guard !self.isPinned, !self.holdsOpenForKeyboard else { return }
             withAnimation(Motion.panel(self.settings.motion)) {
                 self.state = self.idleState
             }
@@ -316,6 +460,29 @@ final class NotchViewModel: ObservableObject {
 
     // MARK: Banners
 
+    func show(systemHUD presentation: SystemHUDPresentation) {
+        guard settings.preferences.systemHUDEnabled, !state.isExpanded else { return }
+
+        systemHUDWorkItem?.cancel()
+        let resizes = state == .collapsed || peekContent != .systemHUD
+        withAnimation(resizes ? Motion.panel(settings.motion) : Motion.content(settings.motion)) {
+            systemHUD = presentation
+            if state == .collapsed { state = .peek }
+        }
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.systemHUDWorkItem = nil
+            withAnimation(Motion.panel(self.settings.motion)) {
+                self.systemHUD = nil
+                if !self.state.isExpanded { self.state = self.idleState }
+            }
+        }
+        systemHUDWorkItem = work
+        let duration = min(max(settings.preferences.systemHUDDuration, 0.8), 5)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
+    }
+
     private func show(banner event: NotchEvent) {
         // Playback reaches the feed but never the banner; see `deservesBanner`.
         guard event.kind.deservesBanner else { return }
@@ -325,9 +492,12 @@ final class NotchViewModel: ObservableObject {
         guard !state.isExpanded else { return }
 
         bannerWorkItem?.cancel()
-        // Growing out of the notch is a panel move; swapping one banner for the
-        // next inside an existing peek is only a content change.
-        let resizes = state == .collapsed
+        // Growing out of the notch, or widening a playback or agent strip to
+        // banner width, is a panel move; swapping one banner for the next
+        // inside a banner-width peek is only a content change. Treating the
+        // widening as content ran the silhouette on the quick content curve
+        // while the panel's own moves use the spring.
+        let resizes = state == .collapsed || peekContent != .banner
         withAnimation(resizes ? Motion.panel(settings.motion) : Motion.content(settings.motion)) {
             banner = event
             if state == .collapsed { state = .peek }

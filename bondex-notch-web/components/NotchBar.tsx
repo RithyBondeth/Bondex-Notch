@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import BrandMark from '@/components/BrandMark';
 
 const links = [
-  { href: '#features', label: 'Features' },
-  { href: '#how', label: 'States' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '/#showcase', label: 'Tour' },
+  { href: '/#features', label: 'Features' },
+  { href: '/#pricing', label: 'Free' },
+  { href: '/#faq', label: 'FAQ' },
+  { href: '/about/', label: 'About' },
 ];
 
 /**
@@ -27,10 +30,10 @@ export default function NotchBar() {
   return (
     <header className={`notchbar${stuck ? ' is-stuck' : ''}`}>
       <div className="notchbar__body">
-        <a className="brand" href="#main" aria-label="Bondex Notch home">
-          <span className="brand__mark" aria-hidden="true" />
+        <Link className="brand" href="/" aria-label="Bondex Notch home">
+          <BrandMark />
           <span className="brand__name">Bondex&nbsp;Notch</span>
-        </a>
+        </Link>
         <span className="notchbar__lens" aria-hidden="true" />
         <nav className="notchbar__links" aria-label="Primary">
           {links.map(({ href, label }) => (
@@ -39,9 +42,9 @@ export default function NotchBar() {
             </a>
           ))}
         </nav>
-        <a className="btn btn--small" href="#download">
-          Download
-        </a>
+        <Link className="btn btn--small" href="/#contact">
+          Contact
+        </Link>
       </div>
     </header>
   );

@@ -6,21 +6,25 @@
   "scripts": {
     "dev": "next dev --port 4173",
     "build": "next build",
-    "start": "npx serve out --listen 4173",
+    "start": "next start --port 4173",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "audit": "npm audit --omit=dev --audit-level=high && npm audit --audit-level=critical"
   },
   "dependencies": {
-    "next": "16.2.12",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.3.8",
     "typescript": "^5.9.3"
   }
 }
