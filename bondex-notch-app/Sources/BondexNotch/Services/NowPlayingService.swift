@@ -57,6 +57,23 @@ struct NowPlaying: Equatable {
             && lhs.artworkURL == rhs.artworkURL
     }
 
+    /// True when `next` is this sample carried forward in time: the same track
+    /// in the same state, at a position the projection already predicts.
+    ///
+    /// Publishing such a sample changes nothing anyone can see — every view
+    /// that shows a position advances it from `sampledAt` — but it still
+    /// re-rendered every observer, the peek included, once a second for as
+    /// long as anything played.
+    func continues(as next: NowPlaying) -> Bool {
+        trackKey == next.trackKey
+            && isPlaying == next.isPlaying
+            && supportsTransport == next.supportsTransport
+            && abs(duration - next.duration) < 0.5
+            && artwork === next.artwork
+            && artworkURL == next.artworkURL
+            && abs(position(at: next.sampledAt) - next.position) < 1.5
+    }
+
     /// Identity of the *track*, ignoring transport position. Used to decide when
     /// to refetch artwork and when to announce a change.
     var trackKey: String {
@@ -82,6 +99,9 @@ final class NowPlayingService: ObservableObject {
     /// turned off, which is the one thing the user has to do by hand for web
     /// media to appear.
     @Published private(set) var blockedBrowser: MediaApp?
+    /// The blocked browser has a media site open, so the refusal is hiding
+    /// something the user is likely trying to see — not just a docs page.
+    @Published private(set) var blockedOnMediaSite = false
 
     /// Whether browser tabs are scanned at all. Owned by settings.
     var includeBrowsers = true {
@@ -97,8 +117,14 @@ final class NowPlayingService: ObservableObject {
     private let events: EventCenter
     private var lastAnnouncedTrackKey: String?
     private var artworkKey: String?
+    private var artworkFailureKey: String?
+    private var artworkRetryAfter = Date.distantPast
     private var isSampling = false
     private var artworkTask: Task<Void, Never>?
+    /// Browser launches already told that they are hiding web media, keyed by
+    /// bundle and process, so the banner comes once per launch rather than on
+    /// every scan — and once more if the browser is reopened the old way.
+    private var announcedBlockedLaunches: Set<String> = []
     /// See `seedForPreview`. Always false in the running app.
     private var isPreviewSeeded = false
 
@@ -106,9 +132,10 @@ final class NowPlayingService: ObservableObject {
         self.events = events
     }
 
+    /// Idempotent: every preference change asks for this again, and restarting
+    /// an already-running poll fired a fresh round of Apple Events each time.
     func start(interval: TimeInterval = 1.0) {
-        guard !isPreviewSeeded else { return }
-        stop()
+        guard !isPreviewSeeded, timer == nil else { return }
         refresh()
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             onMainActor { self?.refresh() }
@@ -122,6 +149,11 @@ final class NowPlayingService: ObservableObject {
         timer = nil
         artworkTask?.cancel()
         artworkTask = nil
+        // If a download was interrupted, the same song must be allowed to start
+        // it again when the widget is re-enabled.
+        if nowPlaying?.artwork == nil {
+            artworkKey = nil
+        }
     }
 
     /// Publishes a track without polling for it, so the offscreen preview tool can
@@ -130,10 +162,12 @@ final class NowPlayingService: ObservableObject {
     ///
     /// Latches polling off for good: a read already in flight would otherwise land
     /// afterwards and clear the seeded track back to "nothing playing".
-    func seedForPreview(_ track: NowPlaying?) {
+    func seedForPreview(_ track: NowPlaying?, blockedBrowser: MediaApp? = nil) {
         stop()
         isPreviewSeeded = true
         nowPlaying = track
+        self.blockedBrowser = blockedBrowser
+        blockedOnMediaSite = blockedBrowser != nil
     }
 
     // MARK: Transport
@@ -179,11 +213,17 @@ final class NowPlayingService: ObservableObject {
         guard !isPreviewSeeded else { return }
         automationDenied = result.automationDenied
         blockedBrowser = includeBrowsers ? result.blockedBrowser : nil
+        blockedOnMediaSite = blockedBrowser != nil && result.blockedOnMediaSite
+        if let browser = blockedBrowser, result.blockedOnMediaSite {
+            announceBlocked(browser)
+        }
 
         guard var track = result.track else {
             nowPlaying = nil
             lastAnnouncedTrackKey = nil
             artworkKey = nil
+            artworkFailureKey = nil
+            artworkRetryAfter = .distantPast
             artworkTask?.cancel()
             artworkTask = nil
             return
@@ -206,8 +246,55 @@ final class NowPlayingService: ObservableObject {
             ))
         }
 
+        if let current = nowPlaying, current.continues(as: track) {
+            // Keep the earlier sample: it projects to the same position, and
+            // replacing it would redraw the whole panel for nothing.
+            fetchArtworkIfNeeded(for: current)
+            return
+        }
         nowPlaying = track
         fetchArtworkIfNeeded(for: track)
+    }
+
+    // MARK: Browser setup
+
+    /// Tells someone who just opened YouTube in a browser that hides it why the
+    /// notch stayed empty — without this, the fix sat in a panel they had no
+    /// reason to open. Only for a media site actually open in that browser, so
+    /// a browser used for nothing but reading never raises it.
+    private func announceBlocked(_ browser: MediaApp) {
+        guard let pid = NSRunningApplication
+            .runningApplications(withBundleIdentifier: browser.bundleIdentifier)
+            .first?.processIdentifier else { return }
+        let launch = "\(browser.bundleIdentifier):\(pid)"
+        guard announcedBlockedLaunches.insert(launch).inserted else { return }
+        events.post(NotchEvent(
+            kind: .app,
+            title: "\(browser.displayName) is hiding what’s playing",
+            subtitle: "Hover the notch to fix it in one click"
+        ))
+    }
+
+    /// Runs the blocked browser's fix: reopens Dia with its switch, or brings
+    /// a browser with a menu setting to the front.
+    @discardableResult
+    func fixBlockedBrowser() async -> BrowserMediaSetup.Outcome {
+        guard let browser = blockedBrowser, let fix = browser.mediaAccessFix else { return .couldNotOpen }
+        switch fix {
+        case .browserSetting:
+            BrowserMediaSetup.bringToFront(browser)
+            return .done
+        case let .relaunch(arguments):
+            let outcome = await BrowserMediaSetup.relaunch(browser, arguments: arguments)
+            if outcome == .done {
+                // The old refusal is about the process that just quit.
+                reader.resetBrowserState()
+                blockedBrowser = nil
+                blockedOnMediaSite = false
+                refresh()
+            }
+            return outcome
+        }
     }
 
     /// Remote artwork is fetched off the Apple Event lock, so a slow CDN can
@@ -217,6 +304,12 @@ final class NowPlayingService: ObservableObject {
               let url = track.artworkURL,
               track.trackKey != artworkKey else { return }
 
+        // A CDN hiccup must not condemn the track to its placeholder forever,
+        // but retrying every one-second media poll would be needlessly noisy.
+        if track.trackKey == artworkFailureKey, Date() < artworkRetryAfter {
+            return
+        }
+
         artworkKey = track.trackKey
         artworkTask?.cancel()
         let key = track.trackKey
@@ -224,12 +317,33 @@ final class NowPlayingService: ObservableObject {
         artworkTask = Task { [weak self] in
             var request = URLRequest(url: url)
             request.timeoutInterval = 4
-            guard let (data, _) = try? await URLSession.shared.data(for: request),
-                  let image = NSImage(data: data) else { return }
+            request.cachePolicy = .returnCacheDataElseLoad
+            request.setValue("image/avif,image/webp,image/*,*/*;q=0.8", forHTTPHeaderField: "Accept")
+
+            let image: NSImage?
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let response = response as? HTTPURLResponse,
+                   !(200 ... 299).contains(response.statusCode) {
+                    image = nil
+                } else {
+                    image = NSImage(data: data)
+                }
+            } catch {
+                image = nil
+            }
 
             guard let self, !Task.isCancelled else { return }
             // The track may have moved on while the image was in flight.
             guard self.nowPlaying?.trackKey == key else { return }
+            guard let image else {
+                self.artworkKey = nil
+                self.artworkFailureKey = key
+                self.artworkRetryAfter = Date().addingTimeInterval(15)
+                return
+            }
+            self.artworkFailureKey = nil
+            self.artworkRetryAfter = .distantPast
             self.nowPlaying?.artwork = image
         }
     }
@@ -241,7 +355,7 @@ final class NowPlayingService: ObservableObject {
 ///
 /// Not `@MainActor`: it runs on a background queue behind a shared Apple Event
 /// lock, because a single blocked event can stall for seconds.
-private final class MediaReader: @unchecked Sendable {
+final class MediaReader: @unchecked Sendable {
 
     typealias Transport = BrowserMediaReader.Transport
 
@@ -249,10 +363,17 @@ private final class MediaReader: @unchecked Sendable {
         var track: NowPlaying?
         var automationDenied = false
         var blockedBrowser: MediaApp?
+        /// The blocked browser has a media site open, so it is hiding
+        /// something the user is likely trying to see.
+        var blockedOnMediaSite = false
     }
 
     private let engine = AppleScriptEngine()
     private let browsers: BrowserMediaReader
+    /// Music's artwork for the track it was read for. Touched only under the
+    /// engine lock, like everything else here.
+    private var musicArtworkKey: String?
+    private var musicArtwork: NSImage?
 
     init() {
         browsers = BrowserMediaReader(engine: engine)
@@ -260,6 +381,11 @@ private final class MediaReader: @unchecked Sendable {
 
     func resetBrowserState() {
         engine.withLock { browsers.reset() }
+    }
+
+    /// Support detail for `--diagnose-media`; see `BrowserMediaReader.diagnose`.
+    func diagnoseBrowsers(_ apps: [MediaApp]) -> [String] {
+        engine.withLock { apps.flatMap { browsers.diagnose($0) } }
     }
 
     // MARK: Reading
@@ -290,7 +416,9 @@ private final class MediaReader: @unchecked Sendable {
                 let reading = browsers.read(in: browserApps)
                 switch reading.failure {
                 case .automationDenied: result.automationDenied = true
-                case .javaScriptDisabled: result.blockedBrowser = reading.failedApp
+                case .javaScriptDisabled:
+                    result.blockedBrowser = reading.failedApp
+                    result.blockedOnMediaSite = reading.failedOnMediaSite
                 default: break
                 }
                 if let track = reading.track {
@@ -315,7 +443,7 @@ private final class MediaReader: @unchecked Sendable {
             ? "((duration of current track) / 1000)"
             : "(duration of current track)"
 
-        let script = """
+        let script = app.onlyWhileRunning("""
         tell application "\(app.scriptName)"
             if player state is stopped then return "STOPPED"
             set trackName to name of current track
@@ -327,7 +455,7 @@ private final class MediaReader: @unchecked Sendable {
             return trackName & "\\n" & trackArtist & "\\n" & trackAlbum & "\\n" ¬
                 & trackDuration & "\\n" & trackPosition & "\\n" & playState
         end tell
-        """
+        """)
 
         let outcome = engine.run(script)
         if let failure = outcome.failure {
@@ -355,28 +483,36 @@ private final class MediaReader: @unchecked Sendable {
 
         switch app.engine {
         case .music:
-            // Only Music.app hands over raw artwork bytes, and it is cheap
-            // enough to read inline.
-            track.artwork = readMusicArtwork()
+            // Only Music.app hands over raw artwork bytes. They are the full
+            // resolution image — often megabytes — so they are read once per
+            // track, not on every one-second poll.
+            let key = track.trackKey
+            if key != musicArtworkKey || musicArtwork == nil {
+                musicArtwork = readMusicArtwork(app)
+                musicArtworkKey = key
+            }
+            track.artwork = musicArtwork
         case .spotify:
             track.artworkURL = engine
-                .run("tell application \"Spotify\" to return artwork url of current track")
+                .run(app.onlyWhileRunning(
+                    "tell application \"Spotify\" to return artwork url of current track"
+                ))
                 .value
                 .flatMap(URL.init(string:))
-        case .webkit, .chromium:
+        case .webkit, .chromium, .dia:
             break
         }
 
         return BrowserMediaReader.Reading(track: track, failure: nil)
     }
 
-    private func readMusicArtwork() -> NSImage? {
-        let script = """
+    private func readMusicArtwork(_ app: MediaApp) -> NSImage? {
+        let script = app.onlyWhileRunning("""
         tell application "Music"
             if (count of artworks of current track) is 0 then return missing value
             return data of artwork 1 of current track
         end tell
-        """
+        """)
         guard let data = engine.runForData(script) else { return nil }
         return NSImage(data: data)
     }
@@ -398,7 +534,9 @@ private final class MediaReader: @unchecked Sendable {
             // position is past ~2s, which is what users expect from one tap.
             case .previous: verb = "previous track"
             }
-            _ = engine.run("tell application \"\(app.scriptName)\" to \(verb)")
+            _ = engine.run(app.onlyWhileRunning(
+                "tell application \"\(app.scriptName)\" to \(verb)"
+            ))
         }
     }
 }

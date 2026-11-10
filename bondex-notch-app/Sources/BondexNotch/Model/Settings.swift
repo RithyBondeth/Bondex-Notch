@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import ServiceManagement
 import SwiftUI
@@ -8,13 +9,77 @@ import SwiftUI
 /// single publisher to react to any preference change.
 struct Preferences: Codable, Equatable {
     var accent: Theme.Accent = .graphite
+    var customAccentHex = "6EA8FF"
+    var panelStyle: Theme.PanelStyle = .gradient
+    var panelWidth: Double = 520
+    var panelOpacity: Double = 1
+    var bottomCornerRadius: Double = Double(Theme.bottomRadius)
+    var flareRadius: Double = Double(Theme.flareRadius)
+    var rimStrength: Double = 1
+    var shadowStrength: Double = 1
     var motionSpeed: Motion.Speed = .standard
 
+    // Which tabs a new install starts with. Eleven icon-only chips was more
+    // than most people use or can tell apart, so new installs begin with the
+    // everyday set — Home, Agents, Capture, Music, Clipboard, and the Shelf,
+    // whose tab is where a file dragged onto the notch lands — and the rest are
+    // one toggle away in Settings › Widgets. Existing installs keep what they
+    // chose: stored values override these defaults (see `SettingsStore.decode`).
     var musicWidgetEnabled = true
-    var systemWidgetEnabled = true
-    var fileActivityEnabled = true
-    var activityFeedEnabled = true
+    var systemWidgetEnabled = false
+    /// Show compact notch feedback when a hardware control changes.
+    var systemHUDEnabled = true
+    /// Show a persistent compact indicator while a camera or microphone is active.
+    var privacyIndicatorsEnabled = true
+    /// How long transient hardware feedback remains visible.
+    var systemHUDDuration = 1.65
+    /// Keep a compact copy of the System tab's gauges on Home.
+    var showSystemSummaryOnHome = false
+    var fileActivityEnabled = false
+    var activityFeedEnabled = false
+    var clipboardHistoryEnabled = true
+    var quickCaptureEnabled = true
+    /// User-triggered only. Capture text remains on device when the system
+    /// Apple Intelligence model is available.
+    var appleIntelligenceCaptureEnabled = true
+    var customShortcutsEnabled = false
+    var customActions: [CustomAction] = []
     var shelfEnabled = true
+    /// Show a mark beside the notch while a coding agent is working.
+    var agentActivityEnabled = true
+    /// A macOS notification when an agent has been waiting on you, unanswered,
+    /// for a little while.
+    var notifyWhenAgentNeedsYou = true
+    /// A macOS notification when a long agent run finishes.
+    var notifyWhenAgentRunFinishes = true
+    /// The Agents tab: plan limits, spend and trends read from local agent logs.
+    var agentUsageEnabled = true
+    var agentUsageRange: UsageRange = .today
+    var customLiveActivitiesEnabled = false
+    var focusTimerEnabled = true
+    var defaultFocusMinutes = 25
+    var upcomingMeetingsEnabled = false
+    /// The wellness buddy: a plant that wilts through long unbroken stretches
+    /// at the Mac, with water and break goals. Off until chosen, like the other
+    /// widgets outside the everyday set.
+    var buddyEnabled = false
+    /// Minutes of unbroken work before the buddy asks for a break.
+    var buddyBreakMinutes = 50
+    var buddyWaterGoal = 8
+    var buddyBreakGoal = 6
+    /// Let the buddy show beside the notch when a break is due.
+    var buddyNudgesInNotch = true
+    /// Compact peeks may be visible while screen sharing; titles are private by default.
+    var showMeetingTitlesInPeek = false
+    /// Order of the tabs in the expanded panel. Unknown or missing tabs are
+    /// repaired by `SettingsStore` so upgrades never strand a new widget.
+    var widgetOrder: [NotchTab] = NotchTab.allCases
+
+    var smartProfileMode: SmartProfileMode = .off
+    var selectedProfileID: UUID? = UUID(
+        uuidString: "99C206C1-D819-4DA3-97F4-87C8FDE7A101"
+    )
+    var notchProfiles: [NotchProfile] = NotchProfile.defaults
 
     /// Expand when the pointer rests on the notch, versus requiring a click.
     var expandOnHover = true
@@ -32,19 +97,70 @@ struct Preferences: Codable, Equatable {
     /// makes YouTube and other web players show up.
     var browserMediaEnabled = true
 
+    /// A permission-free registered chord, not a global key logger.
+    var globalHotKeyEnabled = true
+    var globalShortcut: HotKey = .controlOptionSpace
+    var quickCaptureHotKeyEnabled = true
+    var quickCaptureShortcut: HotKey = .controlOptionC
+    var commandPaletteHotKeyEnabled = true
+    var commandPaletteShortcut: HotKey = .controlOptionP
+    var announceImportantUpdates = true
+
     var downloadsFolderBookmark: Data?
     var launchAtLogin = false
+    /// The welcome screen has been seen. Until it has, nothing that raises a
+    /// macOS permission prompt is started, so the first prompt someone sees
+    /// follows the screen that explains it.
+    var hasCompletedOnboarding = false
+    /// Which display the notch lives on. Replaces the old
+    /// `showNotchOnExternalDisplays` switch; see `SettingsStore.decode`.
+    var notchDisplay: NotchDisplay = .followPointer
+}
 
-    var licenseKey: String = ""
+/// Where the notch panel appears when there is more than one display.
+enum NotchDisplay: String, CaseIterable, Codable, Identifiable {
+    /// The display the pointer is on — the one you are working on.
+    case followPointer
+    /// The built-in display, or the main display while the lid is closed.
+    case builtIn
+    /// The built-in display, and nowhere while the lid is closed.
+    case builtInOnly
 
-    var tier: LicenseTier {
-        LicenseValidator.validate(licenseKey) ? .pro : .free
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .followPointer: return "The display you're using"
+        case .builtIn: return "The built-in display"
+        case .builtInOnly: return "The built-in display only"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .followPointer:
+            return """
+            Moves to whichever display the pointer settles on, so agent clocks, \
+            volume feedback and Quick Capture are where you are looking. Aim at \
+            the top centre of another display and it moves at once.
+            """
+        case .builtIn:
+            return "Stays on your Mac's display, and moves to the main display while the lid is closed."
+        case .builtInOnly:
+            return "Stays on your Mac's display, and is hidden while the lid is closed."
+        }
     }
 }
 
 @MainActor
 final class SettingsStore: ObservableObject {
-    private static let defaultsKey = "com.bondex.notch.preferences"
+    private nonisolated static let defaultsKey = "com.bondex.notch.preferences"
+
+    /// The preferences as stored, for command-line paths that run without the
+    /// app's store.
+    nonisolated static func storedPreferences(in defaults: UserDefaults = .standard) -> Preferences {
+        defaults.data(forKey: defaultsKey).flatMap(decode) ?? Preferences()
+    }
 
     @Published var preferences: Preferences {
         didSet {
@@ -53,12 +169,39 @@ final class SettingsStore: ObservableObject {
             if preferences.launchAtLogin != oldValue.launchAtLogin, !isRevertingLoginItem {
                 applyLaunchAtLogin(preferences.launchAtLogin)
             }
+            preferencesSubject.send(preferences)
         }
     }
 
     /// Surfaced in Settings when macOS refuses to register the login item
     /// (common for ad-hoc signed local builds).
     @Published var launchAtLoginError: String?
+    @Published private(set) var activeProfile: NotchProfile? {
+        didSet {
+            guard activeProfile != oldValue else { return }
+            activeProfileSubject.send(activeProfile)
+        }
+    }
+
+    /// Emits after `preferences` has been stored.
+    ///
+    /// `$preferences` fires from `willSet`, so a subscriber that reads the store
+    /// again — directly, or through `isTabEnabled`, `activeProfile`-aware
+    /// helpers, or another service — sees the *previous* value. That made every
+    /// toggle apply one change late: turning a widget on started nothing, and
+    /// turning it off again started it. Subscribers that react to a change by
+    /// consulting the store must use this instead.
+    var preferencesDidChange: AnyPublisher<Preferences, Never> {
+        preferencesSubject.eraseToAnyPublisher()
+    }
+
+    /// The `activeProfile` counterpart of `preferencesDidChange`.
+    var activeProfileDidChange: AnyPublisher<NotchProfile?, Never> {
+        activeProfileSubject.eraseToAnyPublisher()
+    }
+
+    private let preferencesSubject = PassthroughSubject<Preferences, Never>()
+    private let activeProfileSubject = PassthroughSubject<NotchProfile?, Never>()
 
     private let defaults: UserDefaults
     /// Guards the write-back that undoes a failed login-item registration, so
@@ -67,8 +210,9 @@ final class SettingsStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        preferences = defaults.data(forKey: Self.defaultsKey)
+        let loadedPreferences = defaults.data(forKey: Self.defaultsKey)
             .flatMap(Self.decode) ?? Preferences()
+        preferences = loadedPreferences
     }
 
     /// Decodes a stored blob, tolerating one written by a different version.
@@ -80,7 +224,7 @@ final class SettingsStore: ObservableObject {
     /// encoded default gives new fields their default and keeps everything the
     /// user actually set, in both directions: fields that go away are ignored
     /// rather than fatal.
-    static func decode(_ data: Data) -> Preferences? {
+    nonisolated static func decode(_ data: Data) -> Preferences? {
         guard let stored = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let defaultData = try? JSONEncoder().encode(Preferences()),
               var merged = try? JSONSerialization.jsonObject(with: defaultData) as? [String: Any]
@@ -89,26 +233,107 @@ final class SettingsStore: ObservableObject {
         }
 
         merged.merge(stored) { _, stored in stored }
+        // Anyone with saved preferences was using Bondex before the welcome
+        // screen existed; it is for new installs, not for an update.
+        if stored["hasCompletedOnboarding"] == nil {
+            merged["hasCompletedOnboarding"] = true
+        }
+        // `showNotchOnExternalDisplays: false` meant "only ever on the built-in
+        // display"; carry that over rather than letting the new default move
+        // someone's notch. `true` meant they wanted it on external displays
+        // too, which following the pointer delivers.
+        if stored["notchDisplay"] == nil, stored["showNotchOnExternalDisplays"] as? Bool == false {
+            merged["notchDisplay"] = NotchDisplay.builtInOnly.rawValue
+        }
         guard let mergedData = try? JSONSerialization.data(withJSONObject: merged) else {
             return nil
         }
         return try? JSONDecoder().decode(Preferences.self, from: mergedData)
     }
 
-    var tier: LicenseTier { preferences.tier }
-
-    /// Every Pro feature unlocks together today. This stays keyed by feature so
-    /// a future tier split is a change here rather than at each call site.
-    func isUnlocked(_ feature: ProFeature) -> Bool {
-        tier == .pro
+    var effectiveAccent: Theme.Accent {
+        activeProfile?.accent ?? preferences.accent
     }
 
-    /// Accent falls back to the free accent when Pro lapses, so a downgraded
-    /// user never gets stuck looking at a locked theme.
-    var effectiveAccent: Theme.Accent {
-        let accent = preferences.accent
-        if accent.requiresPro && tier != .pro { return .graphite }
-        return accent
+    var effectiveAccentColor: Color {
+        let accent = effectiveAccent
+        guard accent == .custom else { return accent.color }
+        return Color(hexRGB: preferences.customAccentHex) ?? Theme.Accent.graphite.color
+    }
+
+    var orderedTabs: [NotchTab] {
+        if let activeProfile { return activeProfile.orderedTabs }
+        return standardOrderedTabs
+    }
+
+    /// The order used when no profile is active — what Settings › Widgets
+    /// edits, whatever profile happens to be in force.
+    var standardOrderedTabs: [NotchTab] {
+        var seen = Set<NotchTab>()
+        var result = preferences.widgetOrder.filter { seen.insert($0).inserted }
+
+        // Insert tabs introduced by a newer release beside their canonical
+        // neighbour instead of dumping them at the end of a user's saved order,
+        // while preserving every move the user already made among existing tabs.
+        for tab in NotchTab.allCases where !seen.contains(tab) {
+            let canonical = NotchTab.allCases
+            let tabIndex = canonical.firstIndex(of: tab)!
+            let predecessor = canonical[..<tabIndex].reversed().first { result.contains($0) }
+            if let predecessor, let index = result.firstIndex(of: predecessor) {
+                result.insert(tab, at: index + 1)
+            } else {
+                result.insert(tab, at: 0)
+            }
+            seen.insert(tab)
+        }
+        return result
+    }
+
+    var effectivePanelWidth: Double {
+        activeProfile?.panelWidth ?? preferences.panelWidth
+    }
+
+    var effectivePanelStyle: Theme.PanelStyle {
+        activeProfile?.panelStyle ?? preferences.panelStyle
+    }
+
+    func isTabEnabled(_ tab: NotchTab) -> Bool {
+        if let activeProfile {
+            return tab == .home || activeProfile.enabledTabs.contains(tab)
+        }
+        switch tab {
+        case .home: return true
+        case .agents: return preferences.agentUsageEnabled
+        case .capture: return preferences.quickCaptureEnabled
+        case .shortcuts: return preferences.customShortcutsEnabled
+        case .music: return preferences.musicWidgetEnabled
+        case .system: return preferences.systemWidgetEnabled
+        case .buddy: return preferences.buddyEnabled
+        case .live: return preferences.customLiveActivitiesEnabled
+        case .files: return preferences.fileActivityEnabled
+        case .activity: return preferences.activityFeedEnabled
+        case .clipboard: return preferences.clipboardHistoryEnabled
+        case .shelf: return preferences.shelfEnabled
+        }
+    }
+
+    func setActiveProfile(_ profile: NotchProfile?) {
+        guard activeProfile != profile else { return }
+        activeProfile = profile
+    }
+
+    func resetAppearance() {
+        let defaults = Preferences()
+        preferences.accent = defaults.accent
+        preferences.customAccentHex = defaults.customAccentHex
+        preferences.panelStyle = defaults.panelStyle
+        preferences.panelWidth = defaults.panelWidth
+        preferences.panelOpacity = defaults.panelOpacity
+        preferences.bottomCornerRadius = defaults.bottomCornerRadius
+        preferences.flareRadius = defaults.flareRadius
+        preferences.rimStrength = defaults.rimStrength
+        preferences.shadowStrength = defaults.shadowStrength
+        preferences.motionSpeed = defaults.motionSpeed
     }
 
     var motion: Motion.Speed { preferences.motionSpeed }

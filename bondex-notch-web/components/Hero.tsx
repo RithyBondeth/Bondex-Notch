@@ -1,13 +1,14 @@
 import NotchDemo from './NotchDemo';
+import { GITHUB_REPO_URL } from '@/lib/public-config';
 
 export default function Hero() {
   return (
     <section className="hero">
       <div className="wrap">
-        <p className="label label--light">Native macOS · Apple silicon &amp; Intel</p>
+        <p className="label label--light">A calmer control center for macOS</p>
 
-        {/* The headline opens on Archivo's width axis. Pure CSS animation, so
-            it needs no JS and reduced motion lands it on the end state. */}
+        {/* The headline opens with a pure CSS animation, so it needs no JS and
+            reduced motion lands it on the end state. */}
         <h1 className="hero__title">
           Your Mac&apos;s notch,
           <br />
@@ -15,24 +16,30 @@ export default function Hero() {
         </h1>
 
         <p className="hero__lede">
-          Bondex Notch turns the dead space around your camera into a live view
-          of what your Mac is doing — the track that&apos;s playing, the file
-          that&apos;s downloading, the battery that&apos;s draining. It appears
-          when you need it and disappears when you don&apos;t.
+          Capture thoughts, run focus sessions, join meetings, control music and
+          follow agents, downloads and system health — all where your eyes already
+          pass. Bondex appears when it matters and melts back when it doesn&apos;t.
         </p>
 
         <div className="actions">
-          <a className="btn" href="#download">
-            Download for macOS
+          <a className="btn" href="/download/">
+            Download for Mac
           </a>
-          <a className="btn btn--ghost" href="#how">
-            See how it works
+          <a className="btn btn--ghost" href={GITHUB_REPO_URL}>
+            View source on GitHub
           </a>
         </div>
 
         <p className="meta">
-          macOS 14+ · Free tier · No account · Nothing leaves your Mac
+          macOS 14+ · Free and open source · No account required · Everything stays on your Mac
         </p>
+
+        <div className="hero__signals" aria-label="Highlights">
+          <span><i className="pulse-dot" /> Agent activity</span>
+          <span>✎ Quick Capture</span>
+          <span>◷ Focus &amp; meetings</span>
+          <span>⌕ Command palette</span>
+        </div>
 
         <NotchDemo />
       </div>

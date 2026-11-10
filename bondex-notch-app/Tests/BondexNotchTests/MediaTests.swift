@@ -54,6 +54,35 @@ final class BrowserScriptTests: XCTestCase {
         }
         XCTAssertTrue(script.contains("mediaSession"), "read script lost its metadata source")
     }
+
+    func testReadScriptHasArtworkFallbacks() {
+        let script = BrowserMediaReader.readScript
+        XCTAssertTrue(script.contains("b.poster"), "video posters should be usable as artwork")
+        XCTAssertTrue(script.contains("og:image"), "Open Graph artwork should be a fallback")
+        XCTAssertTrue(script.contains("twitter:image"), "Twitter card artwork should be a fallback")
+        XCTAssertTrue(script.contains("document.baseURI"), "relative artwork URLs must be resolved")
+        XCTAssertTrue(script.contains("/^https?:$/"), "unfetchable blob and data URLs must be rejected")
+    }
+
+    func testDiaJavaScriptResultsAreDecodedFromJSON() {
+        let encoded = "\"OK\\u0001Track title\\u0001Artist\""
+        XCTAssertEqual(
+            BrowserMediaReader.decodeJavaScriptResult(encoded, from: .dia),
+            "OK\u{01}Track title\u{01}Artist"
+        )
+    }
+
+    func testOtherBrowserResultsAreAlreadyPlainText() {
+        let plain = "OK\u{01}Track title"
+        XCTAssertEqual(
+            BrowserMediaReader.decodeJavaScriptResult(plain, from: .chromium),
+            plain
+        )
+        XCTAssertEqual(
+            BrowserMediaReader.decodeJavaScriptResult(plain, from: .webkit),
+            plain
+        )
+    }
 }
 
 final class MediaHostTests: XCTestCase {
@@ -151,11 +180,30 @@ final class MediaAppTests: XCTestCase {
     func testBrowsersWithTheSwitchExplainWhereItIs() {
         for app in MediaApp.browsers where app.canEnableJavaScript {
             XCTAssertFalse(app.javaScriptHint.isEmpty, "\(app.displayName) has no hint")
-            XCTAssertTrue(
-                app.javaScriptHint.contains("Apple Events"),
-                "\(app.displayName)'s hint should name the setting"
-            )
+            // A menu setting is named, so the user can find it; Dia's switch
+            // is applied by Bondex's button, so its hint says that instead.
+            switch app.mediaAccessFix {
+            case .browserSetting:
+                XCTAssertTrue(
+                    app.javaScriptHint.contains("Apple Events"),
+                    "\(app.displayName)'s hint should name the setting"
+                )
+            case .relaunch:
+                XCTAssertTrue(app.javaScriptHint.contains("Bondex can reopen it"), app.displayName)
+            case nil:
+                XCTFail("\(app.displayName) can enable JavaScript but offers no fix")
+            }
         }
+    }
+
+    func testDiaUsesItsOwnScriptingEngineAndLaunchHint() {
+        XCTAssertEqual(MediaApp.dia.bundleIdentifier, "company.thebrowser.dia")
+        XCTAssertEqual(MediaApp.dia.engine, .dia)
+        XCTAssertTrue(MediaApp.browsers.contains(.dia))
+        guard case let .relaunch(arguments) = MediaApp.dia.mediaAccessFix else {
+            return XCTFail("Dia is fixed by reopening it")
+        }
+        XCTAssertEqual(arguments, ["--enable-applescript-javascript"])
     }
 
     func testBrowsersWithoutTheSwitchSendNobodyLookingForIt() {
@@ -204,17 +252,20 @@ final class ExpandedSizingTests: XCTestCase {
     )
 
     func testContentSizedTabsAreMeasuredRatherThanFixed() {
-        // Home and Music report no fixed height, which is what lets the panel
-        // shrink when Home has nothing playing.
+        // Home, Music, and System report no fixed height, which is what lets the
+        // panel hug their actual content.
         XCTAssertNil(NotchTab.home.widgetHeight)
         XCTAssertNil(NotchTab.music.widgetHeight)
+        XCTAssertNil(NotchTab.system.widgetHeight)
     }
 
-    func testListTabsKeepAStableArea() {
-        // A panel that resized as feed items arrived and aged out would be worse
-        // than one that stays put.
-        for tab in [NotchTab.files, .activity, .shelf] {
-            XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) would resize as its list changed")
+    func testListTabsAreCappedSoALongHistoryScrolls() {
+        // List tabs size to their rows, but stop and scroll at a cap, so a long
+        // history cannot push the panel past its ceiling.
+        for tab in [
+            NotchTab.capture, .shortcuts, .live, .files, .activity, .clipboard, .shelf
+        ] {
+            XCTAssertNotNil(tab.widgetHeight, "\(tab.rawValue) has no cap and could outgrow the panel")
         }
     }
 
@@ -270,7 +321,7 @@ final class BannerPolicyTests: XCTestCase {
     func testEverythingWithoutItsOwnIndicatorBanners() {
         // These have no standing representation in the notch, so a banner is the
         // only time the user would ever see them.
-        for kind in [NotchEvent.Kind.download, .system, .shelf, .app] {
+        for kind in [NotchEvent.Kind.download, .system, .shelf, .live, .app] {
             XCTAssertTrue(kind.deservesBanner, "\(kind.rawValue) would go unseen")
         }
     }
@@ -288,35 +339,81 @@ final class PeekWidthTests: XCTestCase {
     func testPlaybackPeekIsNarrowerThanABanner() {
         // Playing shows artwork and the equaliser only, so the strips can sit
         // close to the notch; a banner has to carry a line of text.
-        let playing = geometry.contentSize(for: .peek, hasBanner: false)
-        let banner = geometry.contentSize(for: .peek, hasBanner: true)
+        let playing = geometry.contentSize(for: .peek, peek: .media)
+        let banner = geometry.contentSize(for: .peek, peek: .banner)
 
         XCTAssertLessThan(playing.width, banner.width)
         XCTAssertEqual(playing.height, banner.height, "Only the width should differ")
     }
 
+    func testThePeekIsExactlyAsTallAsAHardwareNotch() {
+        // Measured on a 14-inch MacBook Pro: 185 × 32pt.
+        let notched = NotchGeometry(
+            notchSize: CGSize(width: 185, height: 32),
+            hasHardwareNotch: true,
+            screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982)
+        )
+        for content in [PeekContent.media, .banner, .agent(agents: 3), .systemHUD] {
+            XCTAssertEqual(notched.contentSize(for: .peek, peek: content).height, 32)
+        }
+
+        // A display without a notch, whose menu bar is hidden: the stand-in is
+        // 24pt, but the peek still needs room for two lines.
+        let plain = NotchGeometry(
+            notchSize: CGSize(width: 190, height: 24),
+            hasHardwareNotch: false,
+            screenFrame: CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        )
+        XCTAssertEqual(plain.contentSize(for: .peek, peek: .banner).height, NotchGeometry.minimumPeekHeight)
+    }
+
     func testPlaybackPeekStillClearsTheNotchOnBothSides() {
-        let playing = geometry.contentSize(for: .peek, hasBanner: false)
+        let playing = geometry.contentSize(for: .peek, peek: .media)
         let perSide = (playing.width - geometry.notchSize.width) / 2
 
         XCTAssertGreaterThan(perSide, 40, "No room for artwork beside the notch")
+    }
+
+    func testTheAgentPeekFitsEveryMarkAndClockColumn() {
+        for agents in 1...5 {
+            let peek = geometry.contentSize(for: .peek, peek: .agent(agents: agents))
+            let perSide = (peek.width - geometry.notchSize.width) / 2
+            // Left: 10pt inset, a 21pt mark per agent, 4pt between them.
+            let marks = 10 + CGFloat(agents) * 21 + CGFloat(agents - 1) * 4
+            // Right: one 11.5pt clock alone, else 9.5pt clocks two to a column
+            // (an h:mm:ss clock is under 50pt and 40pt respectively).
+            let columns = agents == 1 ? 50 : CGFloat((agents + 1) / 2) * 40 + CGFloat((agents - 1) / 2) * 7
+            XCTAssertGreaterThanOrEqual(perSide, marks, "\(agents) agents: marks do not fit")
+            XCTAssertGreaterThanOrEqual(perSide, 10 + columns, "\(agents) agents: clocks do not fit")
+        }
     }
 
     func testBothPeeksSitBetweenCollapsedAndExpanded() {
         let collapsed = geometry.contentSize(for: .collapsed)
         let expanded = geometry.contentSize(for: .expanded)
 
-        for hasBanner in [false, true] {
-            let peek = geometry.contentSize(for: .peek, hasBanner: hasBanner)
+        for content in [
+            PeekContent.media, .privacy, .live,
+            .agent(agents: 1), .agent(agents: 3), .banner
+        ] {
+            let peek = geometry.contentSize(for: .peek, peek: content)
             XCTAssertLessThan(collapsed.width, peek.width)
             XCTAssertLessThan(peek.width, expanded.width)
         }
     }
 
+    func testPrivacyPeekUsesTheCompactHardwareFootprint() {
+        let privacy = geometry.contentSize(for: .peek, peek: .privacy)
+        let hardware = geometry.contentSize(for: .peek, peek: .systemHUD)
+
+        XCTAssertEqual(privacy, hardware)
+        XCTAssertLessThan(privacy.width, geometry.contentSize(for: .peek, peek: .banner).width)
+    }
+
     func testHitTestingFollowsTheNarrowerPeek() {
         // The panel must not keep claiming clicks in a margin it stopped drawing.
-        let playing = geometry.hitRect(for: .peek, hasBanner: false)
-        let banner = geometry.hitRect(for: .peek, hasBanner: true)
+        let playing = geometry.hitRect(for: .peek, peek: .media)
+        let banner = geometry.hitRect(for: .peek, peek: .banner)
 
         XCTAssertLessThan(playing.width, banner.width)
         XCTAssertTrue(banner.contains(playing))
@@ -350,6 +447,40 @@ final class PreferencesDecodingTests: XCTestCase {
         // And the fields it had never heard of get their defaults.
         XCTAssertEqual(decoded.hoverDelay, Preferences().hoverDelay, accuracy: 0.0001)
         XCTAssertEqual(decoded.browserMediaEnabled, Preferences().browserMediaEnabled)
+        XCTAssertEqual(decoded.systemHUDEnabled, Preferences().systemHUDEnabled)
+        XCTAssertEqual(
+            decoded.privacyIndicatorsEnabled,
+            Preferences().privacyIndicatorsEnabled
+        )
+        XCTAssertEqual(decoded.globalHotKeyEnabled, Preferences().globalHotKeyEnabled)
+        XCTAssertEqual(decoded.quickCaptureEnabled, Preferences().quickCaptureEnabled)
+        XCTAssertEqual(
+            decoded.quickCaptureHotKeyEnabled,
+            Preferences().quickCaptureHotKeyEnabled
+        )
+        XCTAssertEqual(decoded.quickCaptureShortcut, Preferences().quickCaptureShortcut)
+        XCTAssertEqual(
+            decoded.customShortcutsEnabled,
+            Preferences().customShortcutsEnabled
+        )
+        XCTAssertEqual(decoded.customActions, Preferences().customActions)
+        XCTAssertEqual(decoded.focusTimerEnabled, Preferences().focusTimerEnabled)
+        XCTAssertEqual(decoded.upcomingMeetingsEnabled, Preferences().upcomingMeetingsEnabled)
+        XCTAssertEqual(
+            decoded.announceImportantUpdates,
+            Preferences().announceImportantUpdates
+        )
+        XCTAssertEqual(
+            decoded.showSystemSummaryOnHome,
+            Preferences().showSystemSummaryOnHome
+        )
+        XCTAssertEqual(
+            decoded.customLiveActivitiesEnabled,
+            Preferences().customLiveActivitiesEnabled
+        )
+        XCTAssertEqual(decoded.panelWidth, Preferences().panelWidth, accuracy: 0.0001)
+        XCTAssertEqual(decoded.panelStyle, Preferences().panelStyle)
+        XCTAssertEqual(decoded.widgetOrder, NotchTab.allCases)
     }
 
     func testUnknownFieldsFromANewerBuildAreIgnored() {
@@ -370,10 +501,53 @@ final class PreferencesDecodingTests: XCTestCase {
         original.accent = .forest
         original.hoverDelay = 0.42
         original.browserMediaEnabled = false
-        original.licenseKey = "BNDX-BEEF-1234-0000"
+        original.accent = .custom
+        original.customAccentHex = "12ABEF"
+        original.panelStyle = .tinted
+        original.panelWidth = 640
+        original.panelOpacity = 0.8
+        original.bottomCornerRadius = 32
+        original.flareRadius = 17
+        original.rimStrength = 0.4
+        original.shadowStrength = 0.2
+        original.widgetOrder = [.home, .activity, .music, .system, .live, .shelf, .files]
 
         let data = try JSONEncoder().encode(original)
         XCTAssertEqual(SettingsStore.decode(data), original)
+    }
+
+    func testWidgetOrderRepairsDuplicatesAndMissingTabs() {
+        let suite = "com.bondex.notch.tests.order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let store = SettingsStore(defaults: defaults)
+        store.preferences.widgetOrder = [.shelf, .home, .shelf]
+
+        XCTAssertEqual(
+            store.orderedTabs,
+            [
+                .shelf, .home, .agents, .capture, .shortcuts, .music,
+                .system, .buddy, .live, .files, .activity, .clipboard
+            ]
+        )
+    }
+
+    func testANewSystemTabLandsBesideMusicWithoutResettingCustomOrder() {
+        let suite = "com.bondex.notch.tests.system-order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let store = SettingsStore(defaults: defaults)
+        store.preferences.widgetOrder = [.activity, .home, .music, .shelf, .files]
+
+        XCTAssertEqual(
+            store.orderedTabs,
+            [
+                .activity, .clipboard, .home, .agents, .capture, .shortcuts,
+                .music, .system, .buddy, .live, .shelf, .files
+            ]
+        )
     }
 }
 
@@ -422,5 +596,59 @@ final class NowPlayingInterpolationTests: XCTestCase {
         let live = track(isPlaying: true, position: 42, duration: 0)
         XCTAssertTrue(live.isLive)
         XCTAssertEqual(live.progress(at: Date()), 0)
+    }
+}
+
+/// Errors reach the classifier in two shapes, depending on which runner ran
+/// the script, and both must say why a browser refused.
+final class ScriptErrorClassificationTests: XCTestCase {
+
+    func testDiasLaunchFlagRefusalIsReportedAsJavaScriptDisabled() {
+        // Verbatim from Dia, as `OSAScript` returns it: no NSAppleScript keys.
+        let error: NSDictionary = [
+            NSLocalizedDescriptionKey: "Dia got an error: JavaScript execution via AppleScript requires the --enable-applescript-javascript launch flag.",
+            NSLocalizedFailureReasonErrorKey: "JavaScript execution via AppleScript requires the --enable-applescript-javascript launch flag."
+        ]
+        XCTAssertEqual(AppleScriptEngine.classify(error, isJavaScript: true), .javaScriptDisabled)
+        XCTAssertTrue(AppleScriptEngine.errorMessage(error).contains("--enable-applescript-javascript"))
+    }
+
+    func testNSAppleScriptErrorsStillClassify() {
+        XCTAssertEqual(
+            AppleScriptEngine.classify([NSAppleScript.errorNumber: -1743], isJavaScript: false),
+            .automationDenied
+        )
+        XCTAssertEqual(
+            AppleScriptEngine.classify([NSAppleScript.errorNumber: -1723], isJavaScript: true),
+            .javaScriptDisabled
+        )
+        XCTAssertEqual(
+            AppleScriptEngine.classify([NSAppleScript.errorNumber: -1728], isJavaScript: true),
+            .transient
+        )
+    }
+}
+
+/// Every browser that can be fixed offers the fix the user can actually take.
+final class BrowserMediaAccessTests: XCTestCase {
+
+    func testDiaIsReopenedWithItsLaunchSwitch() {
+        XCTAssertEqual(MediaApp.dia.mediaAccessFix, .relaunch(arguments: ["--enable-applescript-javascript"]))
+        // The point of the button: nobody should be sent to Terminal.
+        XCTAssertFalse(MediaApp.dia.javaScriptHint.contains("Terminal"))
+        XCTAssertFalse(MediaApp.dia.javaScriptHint.contains("open -a"))
+    }
+
+    func testMenuSettingBrowsersAreBroughtForward() {
+        for browser in [MediaApp.safari, .chrome, .brave, .edge] {
+            XCTAssertEqual(browser.mediaAccessFix, .browserSetting, browser.displayName)
+            XCTAssertTrue(browser.javaScriptHint.contains("Allow JavaScript from Apple Events"), browser.displayName)
+        }
+    }
+
+    func testBrowsersWithNoSwitchOfferNothing() {
+        XCTAssertNil(MediaApp.atlas.mediaAccessFix)
+        XCTAssertEqual(MediaApp.atlas.javaScriptHint, "")
+        XCTAssertNil(MediaApp.music.mediaAccessFix)
     }
 }

@@ -4,18 +4,27 @@
 
 export type FeatureIcon =
   | 'music'
+  | 'browser'
+  | 'agent'
+  | 'capture'
+  | 'clipboard'
+  | 'shortcuts'
+  | 'focus'
+  | 'buddy'
+  | 'profiles'
+  | 'privacy'
+  | 'live'
   | 'files'
   | 'system'
   | 'bell'
   | 'tray'
+  | 'tune'
   | 'bolt';
 
 export interface Feature {
   icon: FeatureIcon;
   title: string;
   body: string;
-  /** Shown as a corner tag. Omit for features in the free tier. */
-  tier?: 'Pro';
 }
 
 export const features: Feature[] = [
@@ -28,19 +37,105 @@ export const features: Feature[] = [
       "you're typing.",
   },
   {
+    icon: 'browser',
+    title: 'Browser audio',
+    body:
+      'See what is playing in Safari and Chromium tabs, including YouTube, ' +
+      'YouTube Music, SoundCloud and Twitch — with controls when the site exposes them.',
+  },
+  {
+    icon: 'agent',
+    title: 'Agent activity',
+    body:
+      'Know when Codex, Claude Code, Gemini, Ollama or another CLI agent is ' +
+      'working, how long it has been running, and which project and model it is on. ' +
+      'The notch turns amber when one stops for your approval, and Claude Code, ' +
+      'Codex and Gemini CLI are set up with one click.',
+  },
+  {
+    icon: 'agent',
+    title: 'Agent usage',
+    body:
+      'An Agents tab for Claude Code and Codex: plan limits with reset countdowns, ' +
+      'API-equivalent spend over 1, 7 or 30 days, recent sessions and a trend by ' +
+      'project or model — read from local logs, with no sign-in.',
+  },
+  {
+    icon: 'capture',
+    title: 'Quick Capture',
+    body:
+      'Save a thought or link without leaving your current app. Search, pin and ' +
+      'copy captures later, with optional user-triggered on-device Apple Intelligence ' +
+      'enhancement on supported macOS 26 Macs.',
+  },
+  {
+    icon: 'clipboard',
+    title: 'Clipboard history',
+    body:
+      'Keep text, links and images from this session close at hand. Pause capture, ' +
+      'search or pin an item; concealed and transient clipboard content is ignored, ' +
+      'history is never written to disk, and nothing is read until you allow it.',
+  },
+  {
+    icon: 'shortcuts',
+    title: 'Actions and shortcuts',
+    body:
+      'Build a personal action grid for opening apps, running Apple Shortcuts and ' +
+      'showing the widget you need. Global shortcuts, any combination you record, ' +
+      'open the panel, Capture or the command palette.',
+  },
+  {
+    icon: 'focus',
+    title: 'Focus and meetings',
+    body:
+      'Run a restart-safe focus timer from 1 to 180 minutes, and optionally see the ' +
+      'next calendar event with a countdown and one-click Zoom, Meet, Teams or Webex link.',
+  },
+  {
+    icon: 'buddy',
+    title: 'Wellness buddy',
+    body:
+      'A little plant that wilts the longer you work without a break and perks up ' +
+      'when you step away or drink water. Daily water and break goals, streak badges, ' +
+      'and a quiet nudge beside the notch instead of an alert — read only from how ' +
+      'long since your last keystroke, with no permission.',
+  },
+  {
+    icon: 'profiles',
+    title: 'Smart profiles',
+    body:
+      'Switch the notch for Work, Meeting, Media or Gaming — manually or with rules ' +
+      'for the active app, time, power source, connected displays and meetings. The ' +
+      'command palette puts every action in one search.',
+  },
+  {
+    icon: 'live',
+    title: 'Custom live activities',
+    body:
+      'Send progress from a script, Shortcut, build tool or terminal. Active ' +
+      'jobs stay in the peek and finish directly into your activity feed.',
+  },
+  {
     icon: 'files',
     title: 'File activity',
     body:
       'Watches your Downloads folder and reports transfers as they land, with ' +
       'live throughput. Click through to reveal anything in Finder.',
-    tier: 'Pro',
   },
   {
     icon: 'system',
     title: 'System',
     body:
-      'CPU load, memory pressure, battery level and time remaining, and real ' +
-      'network throughput — sampled straight from the kernel, not estimated.',
+      'CPU load, memory pressure, battery and real network throughput — plus connected ' +
+      'headphone, keyboard, mouse and trackpad batteries when macOS exposes them.',
+  },
+  {
+    icon: 'privacy',
+    title: 'Hardware HUD + privacy',
+    body:
+      'See volume, display brightness, keyboard brightness and battery changes beside ' +
+      'the notch. Camera and microphone activity indicators work without recording or ' +
+      'asking for camera or microphone access.',
   },
   {
     icon: 'bell',
@@ -55,27 +150,41 @@ export const features: Feature[] = [
     title: 'Drop shelf',
     body:
       'Drag files onto the notch to park them, then drag them back out ' +
-      'anywhere. Nothing is copied — the shelf holds references to your real ' +
-      'files.',
-    tier: 'Pro',
+      'anywhere. Nothing is copied: the shelf holds your real files, follows ' +
+      'them when they move, and is still there after a restart.',
+  },
+  {
+    icon: 'tune',
+    title: 'Make it yours',
+    body:
+      'Tune width, opacity, corners, top flares, rim, shadow and animation speed. ' +
+      'Choose a preset or custom accent and reorder every tab.',
   },
   {
     icon: 'bolt',
-    title: 'Genuinely light',
+    title: 'Native automation',
     body:
-      'Swift and SwiftUI throughout, no Electron and no web view. Widgets you ' +
-      'switch off stop sampling entirely, so they cost nothing.',
+      'Use App Intents in Apple Shortcuts to switch profiles, capture a thought, start ' +
+      'a focus timer, show a widget or change automatic profile mode — all in a native ' +
+      'Swift and SwiftUI app with no Electron or web view.',
   },
 ];
 
 /* ── Panel states ─────────────────────────────────────────
-   `width` and `height` are the real panel dimensions the app uses, scaled
-   down by a constant. The diagram is the notch, not an illustration of it. */
+   NotchGeometry's real sizes in points, drawn at 0.4×: the 185 × 32pt notch
+   of a 14-inch MacBook Pro, the 305pt peek that carries playback or one
+   working agent, and the 520pt default panel at the height of a typical Home
+   (one agent, playback, the focus chip). Corner radii are Theme's 10, 15 and
+   20pt; the fillets are its 11pt flare. The diagram is the notch, not an
+   illustration of it. */
+
+export const STATE_SCALE = 0.4;
 
 export interface PanelState {
   id: 'collapsed' | 'peek' | 'expanded';
   title: string;
   body: string;
+  /** Points, before scaling. */
   width: number;
   height: number;
   radius: number;
@@ -88,19 +197,20 @@ export const panelStates: PanelState[] = [
     body:
       'Exactly the size of your hardware notch, and completely invisible ' +
       'against it. Bondex is doing nothing to your screen.',
-    width: 74,
-    height: 14,
-    radius: 6,
+    width: 185,
+    height: 32,
+    radius: 10,
   },
   {
     id: 'peek',
     title: 'Peek',
     body:
-      'When something is live — a track playing, a download finishing — a thin ' +
-      'strip grows either side of the notch. Never over it.',
-    width: 128,
-    height: 16,
-    radius: 6,
+      'When something needs context — a track, agent, focus timer, meeting, break ' +
+      'reminder, hardware change or privacy signal — a thin strip grows beside the ' +
+      'notch. Never over it.',
+    width: 305,
+    height: 32,
+    radius: 15,
   },
   {
     id: 'expanded',
@@ -108,14 +218,14 @@ export const panelStates: PanelState[] = [
     body:
       "Move the pointer to the notch and the full panel springs down. Move " +
       "away and it's gone. Click to pin it open while you work.",
-    width: 216,
-    height: 78,
-    radius: 14,
+    width: 520,
+    height: 245,
+    radius: 20,
   },
 ];
 
 /* ── Pricing ──────────────────────────────────────────────
-   Figures are provisional; see the README before publishing. */
+   Bondex Notch is free and open source under the MIT License. */
 
 export interface Plan {
   name: string;
@@ -132,45 +242,31 @@ export interface Plan {
 
 export const plans: Plan[] = [
   {
-    name: 'Free',
-    price: '$0',
-    note: 'Everything you need to live in the notch.',
-    items: [
-      'Music widget with playback controls',
-      'System widget — CPU, memory, battery, network',
-      'Activity feed',
-      'Hover, peek and expand behaviour',
-      'Graphite theme',
-    ],
-    cta: { label: 'Download', href: '#download', style: 'ghost' },
-  },
-  {
-    name: 'Pro',
-    price: '$14.99',
-    cadence: 'one-time',
-    note: 'Everything in Free, plus:',
+    name: 'Bondex Notch',
+    price: 'Free',
+    cadence: 'MIT licensed',
+    note: 'The complete app, free for everyone. No trial, account, or licence key.',
     featured: true,
-    badge: 'Most popular',
+    badge: 'Open source',
     items: [
-      'File activity widget',
-      'Drop shelf',
-      'All accent themes',
-      'Lifetime license, no account',
+      'Music and supported browser playback',
+      'Agent activity for Codex, Claude, Gemini, Ollama and custom agents',
+      'Claude Code and Codex usage: plan limits, spend and sessions',
+      'Custom live activities from scripts and Shortcuts',
+      'Quick Capture and session-only clipboard history',
+      'Focus timer and optional upcoming meetings',
+      'Wellness buddy with water and break goals',
+      'Custom actions, command palette and Apple Shortcuts actions',
+      'Smart profiles with automatic rules',
+      'System metrics, connected-device batteries and hardware HUD',
+      'Privacy indicators and activity feed',
+      'Hover, peek and expand behaviour',
+      'File activity and live downloads',
+      'Drag-and-drop file shelf',
+      'Every theme and appearance control',
+      'Full source code on GitHub',
     ],
-    cta: { label: 'Get Pro', href: '#download', style: 'solid' },
-  },
-  {
-    name: 'AI add-on',
-    price: '$4',
-    cadence: '/month',
-    note: 'Optional. Cancel whenever.',
-    items: [
-      'Notification summarisation',
-      'Smart replies',
-      'Calendar assistance',
-      'Requires a Pro license',
-    ],
-    unavailable: 'On the roadmap',
+    cta: { label: 'Download for Mac', href: '/download/', style: 'solid' },
   },
 ];
 

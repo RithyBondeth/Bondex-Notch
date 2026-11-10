@@ -1,4 +1,41 @@
+import AppKit
 import SwiftUI
+
+/// The same orange/green language macOS uses for microphone and camera use,
+/// kept as small marks so an active device never makes the notch feel bulky.
+struct PrivacyActivityMarks: View {
+    let state: PrivacyActivityState
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if state.cameraActive {
+                mark(
+                    systemImage: "video.fill",
+                    tint: Color(red: 0.25, green: 0.82, blue: 0.48)
+                )
+            }
+            if state.microphoneActive {
+                mark(
+                    systemImage: "mic.fill",
+                    tint: Color(red: 1.0, green: 0.58, blue: 0.16)
+                )
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Privacy indicator")
+        .accessibilityValue(state.accessibilityValue)
+    }
+
+    private func mark(systemImage: String, tint: Color) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 8.5, weight: .bold))
+            .foregroundStyle(tint)
+            .frame(width: 20, height: 20)
+            .background(Circle().fill(tint.opacity(0.15)))
+            .overlay(Circle().strokeBorder(tint.opacity(0.3), lineWidth: 0.7))
+            .shadow(color: tint.opacity(0.22), radius: 4)
+    }
+}
 
 // MARK: - Offscreen rendering
 
@@ -27,7 +64,21 @@ struct ScrollingStack<Content: View>: View {
 
     @Environment(\.isRenderingOffscreen) private var isRenderingOffscreen
 
+    /// The plain stack when it fits, so a short list is only as tall as its
+    /// rows and the panel shrinks to match; a scroll view only once it does
+    /// not. A `ScrollView` always takes all the height it is offered, which
+    /// is what left two clipboard items floating in a list-sized gap.
     var body: some View {
+        ViewThatFits(in: axis) {
+            // Leading, like the scroll view it stands in for: a short row of
+            // shelf tiles should start at the edge, not sit centred.
+            stack.frame(maxWidth: .infinity, alignment: .leading)
+            overflow
+        }
+    }
+
+    @ViewBuilder
+    private var overflow: some View {
         if isRenderingOffscreen {
             // `Color.clear` takes exactly the space the parent offers and the
             // overlay does not feed its own size back, so an over-long stack
@@ -72,7 +123,7 @@ private struct WidthKey: PreferenceKey {
 /// Scrolls text horizontally when it does not fit, and stays still when it does.
 struct MarqueeText: View {
     let text: String
-    var font: Font = .system(size: 12, weight: .semibold)
+    var font: Font = .system(size: Theme.TextSize.title, weight: .semibold)
     var speed: Double = 26   // points per second
     /// Caps the width and lets the view hug shorter text instead of filling the
     /// space it is offered. Needed wherever the title sits next to something else
@@ -228,7 +279,12 @@ struct AudioBars: View {
             }
             .frame(height: AudioBarMetrics.height)
         } else {
-            AudioBarLayers(isAnimating: isAnimating, tint: tint, barCount: barCount)
+            AudioBarLayers(
+                isAnimating: isAnimating
+                    && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+                tint: tint,
+                barCount: barCount
+            )
                 .frame(
                     width: AudioBarMetrics.width(barCount: barCount),
                     height: AudioBarMetrics.height
@@ -432,13 +488,15 @@ struct ArtworkView: View {
     var tint: Color
 
     var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                ZStack {
+        GeometryReader { proxy in
+            ZStack {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                } else {
                     LinearGradient(
                         colors: [tint.opacity(0.55), tint.opacity(0.18)],
                         startPoint: .topLeading,
@@ -449,12 +507,17 @@ struct ArtworkView: View {
                         .foregroundStyle(.white.opacity(0.85))
                 }
             }
+            // `ZStack` is a real layout boundary. A transparent `Group` passes
+            // modifiers through to its child, which lets some remotely decoded
+            // wide images paint outside the size proposed by the parent.
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            )
         }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-        )
     }
 }
 
@@ -471,6 +534,7 @@ struct NotchButton: View {
 
     @State private var isHovering = false
     @State private var isPressed = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         Button(action: action) {
@@ -482,9 +546,18 @@ struct NotchButton: View {
                     Circle().fill(
                         isProminent
                             ? AnyShapeStyle(tint)
-                            : AnyShapeStyle(Color.white.opacity(isHovering ? 0.16 : 0.0))
+                            : AnyShapeStyle(Color.white.opacity(isHovering ? 0.15 : 0.055))
                     )
                 )
+                .overlay(
+                    Circle().stroke(
+                        isFocused
+                            ? Color.white.opacity(0.9)
+                            : Color.white.opacity(isProminent ? 0.16 : 0.06),
+                        lineWidth: isFocused ? 2 : 0.7
+                    )
+                )
+                .shadow(color: isProminent ? tint.opacity(0.16) : .clear, radius: 6)
                 .contentShape(Circle())
                 // A touch of give on press. Transport controls are the only thing
                 // in the panel that gets clicked repeatedly, so they are worth
@@ -494,6 +567,7 @@ struct NotchButton: View {
                 .animation(.spring(duration: 0.22, bounce: 0.35), value: isPressed)
         }
         .buttonStyle(.plain)
+        .focused($isFocused)
         .onHover { isHovering = $0 }
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
@@ -515,11 +589,11 @@ struct EmptyStateView: View {
                 .font(.system(size: 20, weight: .regular))
                 .foregroundStyle(Theme.tertiaryText)
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: Theme.TextSize.title, weight: .medium))
                 .foregroundStyle(Theme.secondaryText)
             if let subtitle {
                 Text(subtitle)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: Theme.TextSize.footnote))
                     .foregroundStyle(Theme.tertiaryText)
                     .multilineTextAlignment(.center)
             }
@@ -528,28 +602,6 @@ struct EmptyStateView: View {
         // an empty state measure as tall as the panel could possibly be, which is
         // exactly the dead space the measured height exists to remove. Tabs with a
         // fixed widget area centre this themselves.
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-    }
-}
-
-/// Shown in place of a widget the current tier does not include.
-struct LockedFeatureView: View {
-    let feature: ProFeature
-    var tint: Color
-
-    var body: some View {
-        VStack(spacing: 7) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(tint)
-            Text("\(feature.displayName) is a Pro feature")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.primaryText)
-            Text("Add your license key in Settings to unlock it.")
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.tertiaryText)
-        }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
     }

@@ -15,7 +15,7 @@ struct ShelfWidget: View {
         self.settings = environment.settings
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -30,18 +30,17 @@ struct ShelfWidget: View {
                 grid
             }
         }
+        // A file shelved earlier may have moved since; find it before the
+        // tile is drawn as missing.
+        .onAppear { service.refreshLocations() }
     }
 
     private var header: some View {
-        HStack {
-            Text("\(service.items.count) item\(service.items.count == 1 ? "" : "s")")
-                .font(.system(size: 9.5, weight: .semibold))
-                .foregroundStyle(Theme.tertiaryText)
-            Spacer()
-            Button("Clear") { service.clear() }
-                .buttonStyle(.plain)
-                .font(.system(size: 9.5, weight: .medium))
-                .foregroundStyle(Theme.secondaryText)
+        NotchListHeader("\(service.items.count) item\(service.items.count == 1 ? "" : "s")") {
+            if service.hasMissingItems {
+                NotchTextButton("Prune missing", tint: .orange) { service.pruneMissingItems() }
+            }
+            NotchTextButton("Clear") { service.clear() }
         }
     }
 
@@ -58,24 +57,35 @@ struct ShelfWidget: View {
             Image(nsImage: item.icon)
                 .resizable()
                 .frame(width: 34, height: 34)
+                .opacity(item.existsOnDisk ? 1.0 : 0.45)
 
             Text(item.name)
-                .font(.system(size: 9))
-                .foregroundStyle(Theme.secondaryText)
+                .font(.system(size: Theme.TextSize.caption))
+                .foregroundStyle(item.existsOnDisk ? Theme.secondaryText : Theme.tertiaryText)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(width: 62)
+
+            if !item.existsOnDisk {
+                Text("Missing")
+                    .font(.system(size: Theme.TextSize.micro, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.orange.opacity(0.85)))
+            }
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 .fill(Theme.surfaceElevated)
         )
         .overlay(alignment: .topTrailing) {
             NotchButton(systemImage: "xmark.circle.fill", size: 9, tint: Theme.tertiaryText) {
                 service.remove(item)
             }
+            .accessibilityLabel("Remove \(item.name) from shelf")
             .offset(x: 4, y: -4)
         }
         // Dragging out hands the receiver the original file URL — nothing is

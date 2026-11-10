@@ -12,7 +12,10 @@ import SwiftUI
 enum PreviewRenderer {
 
     static func run(outputDirectory: String) -> Int32 {
-        guard let screen = NSScreen.main else {
+        // The notched display when there is one, so the shots use a real
+        // notch's size rather than the stand-in pill.
+        guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
+            ?? NSScreen.main else {
             FileHandle.standardError.write(Data("error: no screen available\n".utf8))
             return 1
         }
@@ -28,12 +31,19 @@ enum PreviewRenderer {
         }
 
         // A throwaway defaults domain: rendering previews must never touch the
-        // user's real preferences (it unlocks Pro to exercise every widget).
+        // user's real preferences.
         let suiteName = "com.bondex.notch.preview"
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let environment = AppEnvironment(screen: screen, defaults: defaults)
+        // Every shot is seeded. Without this, the first preference the renderer
+        // writes starts the real watchers, and whatever agents, live activities
+        // or downloads this Mac happens to have leak into the "collapsed" and
+        // "playing" shots in place of the states they exist to show.
+        environment.activatesServices = false
+        // Offscreen rendering should never claim the user's global shortcut.
+        environment.globalHotKey.stop()
         seedSampleData(environment)
 
         // CPU usage is a delta between two samples, so the previews need at
@@ -54,14 +64,14 @@ enum PreviewRenderer {
         // player are part of what these shots exist to review, and on a machine
         // with nothing playing they would all render as the empty state.
         let playing = NowPlaying(
-            source: .music,
-            title: "Weightless",
-            artist: "Marconi Union",
-            album: "Ambient Transmissions",
+            source: .spotify,
+            title: "Blinding Lights",
+            artist: "The Weeknd",
+            album: "After Hours",
             isPlaying: true,
-            duration: 489,
-            position: 128,
-            artwork: nil
+            duration: 200,
+            position: 78,
+            artwork: sampleSpotifyArtwork()
         )
 
         var failures = 0
@@ -75,16 +85,73 @@ enum PreviewRenderer {
         environment.notch.expand()
         if !render(environment, named: "expanded-home-idle", into: directory) { failures += 1 }
 
+        // Dia hiding a YouTube tab: what a first-time user sees, and the
+        // button that fixes it, on Music and as the row on Home.
+        environment.nowPlaying.seedForPreview(nil, blockedBrowser: .dia)
+        environment.notch.tab = .music
+        if !render(environment, named: "expanded-music-blocked-dia", into: directory) { failures += 1 }
+        environment.nowPlaying.seedForPreview(nil, blockedBrowser: .chrome)
+        if !render(environment, named: "expanded-music-blocked-chrome", into: directory) { failures += 1 }
+        environment.notch.tab = .home
+        if !render(environment, named: "expanded-home-blocked", into: directory) { failures += 1 }
+
         environment.nowPlaying.seedForPreview(playing)
 
+        let liveSample = LiveActivity(
+            id: "release-build",
+            title: "Building release",
+            subtitle: "Running tests",
+            progress: 0.72,
+            startedAt: Date().addingTimeInterval(-84),
+            updatedAt: Date(),
+            state: .active,
+            completionMessage: nil
+        )
+
+        environment.agentUsage.seedForPreview(sampleAgentUsage())
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 22 * 60))
+
         for tab in NotchTab.allCases {
+            if tab == .live { environment.liveActivities.seedForPreview([liveSample]) }
+            // New installs start with a short tab list; switch each tab on for
+            // its own shot so the strip shows it selected, as it would be in use.
+            if !environment.settings.isTabEnabled(tab) { environment.toggleWidget(tab) }
             environment.notch.tab = tab
             environment.notch.expand()
             if !render(environment, named: "expanded-\(tab.rawValue)", into: directory) {
                 failures += 1
             }
         }
+        environment.liveActivities.seedForPreview([])
 
+        // The Agents tab's other two breakdowns, which the panel render above
+        // cannot reach: the view starts on the trend.
+        for breakdown in [UsageBreakdown.projects, .models] {
+            let widget = AgentUsageWidget(environment: environment, breakdown: breakdown)
+                .padding(Theme.contentPadding)
+                .frame(width: environment.settings.effectivePanelWidth)
+                .foregroundStyle(Theme.primaryText)
+            if !renderView(widget, named: "agents-\(breakdown.rawValue)", into: directory) { failures += 1 }
+        }
+
+        // A deterministic stand-in for the on-device model keeps the compact
+        // enhancement chip reviewable on machines without Apple Intelligence.
+        environment.quickCapture.draft = "Review the release checklist with Alex tomorrow."
+        environment.quickCapture.applyEnhancement(CaptureEnhancement(
+            title: "Review release checklist",
+            summary: "Coordinate the final release review with Alex.",
+            actionItems: ["Meet Alex tomorrow"],
+            tags: ["release", "planning"]
+        ))
+        environment.notch.tab = .capture
+        if !render(environment, named: "expanded-capture-intelligence", into: directory) {
+            failures += 1
+        }
+        environment.quickCapture.cancelDraft()
+
+        // Truly nothing live: playback was seeded above, and left in place it
+        // turned this shot into a media peek.
+        environment.notch.hasLiveActivity = false
         environment.notch.collapse()
         if !render(environment, named: "collapsed", into: directory) { failures += 1 }
 
@@ -99,19 +166,448 @@ enum PreviewRenderer {
         // must stay the narrow artwork-and-equaliser strip, never flash the title
         // as a banner first.
         environment.events.post(NotchEvent(
-            kind: .music, title: "Weightless", subtitle: "Marconi Union"
+            kind: .music, title: "Blinding Lights", subtitle: "The Weeknd · Spotify"
         ))
         if !render(environment, named: "peek-playing", into: directory) { failures += 1 }
+
+        environment.liveActivities.seedForPreview([liveSample])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-live", into: directory) { failures += 1 }
+        environment.liveActivities.seedForPreview([])
 
         environment.events.post(NotchEvent(
             kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
         ))
         if !render(environment, named: "peek-banner", into: directory) { failures += 1 }
 
+        // Hardware-key feedback has its own compact meter layout and temporarily
+        // outranks banners and playback, so keep a deterministic visual check.
+        // Full volume exercises both rail insets; this is the boundary where a
+        // fill without an inner gutter otherwise touches both track edges.
+        environment.systemHUD.stop()
+        environment.notch.show(systemHUD: .init(kind: .volume, level: 1.0))
+        if !render(environment, named: "peek-volume", into: directory) { failures += 1 }
+
+        environment.notch.show(systemHUD: .init(kind: .volume, level: 0.68, isMuted: true))
+        if !render(environment, named: "peek-muted", into: directory) { failures += 1 }
+
+        environment.notch.show(systemHUD: .init(kind: .brightness, level: 0.42))
+        if !render(environment, named: "peek-brightness", into: directory) { failures += 1 }
+
+        environment.notch.show(systemHUD: .init(
+            kind: .battery, level: 0.76, detail: "Charging"
+        ))
+        if !render(environment, named: "peek-battery", into: directory) { failures += 1 }
+
+        // Privacy state is read from hardware in the real app. Seed both devices
+        // here so its compact marks, label, and expanded-header treatment remain
+        // visually testable without activating a camera or microphone.
+        environment.notch.expand()
+        environment.privacyActivity.seedForPreview(.init(
+            microphoneActive: true,
+            cameraActive: true
+        ))
+        environment.notch.collapse()
+        if !render(environment, named: "peek-privacy", into: directory) { failures += 1 }
+
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-privacy", into: directory) { failures += 1 }
+        environment.privacyActivity.seedForPreview(.init())
+
+        environment.notch.expand()
+        environment.focusTimer.start(minutes: 25)
+        environment.notch.collapse()
+        if !render(environment, named: "peek-focus", into: directory) { failures += 1 }
+        environment.focusTimer.cancel()
+
+        // The buddy past its break interval: wilting on the tab, and beside the
+        // notch, which is the only way it asks for anything.
+        environment.notch.tab = .buddy
+        environment.notch.expand()
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 64 * 60))
+        if !render(environment, named: "expanded-buddy-break", into: directory) { failures += 1 }
+        environment.notch.collapse()
+        if !render(environment, named: "peek-buddy", into: directory) { failures += 1 }
+        environment.notch.expand()
+        // Just back from a break, in bloom, and due a drink.
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 3 * 60, lastWater: 2 * 60 * 60))
+        if !render(environment, named: "expanded-buddy-fresh", into: directory) { failures += 1 }
+        environment.buddy.seedForPreview(sampleBuddy(workedFor: 22 * 60))
+
+        let meeting = UpcomingMeeting(
+            id: "design-review",
+            title: "Product design review",
+            startDate: Date().addingTimeInterval(7 * 60),
+            endDate: Date().addingTimeInterval(67 * 60),
+            joinURL: URL(string: "https://meet.google.com/example")
+        )
+        environment.settings.preferences.upcomingMeetingsEnabled = true
+        environment.meetings.stop()
+        environment.meetings.seedForPreview(meeting)
+        environment.notch.collapse()
+        if !render(environment, named: "peek-meeting", into: directory) { failures += 1 }
+
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-productivity", into: directory) {
+            failures += 1
+        }
+        environment.meetings.seedForPreview(nil)
+
+        // The agent indicator, which on a machine with nothing running would
+        // otherwise never appear in a preview — and it is the state the peek
+        // spends its time in for anyone who uses a coding agent.
+        // Expanding clears the banner still up from the shot above, which would
+        // otherwise outrank the agent in the peek and render the same image twice.
+        environment.notch.expand()
+        environment.notch.workingAgentCount = 1
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Editing PeekView.swift"
+            )
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agent", into: directory) { failures += 1 }
+
+        // Two agents at once, which is the case the strip has to grow for. Worth
+        // a shot of its own: it is the one agent layout that cannot be checked by
+        // running a single agent and looking at the notch.
+        environment.notch.expand()
+        environment.notch.workingAgentCount = 2
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Editing PeekView.swift"
+            ),
+            AgentActivity(
+                kind: .codex,
+                startedAt: Date().addingTimeInterval(-52),
+                status: "Running tests"
+            )
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agents-two", into: directory) { failures += 1 }
+
+        // Three, which is where the clocks wrap into a second column.
+        environment.notch.expand()
+        environment.notch.workingAgentCount = 3
+        environment.agents.seedForPreview([
+            AgentActivity(kind: .claude, startedAt: Date().addingTimeInterval(-374), status: "Editing PeekView.swift"),
+            AgentActivity(kind: .codex, startedAt: Date().addingTimeInterval(-52), status: "Running tests"),
+            AgentActivity(kind: .gemini, startedAt: Date().addingTimeInterval(-3_725), status: "Reading files")
+        ])
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agents-three", into: directory) { failures += 1 }
+
+        // The expanded detail those marks open into, with both agents listed.
+        environment.notch.tab = .home
+        environment.notch.expand()
+        if !render(environment, named: "expanded-home-agents", into: directory) { failures += 1 }
+
+        // One agent stopped at a permission prompt while another works: the
+        // waiting one leads, amber, with "Needs you" in place of its clock.
+        environment.agents.seedForPreview([
+            AgentActivity(
+                kind: .claude,
+                startedAt: Date().addingTimeInterval(-374),
+                status: "Approve: Running swift test",
+                needsAttention: true
+            ),
+            AgentActivity(kind: .codex, startedAt: Date().addingTimeInterval(-52), status: "Running tests")
+        ])
+        if !render(environment, named: "expanded-home-attention", into: directory) { failures += 1 }
+        environment.notch.collapse()
+        if !render(environment, named: "peek-agent-attention", into: directory) { failures += 1 }
+        environment.notch.expand()
+
+        // Every mark Bondex ships, which is the only way to check the artwork:
+        // the drawn marks are geometry, so a mistake in one is invisible until
+        // it is rasterised, and no ordinary session has five agents running.
+        // Also the overflow case — the card counts past three rather than
+        // growing until Home clips.
+        environment.agents.seedForPreview(AgentKind.known.enumerated().map { index, kind in
+            AgentActivity(
+                kind: kind,
+                startedAt: Date().addingTimeInterval(-Double(index) * 30 - 20),
+                status: "Working on something"
+            )
+        })
+        if !render(environment, named: "agent-marks", into: directory) { failures += 1 }
+
+        // Smart Profiles override the visible widgets and appearance without
+        // rewriting the underlying setup. The Work profile also exercises the
+        // compact active-profile mark in the expanded header.
+        environment.settings.preferences.selectedProfileID = NotchProfile.defaults.first {
+            $0.name == "Work"
+        }?.id
+        environment.settings.preferences.smartProfileMode = .manual
+        environment.smartProfiles.refresh()
+        environment.notch.tab = .home
+        if !render(environment, named: "expanded-profile-work", into: directory) {
+            failures += 1
+        }
+        environment.smartProfiles.turnOff()
+        environment.smartProfiles.refresh()
+
+        // One deliberately opinionated setup exercises every appearance value
+        // together: wide tinted panel, custom colour, softer chrome, and the
+        // largest supported curves. Defaults alone cannot catch clipping at the
+        // ends of the customization ranges.
+        environment.settings.preferences.accent = .custom
+        environment.settings.preferences.customAccentHex = "FF4F9A"
+        environment.settings.preferences.panelStyle = .tinted
+        environment.settings.preferences.panelWidth = 680
+        environment.settings.preferences.panelOpacity = 0.9
+        environment.settings.preferences.bottomCornerRadius = 38
+        environment.settings.preferences.flareRadius = 20
+        environment.settings.preferences.rimStrength = 0.5
+        environment.settings.preferences.shadowStrength = 0.35
+        environment.notch.tab = .home
+        if !render(environment, named: "expanded-customized", into: directory) { failures += 1 }
+
+        environment.settings.preferences.panelWidth = 520
+        environment.commandPalette.present()
+        if !render(environment, named: "expanded-command-palette", into: directory) {
+            failures += 1
+        }
+        environment.commandPalette.dismiss()
+
+        // Settings has a separate window and visual language. Render several
+        // pages so the glass sidebar, page hierarchy, form density, and longest
+        // content are protected by the same visual regression workflow.
+        for page in [SettingsPage.general, .widgets, .profiles, .appearance] {
+            if !renderSettings(environment, page: page, into: directory) {
+                failures += 1
+            }
+        }
+
+        // The welcome window, a page at a time — on a fresh install it is the
+        // first thing anyone sees. From its own untouched preferences, since
+        // the shots above switched every tab on.
+        let welcomeSuite = "com.bondex.notch.preview.welcome"
+        let welcomeDefaults = UserDefaults(suiteName: welcomeSuite) ?? .standard
+        defer { welcomeDefaults.removePersistentDomain(forName: welcomeSuite) }
+        let fresh = AppEnvironment(screen: screen, defaults: welcomeDefaults)
+        fresh.activatesServices = false
+        fresh.globalHotKey.stop()
+        for page in OnboardingPage.allCases {
+            let view = OnboardingView(environment: fresh, initialPage: page) {}
+            if !renderWindow(view, size: OnboardingView.size,
+                             named: "welcome-\(page.rawValue + 1)", into: directory) {
+                failures += 1
+            }
+        }
+
         return failures == 0 ? 0 : 1
     }
 
+    /// Renders an ordinary window's content, dark, the way Settings is.
+    private static func renderWindow<Content: View>(
+        _ content: Content,
+        size: NSSize,
+        named name: String,
+        into directory: URL
+    ) -> Bool {
+        let hosting = NSHostingView(rootView: content.frame(width: size.width, height: size.height))
+        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.appearance = NSAppearance(named: .darkAqua)
+        hosting.layoutSubtreeIfNeeded()
+        guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+            FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
+            return false
+        }
+        hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            FileHandle.standardError.write(Data("error: could not encode \(name)\n".utf8))
+            return false
+        }
+        let url = directory.appendingPathComponent("\(name).png")
+        do {
+            try png.write(to: url)
+            print("rendered \(url.path)")
+            return true
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return false
+        }
+    }
+
     // MARK: Rendering
+
+    /// A busy day of Claude Code and Codex use, so the Agents tab renders with
+    /// every card populated instead of the empty state.
+    private static func sampleAgentUsage(now: Date = Date()) -> AgentUsageSnapshot {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+
+        // A working day's shape: quiet overnight, heavy mid-morning and
+        // afternoon, Codex picking up a share in the evening.
+        let claudeByHour = [0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 6, 5, 2, 4, 7, 6, 3, 2, 1, 0, 0, 0, 0, 0]
+        let codexByHour = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 2, 1, 1, 3, 2, 1, 0, 0, 0, 0]
+
+        func tally(_ millions: Int, cost: Double) -> UsageTally {
+            let total = millions * 1_000_000
+            return UsageTally(
+                tokens: TokenTally(
+                    input: total / 100,
+                    output: total / 50,
+                    cacheWrite: total / 50,
+                    cacheRead: total - total / 100 - total / 50 - total / 50
+                ),
+                cost: cost
+            )
+        }
+
+        var today24 = UsageRangeSummary(range: .today)
+        for hour in 0..<24 {
+            let start = calendar.date(byAdding: .hour, value: hour, to: today) ?? today
+            var bar = UsageTrendBar(start: start)
+            if claudeByHour[hour] > 0 {
+                bar.tokens[.claude] = claudeByHour[hour] * 1_000_000
+                bar.cost[.claude] = Double(claudeByHour[hour]) * 0.21
+            }
+            if codexByHour[hour] > 0 {
+                bar.tokens[.codex] = codexByHour[hour] * 1_000_000
+                bar.cost[.codex] = Double(codexByHour[hour]) * 0.32
+            }
+            today24.trend.append(bar)
+        }
+        today24.byProvider[.claude] = tally(claudeByHour.reduce(0, +), cost: 8.61)
+        today24.byProvider[.codex] = tally(codexByHour.reduce(0, +), cost: 3.55)
+        today24.byProject = [
+            UsageBreakdownItem(name: "Bondex-Notch", provider: .claude, tally: tally(28, cost: 6.12)),
+            UsageBreakdownItem(name: "Portfolio", provider: .codex, tally: tally(13, cost: 3.55)),
+            UsageBreakdownItem(name: "Apsara Talent", provider: .claude, tally: tally(9, cost: 1.98)),
+            UsageBreakdownItem(name: "Scratch", provider: .claude, tally: tally(2, cost: 0.51))
+        ]
+        today24.byModel = [
+            UsageBreakdownItem(name: "Opus 5.5", provider: .claude, tally: tally(35, cost: 7.94)),
+            UsageBreakdownItem(name: "GPT-6.1 Sol", provider: .codex, tally: tally(13, cost: 3.55)),
+            UsageBreakdownItem(name: "Sonnet 5.5", provider: .claude, tally: tally(4, cost: 0.67))
+        ]
+
+        func days(_ range: UsageRange) -> UsageRangeSummary {
+            var summary = UsageRangeSummary(range: range)
+            for offset in 0..<range.barCount {
+                let start = calendar.date(byAdding: .day, value: offset - range.barCount + 1, to: today) ?? today
+                let weekday = calendar.component(.weekday, from: start)
+                let weight = weekday == 1 || weekday == 7 ? 1 : 4 + (offset * 7) % 5
+                var bar = UsageTrendBar(start: start)
+                bar.tokens[.claude] = weight * 9_000_000
+                bar.tokens[.codex] = weight * 2_000_000
+                bar.cost[.claude] = Double(weight) * 1.9
+                bar.cost[.codex] = Double(weight) * 0.6
+                summary.trend.append(bar)
+            }
+            let claude = summary.trend.compactMap { $0.tokens[.claude] }.reduce(0, +) / 1_000_000
+            let codex = summary.trend.compactMap { $0.tokens[.codex] }.reduce(0, +) / 1_000_000
+            summary.byProvider[.claude] = tally(claude, cost: summary.trend.compactMap { $0.cost[.claude] }.reduce(0, +))
+            summary.byProvider[.codex] = tally(codex, cost: summary.trend.compactMap { $0.cost[.codex] }.reduce(0, +))
+            return summary
+        }
+
+        return AgentUsageSnapshot(
+            providers: [
+                .claude: ProviderStatus(
+                    limits: ProviderLimits(
+                        windows: [
+                            UsageLimitWindow(
+                                id: "claude.fh", minutes: 300, usedPercent: 64,
+                                resetsAt: now.addingTimeInterval(1.6 * 3_600)
+                            ),
+                            UsageLimitWindow(
+                                id: "claude.sd", minutes: 10_080, usedPercent: 34,
+                                resetsAt: now.addingTimeInterval(3 * 86_400 + 19 * 3_600)
+                            )
+                        ],
+                        observedAt: now.addingTimeInterval(-240),
+                        source: .claudeApp
+                    ),
+                    plan: "Pro",
+                    model: "claude-opus-5-5",
+                    lastActivity: now.addingTimeInterval(-240),
+                    hasLogs: true
+                ),
+                .codex: ProviderStatus(
+                    limits: ProviderLimits(
+                        windows: [
+                            UsageLimitWindow(
+                                id: "codex.secondary", minutes: 10_080, usedPercent: 5,
+                                resetsAt: now.addingTimeInterval(5 * 86_400)
+                            )
+                        ],
+                        observedAt: now.addingTimeInterval(-2 * 3_600),
+                        source: .codexLog
+                    ),
+                    plan: "Plus",
+                    model: "gpt-6.1-sol",
+                    lastActivity: now.addingTimeInterval(-2 * 3_600),
+                    hasLogs: true
+                )
+            ],
+            summaries: [.today: today24, .week: days(.week), .month: days(.month)],
+            sessions: [
+                AgentSession(id: "claude:1", provider: .claude, project: "Bondex-Notch",
+                             model: "claude-opus-5-5", lastActivity: now.addingTimeInterval(-20)),
+                AgentSession(id: "codex:1", provider: .codex, project: "Portfolio",
+                             model: "gpt-6.1-sol", lastActivity: now.addingTimeInterval(-2 * 3_600)),
+                AgentSession(id: "claude:2", provider: .claude, project: "Apsara Talent",
+                             model: "claude-sonnet-5-5", lastActivity: now.addingTimeInterval(-4 * 3_600))
+            ],
+            scannedAt: now
+        )
+    }
+
+    /// Deterministic square album art for the Spotify playback sample.
+    /// Four complete days behind today, and today part-way there.
+    private static func sampleBuddy(
+        workedFor stretch: TimeInterval,
+        lastWater: TimeInterval = 25 * 60,
+        now: Date = Date()
+    ) -> BuddyState {
+        var state = BuddyState()
+        state.activeSince = now.addingTimeInterval(-stretch)
+        state.lastSeenAt = now
+        state.lastWaterAt = now.addingTimeInterval(-lastWater)
+        state.bestStreak = 4
+        let calendar = Calendar.current
+        for offset in 1...4 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: now) else { continue }
+            state.days[BuddyState.dayKey(for: day)] = BuddyDay(glasses: 8, breaks: 6)
+        }
+        state.days[BuddyState.dayKey(for: now)] = BuddyDay(glasses: 5, breaks: 3)
+        return state
+    }
+
+    private static func sampleSpotifyArtwork() -> NSImage {
+        if let resourceURL = Bundle.main.resourceURL?
+            .appendingPathComponent("PreviewAssets/after-hours.jpg"),
+           let image = NSImage(contentsOf: resourceURL) {
+            return image
+        }
+
+        return NSImage(size: NSSize(width: 320, height: 320), flipped: false) { rect in
+            NSColor(calibratedRed: 0.62, green: 0.035, blue: 0.055, alpha: 1).setFill()
+            rect.fill()
+
+            NSColor(calibratedWhite: 0.025, alpha: 0.94).setFill()
+            NSRect(x: 0, y: 0, width: rect.width, height: rect.height * 0.48).fill()
+
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 54, weight: .heavy),
+                .foregroundColor: NSColor.white
+            ]
+            NSString(string: "AFTER\nHOURS").draw(
+                at: NSPoint(x: rect.width * 0.08, y: rect.height * 0.53),
+                withAttributes: attributes
+            )
+            return true
+        }
+    }
 
     private static func render(
         _ environment: AppEnvironment,
@@ -119,20 +615,27 @@ enum PreviewRenderer {
         into directory: URL
     ) -> Bool {
         let size = environment.notch.geometry.windowSize
+        let notchSize = environment.notch.geometry.notchSize
         let view = NotchRootView(environment: environment, isRenderingOffscreen: true)
             .frame(width: size.width, height: size.height)
             // The panel is transparent by design; a backdrop makes the
             // silhouette readable in a flat image.
             .background(Color(white: 0.18))
+            // Where the camera housing sits. On a real notched Mac nothing
+            // under this is visible, and without marking it a peek that drew
+            // its content there looked perfectly fine in every shot.
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.red.opacity(0.16))
+                    .overlay(Rectangle().strokeBorder(Color.red.opacity(0.55), lineWidth: 0.5))
+                    .frame(width: notchSize.width, height: notchSize.height)
+            }
             .environment(\.isRenderingOffscreen, true)
 
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
 
-        guard let image = renderer.nsImage,
-              let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:]) else {
+        guard let png = srgbPNG(from: renderer) else {
             FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
             return false
         }
@@ -148,13 +651,187 @@ enum PreviewRenderer {
         }
     }
 
+    /// The render as an sRGB PNG.
+    ///
+    /// Encoded from the CGImage rather than `nsImage.tiffRepresentation`: a
+    /// view holding an HDR-capable image — the Calculator icon in the
+    /// Shortcuts grid — made the TIFF an HDR (PQ) bitmap, which every viewer
+    /// tone-maps, so that one shot came out a different brightness.
+    private static func srgbPNG<Content: View>(from renderer: ImageRenderer<Content>) -> Data? {
+        guard let image = renderer.cgImage,
+              let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                  data: nil,
+                  width: image.width,
+                  height: image.height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: 0,
+                  space: srgb,
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let flattened = context.makeImage() else { return nil }
+        return NSBitmapImageRep(cgImage: flattened).representation(using: .png, properties: [:])
+    }
+
+    /// Renders a single view on the panel's black, for parts of a tab that a
+    /// whole-panel render cannot show.
+    private static func renderView<Content: View>(
+        _ content: Content,
+        named name: String,
+        into directory: URL
+    ) -> Bool {
+        let renderer = ImageRenderer(content: content
+            .background(Color.black)
+            .environment(\.isRenderingOffscreen, true))
+        renderer.scale = 2
+        guard let png = srgbPNG(from: renderer) else {
+            FileHandle.standardError.write(Data("error: could not render \(name)\n".utf8))
+            return false
+        }
+        let url = directory.appendingPathComponent("\(name).png")
+        do {
+            try png.write(to: url)
+            print("rendered \(url.path)")
+            return true
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return false
+        }
+    }
+
+    private static func renderSettings(
+        _ environment: AppEnvironment,
+        page: SettingsPage,
+        into directory: URL
+    ) -> Bool {
+        func host(height: CGFloat) -> NSHostingView<AnyView> {
+            let size = NSSize(width: 800, height: height)
+            let hosting = NSHostingView(rootView: AnyView(
+                SettingsView(environment: environment, initialPage: page)
+                    .frame(width: size.width, height: size.height)
+            ))
+            hosting.frame = NSRect(origin: .zero, size: size)
+            hosting.appearance = NSAppearance(named: .darkAqua)
+            hosting.layoutSubtreeIfNeeded()
+            return hosting
+        }
+
+        // Tall enough to show the whole page, where a 570pt shot cut most of
+        // them off at the first screen. Offscreen, SwiftUI never lays out a
+        // scroll view's content, so there is nothing to measure: a tall pass
+        // is rendered instead, the lowest row of content in the page column
+        // found, and the page rendered again at that height so the sidebar
+        // still ends at the bottom.
+        let windowHeight: CGFloat = 570
+        let probe = host(height: 4000)
+        var height = windowHeight
+        if let bitmap = probe.bitmapImageRepForCachingDisplay(in: probe.bounds) {
+            probe.cacheDisplay(in: probe.bounds, to: bitmap)
+            if let bottom = Self.lowestContentRow(in: bitmap, fromX: 0.33) {
+                let scale = CGFloat(bitmap.pixelsHigh) / probe.bounds.height
+                height = max(windowHeight, (CGFloat(bottom) / scale + 28).rounded(.up))
+            }
+        }
+        let hosting = host(height: height)
+
+        guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+            FileHandle.standardError.write(Data(
+                "error: could not render settings-\(page.rawValue)\n".utf8
+            ))
+            return false
+        }
+        hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            FileHandle.standardError.write(Data(
+                "error: could not encode settings-\(page.rawValue)\n".utf8
+            ))
+            return false
+        }
+
+        let url = directory.appendingPathComponent("settings-\(page.rawValue).png")
+        do {
+            try png.write(to: url)
+            print("rendered \(url.path)")
+            return true
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            return false
+        }
+    }
+
+    /// The lowest pixel row, counted from the top, holding anything but
+    /// background in the columns right of `fromX` (a fraction of the width,
+    /// past the sidebar). The background is a smooth gradient, so a row of it
+    /// varies little; text, controls and card edges vary a lot.
+    private static func lowestContentRow(in bitmap: NSBitmapImageRep, fromX: CGFloat) -> Int? {
+        guard let data = bitmap.bitmapData, bitmap.bitsPerSample == 8, bitmap.samplesPerPixel >= 3 else { return nil }
+        let rowBytes = bitmap.bytesPerRow, channels = bitmap.samplesPerPixel
+        let first = Int(CGFloat(bitmap.pixelsWide) * fromX), last = bitmap.pixelsWide - 8
+        for row in stride(from: bitmap.pixelsHigh - 1, through: 0, by: -1) {
+            var low = 255, high = 0
+            for column in stride(from: first, to: last, by: 2) {
+                let offset = row * rowBytes + column * channels
+                let luma = (Int(data[offset]) + Int(data[offset + 1]) + Int(data[offset + 2])) / 3
+                low = min(low, luma)
+                high = max(high, luma)
+            }
+            if high - low > 12 { return row }
+        }
+        return nil
+    }
+
     /// Deterministic content so previews are comparable between runs.
     private static func seedSampleData(_ environment: AppEnvironment) {
-        // Unlock Pro in the throwaway domain so the gated widgets render as
-        // themselves rather than as the upsell.
-        if let key = LicenseValidator.makeKey(payload: "BEEF1234") {
-            environment.settings.preferences.licenseKey = key
-        }
+        // The grid is its own setting rather than a widget toggle
+        // (`toggleWidget` declines it), so the per-tab loop cannot switch it
+        // on, and its shot rendered with the tab missing from the strip.
+        environment.settings.preferences.customShortcutsEnabled = true
+        environment.settings.preferences.customActions = [
+            CustomAction(
+                title: "Calculator",
+                target: .application(
+                    bundleIdentifier: "com.apple.calculator",
+                    path: "/System/Applications/Calculator.app"
+                )
+            ),
+            CustomAction(
+                title: "Start my day",
+                target: .appleShortcut(name: "Start my day")
+            ),
+            CustomAction(title: "System", target: .toggleWidget(.system)),
+            CustomAction(title: "Clipboard", target: .toggleWidget(.clipboard)),
+            CustomAction(title: "Music", target: .toggleWidget(.music)),
+            CustomAction(
+                title: "Capture",
+                target: .toggleWidget(.capture)
+            )
+        ]
+
+        environment.deviceBatteries.stop()
+        environment.deviceBatteries.seedForPreview([
+            DeviceBattery(
+                id: "magic-keyboard",
+                name: "Magic Keyboard",
+                level: 0.82,
+                isCharging: false,
+                kind: .keyboard
+            ),
+            DeviceBattery(
+                id: "magic-mouse",
+                name: "Magic Mouse",
+                level: 0.17,
+                isCharging: false,
+                kind: .mouse
+            ),
+            DeviceBattery(
+                id: "headphones",
+                name: "Headphones",
+                level: 0.63,
+                isCharging: true,
+                kind: .headphones
+            )
+        ])
 
         // Something recognisable on the shelf. Falls back to nothing if the
         // machine has no files in these locations.
@@ -174,14 +851,52 @@ enum PreviewRenderer {
             .prefix(4)
         environment.shelf.add(urls: Array(samples))
 
+        environment.clipboard.seedForPreview([
+            ClipboardHistoryItem(
+                content: .text("https://developer.apple.com/documentation/vision"),
+                copiedAt: Date(),
+                isPinned: true
+            ),
+            ClipboardHistoryItem(
+                content: .text("Ship the compact clipboard history this week"),
+                copiedAt: Date().addingTimeInterval(-90)
+            )
+        ])
+
+        environment.quickCapture.seedForPreview([
+            QuickCaptureItem(
+                text: "Review the release checklist before 4 PM",
+                createdAt: Date(),
+                isPinned: true
+            ),
+            QuickCaptureItem(
+                text: "https://developer.apple.com/design/human-interface-guidelines/",
+                createdAt: Date().addingTimeInterval(-120)
+            )
+        ])
+
         environment.events.post(NotchEvent(
             kind: .download, title: "Xcode_26.xip", subtitle: "Download complete · 7.4 GB"
         ))
         environment.events.post(NotchEvent(
-            kind: .music, title: "Weightless", subtitle: "Marconi Union"
+            kind: .music, title: "Blinding Lights", subtitle: "The Weeknd · Spotify"
         ))
         environment.events.post(NotchEvent(
             kind: .system, title: "Low Battery", subtitle: "14% remaining"
+        ))
+        // Carries an agent, so the row draws that agent's mark rather than the
+        // generic symbol for its kind.
+        environment.events.post(NotchEvent(
+            kind: .agent,
+            title: "Claude finished",
+            subtitle: "Worked for 4:00",
+            agent: .claude
+        ))
+        environment.events.post(NotchEvent(
+            kind: .agent,
+            title: "Codex finished",
+            subtitle: "Worked for 1:12",
+            agent: .codex
         ))
     }
 }

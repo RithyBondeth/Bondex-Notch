@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { panelStates } from '@/content/site';
+import { STATE_SCALE, panelStates } from '@/content/site';
 
 /**
  * The three states are a real progression and each one is a real width, so the
@@ -27,9 +27,10 @@ export default function States() {
                   className="mini"
                   style={
                     {
-                      '--w': `${width}px`,
-                      '--h': `${height}px`,
-                      '--r': `${radius}px`,
+                      '--w': `${width * STATE_SCALE}px`,
+                      '--h': `${height * STATE_SCALE}px`,
+                      '--r': `${radius * STATE_SCALE}px`,
+                      '--fillet': `${11 * STATE_SCALE}px`,
                     } as CSSProperties
                   }
                 />
@@ -44,10 +45,11 @@ export default function States() {
           <p className="label">Displays</p>
           <h3>No notch? No problem.</h3>
           <p>
-            On external displays and pre-2021 Macs, Bondex draws its own pill in
-            the same place and behaves identically. It follows the built-in
-            display when you plug in, and re-measures itself whenever your
-            display arrangement changes.
+            On external displays and pre-2021 Macs, Bondex draws its own pill
+            in the same place and behaves identically. By default it moves to
+            the display you&apos;re using — or it can stay on your Mac&apos;s own
+            display — and it re-measures itself whenever your display
+            arrangement changes.
           </p>
         </div>
       </div>

@@ -14,6 +14,8 @@ import UniformTypeIdentifiers
 /// frame in a notch panel looks like.
 struct NotchRootView: View {
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @ObservedObject var environment: AppEnvironment
     @ObservedObject private var notch: NotchViewModel
     @ObservedObject private var settings: SettingsStore
@@ -30,7 +32,7 @@ struct NotchRootView: View {
         self.isRenderingOffscreen = isRenderingOffscreen
     }
 
-    private var accent: Color { settings.effectiveAccent.color }
+    private var accent: Color { settings.effectiveAccentColor }
     private var geometry: NotchGeometry { notch.geometry }
     private var state: NotchState { notch.state }
 
@@ -47,7 +49,7 @@ struct NotchRootView: View {
         switch state {
         case .collapsed: return Theme.collapsedBottomRadius
         case .peek: return Theme.peekBottomRadius
-        case .expanded: return Theme.bottomRadius
+        case .expanded: return CGFloat(min(max(settings.preferences.bottomCornerRadius, 10), 38))
         }
     }
 
@@ -68,18 +70,15 @@ struct NotchRootView: View {
             // canvas, so the transparent margins stay click-through.
             .frame(width: contentSize.width, height: contentSize.height, alignment: .top)
             .contentShape(Rectangle())
-            .onTapGesture { notch.toggle() }
+            // Opens the notch, or latches the open panel. Never closes it: on
+            // the expanded panel this catches every click that misses a
+            // control, and closing on those shut the panel under the pointer.
+            .onTapGesture { notch.panelTapped() }
+            .modifier(ShelfDropModifier(environment: environment, isDisabled: isRenderingOffscreen))
 
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // Drops are accepted across the whole window rather than just the drawn
-        // panel. Sized to the silhouette, this region was the collapsed notch —
-        // so a file released a few points off target landed nowhere. What keeps
-        // the large region from swallowing ordinary clicks is `hitTest`, which
-        // only opens up while a file drag is actually in flight.
-        .contentShape(Rectangle())
-        .modifier(ShelfDropModifier(environment: environment, isDisabled: isRenderingOffscreen))
     }
 
     // MARK: Silhouette
@@ -90,25 +89,46 @@ struct NotchRootView: View {
         // snap rather than interpolate, and the gradient is subtle enough that a
         // 38pt peek strip just reads as having a defined bottom edge.
         shape
-            .fill(Theme.panelFill)
+            .fill(Theme.panelFill(
+                style: settings.effectivePanelStyle,
+                accent: accent,
+                opacity: settings.preferences.panelOpacity
+            ))
+            .overlay {
+                if state.isExpanded {
+                    shape
+                        .fill(Theme.panelGlow(accent: accent))
+                        .opacity(settings.effectivePanelStyle == .black ? 0.55 : 1)
+                }
+            }
             .overlay(shape.stroke(strokeStyle, lineWidth: notch.isDropTargeted ? 1.6 : 1))
             .frame(width: silhouetteWidth, height: contentSize.height)
-            .shadow(color: .black.opacity(state.isExpanded ? 0.5 : 0), radius: 20, y: 9)
+            .shadow(
+                color: .black.opacity(
+                    state.isExpanded ? 0.5 * min(max(settings.preferences.shadowStrength, 0), 1) : 0
+                ),
+                radius: 18,
+                y: 8
+            )
             .opacity(silhouetteOpacity)
     }
 
     private var shape: NotchShape {
-        NotchShape(flareRadius: Theme.flareRadius, bottomRadius: bottomRadius)
+        NotchShape(flareRadius: flareRadius, bottomRadius: bottomRadius)
     }
 
     /// The fillets are drawn outside the body, so the shape is wider than the
     /// content by one flare on each side.
-    private var silhouetteWidth: CGFloat { contentSize.width + Theme.flareRadius * 2 }
+    private var flareRadius: CGFloat {
+        CGFloat(min(max(settings.preferences.flareRadius, 5), 20))
+    }
+
+    private var silhouetteWidth: CGFloat { contentSize.width + flareRadius * 2 }
 
     private var strokeStyle: AnyShapeStyle {
         notch.isDropTargeted
             ? AnyShapeStyle(accent.opacity(0.9))
-            : AnyShapeStyle(Theme.panelRim)
+            : Theme.panelRim(strength: settings.preferences.rimStrength)
     }
 
     // MARK: Content
@@ -150,27 +170,33 @@ struct NotchRootView: View {
                 // notch, so the content has to be laid out at whichever is
                 // current or the artwork ends up under the mask.
                 .frame(width: contentSize.width, height: contentSize.height)
-                .transition(
-                    .opacity
-                        .combined(with: .scale(scale: 0.94, anchor: .top))
-                        .animation(Motion.content(settings.motion))
-                )
+                .transition(peekTransition)
         case .expanded:
             // Fixed width, natural height: the height is the measurement the panel
             // sizes itself from, so it must not be dictated here. Top-aligned in
             // the canvas so the content does not shift as the height settles.
             ExpandedView(environment: environment)
-                .frame(width: canvasSize.width)
+                .frame(width: contentSize.width)
                 .frame(maxHeight: canvasSize.height, alignment: .top)
                 .onPreferenceChange(ExpandedHeightKey.self) { height in
                     notch.setMeasuredExpandedHeight(height)
                 }
-                .transition(
-                    .opacity
-                        .combined(with: .offset(y: -10))
-                        .animation(Motion.content(settings.motion))
-                )
+                .transition(expandedTransition)
         }
+    }
+
+    private var peekTransition: AnyTransition {
+        let transition: AnyTransition = reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.94, anchor: .top))
+        return transition.animation(Motion.content(settings.motion))
+    }
+
+    private var expandedTransition: AnyTransition {
+        let transition: AnyTransition = reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .offset(y: -10))
+        return transition.animation(Motion.content(settings.motion))
     }
 }
 
@@ -183,7 +209,7 @@ private struct ShelfDropModifier: ViewModifier {
             content
         } else {
             content.onDrop(
-                of: ShelfDropDelegate.acceptedTypes,
+                of: ShelfService.acceptedDropTypes,
                 delegate: ShelfDropDelegate(environment: environment)
             )
         }
@@ -204,36 +230,26 @@ private struct ShelfDropDelegate: DropDelegate {
         MainActor.assumeIsolated { environment.notch.dragExited() }
     }
 
-    /// Files, plus anything that arrives as image data with no file behind it —
-    /// a screenshot dragged off its thumbnail before it has been saved, or an
-    /// image dragged out of a browser. Accepting only `fileURL` silently rejected
-    /// both, which looked exactly like the shelf being broken.
-    static let acceptedTypes: [UTType] = [.fileURL, .image, .pdf]
-
     func validateDrop(info: DropInfo) -> Bool {
-        info.hasItemsConforming(to: Self.acceptedTypes)
+        info.hasItemsConforming(to: ShelfService.acceptedDropTypes)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        let providers = info.itemProviders(for: Self.acceptedTypes)
+        let providers = info.itemProviders(for: ShelfService.acceptedDropTypes)
         guard !providers.isEmpty else { return false }
 
         return MainActor.assumeIsolated {
             environment.notch.isDropTargeted = false
 
-            guard environment.settings.isUnlocked(.shelf),
-                  environment.settings.preferences.shelfEnabled else {
-                environment.events.post(NotchEvent(
-                    kind: .shelf,
-                    title: "Drop Shelf is a Pro feature",
-                    subtitle: "Add a license key in Settings"
-                ))
-                return false
-            }
+            guard environment.settings.preferences.shelfEnabled else { return false }
 
             Task { @MainActor in
                 let urls = await environment.shelf.resolve(providers: providers)
-                guard !urls.isEmpty else { return }
+                guard !urls.isEmpty else {
+                    Log.shelf.error("Drop had supported types but no usable file or image data")
+                    environment.notch.dragExited()
+                    return
+                }
                 environment.shelf.add(urls: urls)
                 environment.notch.tab = .shelf
                 environment.notch.expand()
