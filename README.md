@@ -15,6 +15,24 @@
 
 ---
 
+<!-- product-images:start -->
+
+## Product preview
+
+<p align="center">
+  <img src="docs/product-images/hero.png" alt="Bondex Notch — Music, activities, and everyday tools—one glance away." width="100%">
+</p>
+
+<table>
+<tr>
+  <td width="33%"><img src="docs/product-images/feature-01.png" alt="Know what’s happening. — A live view of music, downloads, meetings, and your Mac’s activity." width="100%"></td>
+  <td width="33%"><img src="docs/product-images/feature-02.png" alt="Keep your music within reach. — Control playback from Music, Spotify, and browser audio tabs." width="100%"></td>
+  <td width="33%"><img src="docs/product-images/feature-03.png" alt="Small tools. Less switching. — Bring temporary files and system information closer to what you’re doing." width="100%"></td>
+</tr>
+</table>
+
+<!-- product-images:end -->
+
 ## Overview
 
 Bondex Notch turns the MacBook display notch into a live view of what your Mac is doing: music, downloads, system status, meetings, AI coding-agent activity, and a drag-and-drop shelf. It runs as a menu-bar agent with no Dock icon, never steals focus, and lets clicks pass through to the apps underneath.
