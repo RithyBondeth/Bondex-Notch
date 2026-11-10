@@ -39,11 +39,11 @@ Bondex Notch turns the MacBook display notch into a live view of what your Mac i
 
 This repository contains both the native app and its website:
 
-| Directory | Contents |
-| --- | --- |
-| [`bondex-notch-app`](bondex-notch-app/) | The macOS app: Swift 6, SwiftUI, AppKit, with Sparkle for updates |
+| Directory                               | Contents                                                                            |
+| --------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`bondex-notch-app`](bondex-notch-app/) | The macOS app: Swift 6, SwiftUI, AppKit, with Sparkle for updates                   |
 | [`bondex-notch-web`](bondex-notch-web/) | The website and download page: Next.js 16, React 19, TypeScript, deployed on Vercel |
-| [`docs`](docs/) | The original project proposal |
+| [`docs`](docs/)                         | The original project proposal                                                       |
 
 ## Features
 
@@ -61,13 +61,13 @@ This repository contains both the native app and its website:
 
 ## Tech Stack
 
-| Area | Technology |
-| --- | --- |
-| App | Swift 6, SwiftUI, AppKit, Swift Package Manager |
-| Updates | Sparkle (signed appcast and EdDSA-verified downloads) |
-| Website | Next.js 16, React 19, TypeScript |
-| Testing | XCTest (`swift test`), Playwright |
-| CI and hosting | GitHub Actions, GitHub Releases, Vercel |
+| Area           | Technology                                            |
+| -------------- | ----------------------------------------------------- |
+| App            | Swift 6, SwiftUI, AppKit, Swift Package Manager       |
+| Updates        | Sparkle (signed appcast and EdDSA-verified downloads) |
+| Website        | Next.js 16, React 19, TypeScript                      |
+| Testing        | XCTest (`swift test`), Playwright                     |
+| CI and hosting | GitHub Actions, GitHub Releases, Vercel               |
 
 ## Getting Started
 
@@ -86,12 +86,12 @@ cd Bondex-Notch/bondex-notch-app
 open "build/Bondex Notch.app"
 ```
 
-| Command | Description |
-| --- | --- |
-| `./scripts/build-app.sh debug` | Faster build for the current Mac only |
-| `./scripts/build-dmg.sh` | Package a universal `.dmg` installer |
-| `swift test` | Run the test suite |
-| `./scripts/release.sh <version> --notes notes.md` | Sign, tag, and publish a release |
+| Command                                           | Description                           |
+| ------------------------------------------------- | ------------------------------------- |
+| `./scripts/build-app.sh debug`                    | Faster build for the current Mac only |
+| `./scripts/build-dmg.sh`                          | Package a universal `.dmg` installer  |
+| `swift test`                                      | Run the test suite                    |
+| `./scripts/release.sh <version> --notes notes.md` | Sign, tag, and publish a release      |
 
 ### Run the Website
 
